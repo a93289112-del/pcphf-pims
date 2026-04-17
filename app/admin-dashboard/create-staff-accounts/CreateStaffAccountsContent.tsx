@@ -112,26 +112,8 @@ export default function CreateStaffAccountsContent() {
       });
       setShowSuccessModal(true);
 
-      // Log staff account creation activity
+      // Log staff account creation activity (with new staff's uid so they appear in their own logs)
       if (user) {
-        // Log with admin's account
-        await logActivity(
-          'staff_created',
-          user.uid,
-          user.email || '',
-          `Created new staff account for ${formStaffName.trim()} (${formEmail.trim()})`,
-          {
-            staffName: formStaffName.trim(),
-            email: formEmail.trim(),
-            position: formPosition.trim(),
-            contactNumber: formContactNumber.trim(),
-            address: formAddress.trim(),
-          },
-          adminName || user.email || undefined,
-          role || undefined,
-        );
-
-        // Also log with the new staff member's account so they appear in the filter
         await logActivity(
           'staff_created',
           newUser.uid,
