@@ -1,7 +1,6 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/auth-context';
-import { useSidebar } from '@/lib/contexts/sidebar-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { database, getUserPath } from '@/lib/services/firebase';
@@ -511,7 +510,6 @@ function SuccessModal({
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function AddMedicinePage() {
   const { user, loading, staffName, role } = useAuth();
-  const { isCollapsed }   = useSidebar();
   const router = useRouter();
   const [isSubmitting,     setIsSubmitting]     = useState(false);
   const [uploadingImage,   setUploadingImage]   = useState(false);
