@@ -218,7 +218,7 @@ export default function Sidebar() {
   const [showLogoutConfirm,   setShowLogoutConfirm]   = useState(false);
   const [showEndSessionModal, setShowEndSessionModal]  = useState(false);
   const [isEndingSession,     setIsEndingSession]      = useState(false);
-  const [sessionState,        setSessionState]         = useState<'active' | 'ended'>('active');
+  const [sessionState,        setSessionState]         = useState<'active' | 'ended'>('ended');
   const [currentSessionStartTime, setCurrentSessionStartTime] = useState<Date>(() => {
     // Try to restore from localStorage on mount
     if (typeof window !== 'undefined') {
@@ -274,8 +274,8 @@ export default function Sidebar() {
       const lastEvent = todayEvents[todayEvents.length - 1];
 
       if (!lastEvent) {
-        // No events yet today — use stored localStorage start time or today midnight
-        setSessionState('active');
+        // No events yet today — new user, session should be in 'ended' state
+        setSessionState('ended');
         const stored = localStorage.getItem(SESSION_START_KEY(user.uid));
         if (stored) {
           const storedDate = new Date(stored);
@@ -285,8 +285,7 @@ export default function Sidebar() {
             return;
           }
         }
-        // Nothing stored — session starts at midnight (first login of day)
-        // We'll update it properly once session_started is logged
+        // Nothing stored — wait for user to click "Start session"
         return;
       }
 
@@ -446,13 +445,13 @@ export default function Sidebar() {
     }
   }, [user, currentSessionStartTime, sessionSummaryData, staffName, adminName, role]);
 
-  // ── New Session ─────────────────────────────────────────────────────────────
+  // ── Start Session ───────────────────────────────────────────────────────
   const handleCreateNewSession = useCallback(async () => {
     if (!user) return;
     try {
       const now = new Date();
 
-      // Optimistically set start time so the modal counter is correct immediately
+      // Set start time so the modal counter is correct immediately
       setCurrentSessionStartTime(now);
       localStorage.setItem(SESSION_START_KEY(user.uid), now.toISOString());
       setSessionState('active');
@@ -461,7 +460,7 @@ export default function Sidebar() {
         'session_started',
         user.uid,
         user.email || 'unknown@pharmacy.local',
-        `New session started at ${now.toLocaleTimeString('en-PH')}`,
+        `Session started at ${now.toLocaleTimeString('en-PH')}`,
         { sessionStartTime: now.toISOString() },
         staffName || adminName || user.email || 'Staff Member',
         role || undefined,
@@ -747,16 +746,16 @@ export default function Sidebar() {
             {role === 'staff' && (
               <>
                 {sessionState === 'ended' ? (
-                  // ── New Session button ─────────────────────────────────────
+                  // ── Start Session button ──────────────────────────────────────
                   <button
                     onClick={handleCreateNewSession}
                     className={`w-full text-white font-semibold rounded-xl hover:bg-green-600 active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 bg-green-500 ${isCollapsed ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-xs'}`}
-                    title={isCollapsed ? 'Start New Session' : undefined}
+                    title={isCollapsed ? 'Start session' : undefined}
                   >
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                       <path d="M12 4v16m8-8H4" />
                     </svg>
-                    {!isCollapsed && <span>New Session</span>}
+                    {!isCollapsed && <span>Start session</span>}
                   </button>
                 ) : (
                   // ── End Session button ─────────────────────────────────────
@@ -764,12 +763,12 @@ export default function Sidebar() {
                     onClick={() => setShowEndSessionModal(true)}
                     disabled={isEndingSession}
                     className={`w-full text-white font-semibold rounded-xl transition-all duration-200 flex items-center justify-center gap-2 ${isEndingSession ? 'bg-slate-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600 active:scale-95'} ${isCollapsed ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-xs'}`}
-                    title={isCollapsed ? 'End Session' : undefined}
+                    title={isCollapsed ? 'End session' : undefined}
                   >
                     <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
                       <path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
                     </svg>
-                    {!isCollapsed && <span>{isEndingSession ? 'Ending…' : 'End Session'}</span>}
+                    {!isCollapsed && <span>{isEndingSession ? 'Ending…' : 'End session'}</span>}
                   </button>
                 )}
               </>
