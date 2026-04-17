@@ -560,7 +560,7 @@ export default function DispensePage() {
     setSelectedPatientId(patientId);
     const patient = patients.find((p) => p.id === patientId);
     if (patient && patient.fullPatientData) {
-      setPatientInfo(patient.fullPatientData as PatientInfo);
+      setPatientInfo(patient.fullPatientData as unknown as PatientInfo);
     }
   }, [patients]);
 
@@ -744,7 +744,7 @@ export default function DispensePage() {
         patientId,
         age: patientInfo.dateOfBirth || '',
         notes: patientInfo.notes || '',
-        patientInfo,
+        patientInfo: {...patientInfo},
         items: dispensList.map((item) => ({
           medicineId: item.medicine.id,
           medicineName: getDisplayName(item.medicine),
@@ -765,7 +765,7 @@ export default function DispensePage() {
       });
 
       // Save patient record for future reference
-      await savePatientRecord(user.uid, patientInfo);
+      await savePatientRecord(user.uid, {...patientInfo});
 
       const deductResult = await deductStockBatch(
         dispensList.map((item) => ({
