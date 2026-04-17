@@ -560,7 +560,7 @@ export default function DispensePage() {
     setSelectedPatientId(patientId);
     const patient = patients.find((p) => p.id === patientId);
     if (patient && patient.fullPatientData) {
-      setPatientInfo(patient.fullPatientData);
+      setPatientInfo(patient.fullPatientData as PatientInfo);
     }
   }, [patients]);
 
