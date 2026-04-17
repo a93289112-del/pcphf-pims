@@ -345,12 +345,15 @@ export default function Sidebar() {
 
   // ── Session summary data (static snapshot — duration is live in modal) ─────
   const sessionSummaryData = useMemo(() => {
-    const todayTxns     = transactions.filter((t: FirebaseTransaction) => {
+    // Filter transactions for THIS SESSION ONLY (from session start time to now)
+    // NOT from start of day, to ensure independent session tracking
+    const sessionTxns   = transactions.filter((t: FirebaseTransaction) => {
       const dt = new Date(t.date);
-      return dt >= todayStart && dt < todayEnd;
+      const now = new Date();
+      return dt >= currentSessionStartTime && dt <= now;
     });
-    const dispenseTxns  = todayTxns.filter((t) => t.type === 'dispense');
-    const saleTxns      = todayTxns.filter((t) => t.type === 'sale');
+    const dispenseTxns  = sessionTxns.filter((t) => t.type === 'dispense');
+    const saleTxns      = sessionTxns.filter((t) => t.type === 'sale');
 
     const dispensed  = dispenseTxns.reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
     const sold       = saleTxns.reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
@@ -395,7 +398,7 @@ export default function Sidebar() {
       // ── KEY: pass the actual Date object so the modal can count live ──
       sessionStartTime: currentSessionStartTime,
     };
-  }, [medicines, transactions, todayStart, todayEnd, currentSessionStartTime]);
+  }, [medicines, transactions, currentSessionStartTime]);
 
   // ── End Session ─────────────────────────────────────────────────────────────
   const handleEndSession = useCallback(async () => {

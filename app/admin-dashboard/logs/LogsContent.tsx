@@ -354,9 +354,13 @@ export default function LogsContent() {
     const staffCreated = filteredLogs.filter(l => l.type === 'staff_created');
     const staffDisabled = filteredLogs.filter(l => l.type === 'staff_disabled');
 
-    // Per-staff breakdown
+    // Per-staff breakdown (exclude admins)
     const staffStats: Record<string, { dispense: number; sale: number; adjustment: number; total: number; email: string; name: string }> = {};
     filteredLogs.forEach(l => {
+      // Skip admin accounts
+      const logRole = l.userRole || 'staff';
+      if (logRole === 'admin') return;
+      
       const uid = l.staffId || 'system';
       const staffName = l.staffName || l.staffEmail || uid;
       if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: staffName };
