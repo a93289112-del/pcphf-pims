@@ -205,7 +205,7 @@ export default function MedicineDetailPage() {
                 href="/medicines/add-medicine"
                 className="flex-1 px-6 py-3 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-950 transition-colors text-center shadow-sm"
               >
-                Order More
+                Add More Medicines
               </Link>
             </div>
           </div>
