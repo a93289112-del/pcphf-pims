@@ -684,7 +684,7 @@ export default function LogsContent() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLogs.map((log, i) => {
-                      const staffName = log.staffName || log.staffEmail || log.staffId || 'System';
+                      const staffName = log.staffName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                       const isSessionEnded = log.type === 'session_ended';
                       
                       return (
@@ -745,7 +745,7 @@ export default function LogsContent() {
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {filteredLogs.map((log, i) => {
-                const staffName = log.staffName || log.staffEmail || log.staffId || 'System';
+                const staffName = log.staffName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                 const isSessionEnded = log.type === 'session_ended';
                 
                 return (
