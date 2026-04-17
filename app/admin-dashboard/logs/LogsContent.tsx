@@ -208,7 +208,85 @@ function StaffComparisonChart({
   );
 }
 
-// ── Staff comparison bar chart ─────────────────────────────────────────────
+// ── Details Modal ──────────────────────────────────────────────────────────
+function DetailsModal({
+  isOpen,
+  onClose,
+  log,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  log: {
+    action: string;
+    details: ActivityLogDetails | undefined;
+    staffName: string;
+    timestamp: string;
+    type: string;
+  } | null;
+}) {
+  if (!isOpen || !log) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer" onClick={onClose} />
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        style={{ animation: 'modalPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both' }}
+      >
+        <style>{`
+          @keyframes modalPop {
+            from { opacity: 0; transform: scale(0.88) translateY(16px); }
+            to   { opacity: 1; transform: scale(1)    translateY(0);    }
+          }
+        `}</style>
+        <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600" />
+        <div className="px-6 pt-7 pb-6">
+          <h2 className="text-xl font-black text-slate-900 mb-4">Activity Details</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Staff Member</p>
+              <p className="text-sm font-semibold text-slate-900">{log.staffName}</p>
+            </div>
+            
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Date & Time</p>
+              <p className="text-sm font-semibold text-slate-900">{new Date(log.timestamp).toLocaleString()}</p>
+            </div>
+            
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Action</p>
+              <p className="text-sm text-slate-700">{log.action}</p>
+            </div>
+
+            {log.details && Object.keys(log.details).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Details</p>
+                <div className="bg-slate-50 rounded-lg p-3 space-y-2">
+                  {Object.entries(log.details).map(([key, value]) => (
+                    <div key={key} className="flex justify-between">
+                      <span className="text-xs font-medium text-slate-600">{key}:</span>
+                      <span className="text-xs text-slate-900 font-semibold">{String(value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2 mt-6">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 bg-slate-900 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function LogsContent() {
   const { user } = useAuth();
@@ -226,6 +304,14 @@ export default function LogsContent() {
     details: ActivityLogDetails;
     staffName: string;
     sessionEndTime: string;
+  } | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedLogDetails, setSelectedLogDetails] = useState<{
+    action: string;
+    details: ActivityLogDetails | undefined;
+    staffName: string;
+    timestamp: string;
+    type: string;
   } | null>(null);
 
   useEffect(() => {
@@ -733,6 +819,26 @@ export default function LogsContent() {
                                 View
                               </button>
                             )}
+                            {log.type === 'medicine_added' && log.details && (
+                              <button
+                                onClick={() => {
+                                  setSelectedLogDetails({
+                                    action: log.action,
+                                    details: log.details,
+                                    staffName: staffName,
+                                    timestamp: log.timestamp,
+                                    type: log.type,
+                                  });
+                                  setDetailsModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg border border-green-200 transition-all whitespace-nowrap"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                                </svg>
+                                View
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -791,6 +897,26 @@ export default function LogsContent() {
                         View Session Summary
                       </button>
                     )}
+                    {log.type === 'medicine_added' && log.details && (
+                      <button
+                        onClick={() => {
+                          setSelectedLogDetails({
+                            action: log.action,
+                            details: log.details,
+                            staffName: staffName,
+                            timestamp: log.timestamp,
+                            type: log.type,
+                          });
+                          setDetailsModalOpen(true);
+                        }}
+                        className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg border border-green-200 transition-all flex items-center justify-center gap-1.5"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                        View Details
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -822,6 +948,16 @@ export default function LogsContent() {
           sessionEndTime={selectedSessionData.sessionEndTime}
         />
       )}
+
+      {/* Details Modal */}
+      <DetailsModal
+        isOpen={detailsModalOpen}
+        onClose={() => {
+          setDetailsModalOpen(false);
+          setSelectedLogDetails(null);
+        }}
+        log={selectedLogDetails}
+      />
     </div>
   );
 }

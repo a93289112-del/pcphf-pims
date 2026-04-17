@@ -510,7 +510,7 @@ function SuccessModal({
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function AddMedicinePage() {
-  const { user, loading } = useAuth();
+  const { user, loading, staffName, role } = useAuth();
   const { isCollapsed }   = useSidebar();
   const router = useRouter();
   const [isSubmitting,     setIsSubmitting]     = useState(false);
@@ -895,7 +895,9 @@ export default function AddMedicinePage() {
             quantity: item.quantity,
             unitType: item.unit,
             unitCost: item.unitCost,
-          }
+          },
+          staffName || undefined,
+          role || undefined
         );
       }
 
