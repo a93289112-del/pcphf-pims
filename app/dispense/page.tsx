@@ -725,7 +725,7 @@ export default function DispensePage() {
     ].filter(Boolean).join(', ') + (patientInfo.suffix ? ` ${patientInfo.suffix}` : '');
 
     const patientId = patientInfo.independentsPhilhealthNo || patientInfo.memberPhilhealthNo || patientInfo.patientContactNo || '';
-    const dispensedBy = user?.email || user?.displayName || user?.uid || 'unknown';
+    const dispensedBy = staffName || adminName || user?.email || user?.displayName || user?.uid || 'unknown';
 
     if (!user) {
       setNotification({ message: 'Authentication error. Please re-login.', type: 'error' });
