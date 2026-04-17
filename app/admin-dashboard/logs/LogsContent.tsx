@@ -245,7 +245,7 @@ function DetailsModal({
           
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Staff Member</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1"></p>
               <p className="text-sm font-semibold text-slate-900">{log.staffName}</p>
             </div>
             
@@ -295,7 +295,6 @@ export default function LogsContent() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<'all' | ActivityType>('all');
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'staff'>('all');
   const [filterMonth, setFilterMonth] = useState<string>('');
   const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
   const [activeTab, setActiveTab] = useState<'overview' | 'logs'>('logs');
@@ -331,21 +330,15 @@ export default function LogsContent() {
     return activityLogs.filter(log => {
       const matchesType = typeFilter === 'all' || log.type === typeFilter;
       const matchesStaff = selectedStaff === 'all' || log.staffId === selectedStaff;
-      let matchesRole = true;
-      if (roleFilter !== 'all') {
-        // Use userRole field from the log, defaulting to 'staff' if not set
-        const logRole = log.userRole || 'staff';
-        matchesRole = logRole === roleFilter;
-      }
       let matchesDate = true;
       if (filterMonth || filterYear) {
         const d = new Date(log.timestamp);
         if (filterYear && d.getFullYear() !== parseInt(filterYear)) matchesDate = false;
         if (filterMonth && d.getMonth() + 1 !== parseInt(filterMonth)) matchesDate = false;
       }
-      return matchesType && matchesStaff && matchesRole && matchesDate;
+      return matchesType && matchesStaff && matchesDate;
     }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [activityLogs, typeFilter, selectedStaff, roleFilter, filterMonth, filterYear]);
+  }, [activityLogs, typeFilter, selectedStaff, filterMonth, filterYear]);
 
   // ── Analytics ────────────────────────────────────────────────────────────
   const analytics = useMemo(() => {
@@ -422,7 +415,7 @@ export default function LogsContent() {
     </div>
   );
 
-  const hasFilters = typeFilter !== 'all' || selectedStaff !== 'all' || roleFilter !== 'all' || filterMonth || filterYear !== new Date().getFullYear().toString();
+  const hasFilters = typeFilter !== 'all' || selectedStaff !== 'all' || filterMonth || filterYear !== new Date().getFullYear().toString();
 
   return (
     <div className="min-h-screen bg-[#f8f8f7] w-full">
@@ -458,7 +451,7 @@ export default function LogsContent() {
             <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Filters</span>
             {hasFilters && (
               <button
-                onClick={() => { setTypeFilter('all'); setSelectedStaff('all'); setRoleFilter('all'); setFilterMonth(''); setFilterYear(new Date().getFullYear().toString()); }}
+                onClick={() => { setTypeFilter('all'); setSelectedStaff('all'); setFilterMonth(''); setFilterYear(new Date().getFullYear().toString()); }}
                 className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1 border border-slate-200 rounded-lg hover:border-slate-300 transition-all"
               >
                 <Icon.X /> Clear all
@@ -484,21 +477,6 @@ export default function LogsContent() {
                   const staffName = staffRecord?.staffName || staffRecord?.staffEmail?.split('@')[0] || uid;
                   return <option key={uid} value={uid}>{staffName}</option>;
                 })}
-              </select>
-              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.User /></span>
-              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
-            </div>
-
-            {/* Role */}
-            <div className="relative">
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value as 'all' | 'admin' | 'staff')}
-                className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
               </select>
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.User /></span>
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>

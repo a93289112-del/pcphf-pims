@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { confirmPasswordReset, verifyPasswordResetCode } from 'firebase/auth';
-import { auth } from '@/lib/services/firebase';
+import { auth, database } from '@/lib/services/firebase';
+import { ref, query, orderByChild, equalTo, get } from 'firebase/database';
+import { logActivity } from '@/lib/services/activity-logs';
 
 export default function ResetPasswordContent() {
   const router = useRouter();
@@ -71,6 +73,35 @@ export default function ResetPasswordContent() {
         return;
       }
       await confirmPasswordReset(auth, oobCode, newPassword);
+      
+      // Log password change activity
+      try {
+        // Look up staff member by email to get their UID
+        const usersRef = ref(database, 'users');
+        const staffQuery = query(usersRef, orderByChild('email'), equalTo(userEmail));
+        const snapshot = await get(staffQuery);
+        
+        if (snapshot.exists()) {
+          // Get the first (and should be only) matching staff member
+          const staffData = snapshot.val();
+          const staffId = Object.keys(staffData)[0];
+          
+          // Log the password change
+          await logActivity(
+            'password_changed',
+            staffId,
+            userEmail,
+            'Password reset via email reset link',
+            {},
+            userEmail.split('@')[0],
+            'staff'
+          );
+        }
+      } catch (logError) {
+        // Don't let logging errors prevent the successful password reset
+        console.error('Failed to log password change:', logError);
+      }
+      
       setSuccess(true);
       setNewPassword('');
       setConfirmPassword('');
