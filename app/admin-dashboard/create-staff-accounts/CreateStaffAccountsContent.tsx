@@ -114,6 +114,7 @@ export default function CreateStaffAccountsContent() {
 
       // Log staff account creation activity
       if (user) {
+        // Log with admin's account
         await logActivity(
           'staff_created',
           user.uid,
@@ -128,6 +129,23 @@ export default function CreateStaffAccountsContent() {
           },
           adminName || user.email || undefined,
           role || undefined,
+        );
+
+        // Also log with the new staff member's account so they appear in the filter
+        await logActivity(
+          'staff_created',
+          newUser.uid,
+          formEmail.trim(),
+          `Staff account created by ${adminName || user.email}`,
+          {
+            staffName: formStaffName.trim(),
+            email: formEmail.trim(),
+            position: formPosition.trim(),
+            contactNumber: formContactNumber.trim(),
+            address: formAddress.trim(),
+          },
+          formStaffName.trim(),
+          'staff',
         );
       }
 
