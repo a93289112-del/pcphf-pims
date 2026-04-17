@@ -137,6 +137,7 @@ export default function ForgotPasswordPage() {
                   onClick={() => {
                     setSuccess(false);
                     setError('');
+                    setIsLoading(false);
                   }}
                   className="w-full py-2 px-4 btn-primary rounded-lg font-semibold"
                 >
