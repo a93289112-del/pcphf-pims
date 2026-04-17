@@ -245,13 +245,12 @@ export default function Sidebar() {
     if (user?.uid) sessionStorage.setItem('_uid', user.uid);
   }, [user?.uid]);
 
-  // ── todayStart / todayEnd ────────────────────────────────────────────────
+  // ── todayStart ────────────────────────────────────────────
   const todayStart = useMemo(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
-  const todayEnd = useMemo(() => new Date(todayStart.getTime() + 86_400_000), [todayStart]);
 
   // ── Session state subscription ────────────────────────────────────────────
   // Reads all session_started / session_ended logs for today and determines

@@ -818,7 +818,6 @@ function MedicinesPanel({ record }: { record: Dispensing }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function DispensingRecordsPage() {
   const { user, loading } = useAuth();
-  const { isCollapsed } = useSidebar();
   const router = useRouter();
 
   const [dispensings,          setDispensings]          = useState<Dispensing[]>([]);
