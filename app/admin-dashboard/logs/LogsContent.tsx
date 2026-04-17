@@ -303,6 +303,7 @@ export default function LogsContent() {
     const map: Record<string, { cls: string; icon: React.ReactNode; label: string }> = {
       medicine_dispensed: { cls: 'bg-blue-50 text-blue-700 border border-blue-100', icon: <Icon.Dispense />, label: 'Dispensed' },
       medicine_sold:      { cls: 'bg-emerald-50 text-emerald-700 border border-emerald-100', icon: <Icon.Sale />, label: 'Sold' },
+      medicine_added:     { cls: 'bg-green-50 text-green-700 border border-green-100', icon: <Icon.Pill />, label: 'Medicine Added' },
       stock_deducted:     { cls: 'bg-amber-50 text-amber-700 border border-amber-100', icon: <Icon.Adjustment />, label: 'Stock Deducted' },
       stock_adjusted:     { cls: 'bg-orange-50 text-orange-700 border border-orange-100', icon: <Icon.Adjustment />, label: 'Adjusted' },
       medicine_restocked: { cls: 'bg-teal-50 text-teal-700 border border-teal-100', icon: <Icon.Package />, label: 'Restocked' },
@@ -389,8 +390,8 @@ export default function LogsContent() {
                   const staffRecord = activityLogs.find(l => l.staffId === uid);
                   return uid !== user.uid && staffRecord?.staffEmail !== user.email;
                 }).map(uid => {
-                  const staffEmail = activityLogs.find(l => l.staffId === uid)?.staffEmail || uid;
-                  const staffName = activityLogs.find(l => l.staffId === uid)?.staffName || staffEmail;
+                  const staffRecord = activityLogs.find(l => l.staffId === uid);
+                  const staffName = staffRecord?.staffName || staffRecord?.staffEmail?.split('@')[0] || uid;
                   return <option key={uid} value={uid}>{staffName}</option>;
                 })}
               </select>
@@ -423,6 +424,7 @@ export default function LogsContent() {
                 <option value="all">All Types</option>
                 <option value="medicine_dispensed">Dispensed</option>
                 <option value="medicine_sold">POS Sale</option>
+                <option value="medicine_added">Medicine Added</option>
                 <option value="stock_deducted">Stock Deducted</option>
                 <option value="stock_adjusted">Stock Adjusted</option>
                 <option value="medicine_restocked">Restocked</option>
@@ -753,7 +755,6 @@ export default function LogsContent() {
                         <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><Icon.User /></div>
                         <div>
                           <p className="text-sm font-bold text-slate-900">{staffName}</p>
-                          <p className="text-[10px] text-slate-400">{log.staffEmail}</p>
                         </div>
                       </div>
                       <div className="text-right">

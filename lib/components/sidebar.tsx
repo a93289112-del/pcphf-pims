@@ -642,11 +642,11 @@ export default function Sidebar() {
                   </button>
                   {openDropdown === item.id && !isCollapsed && (
                     <div className="space-y-1 mt-1 ml-4">
-                      <Link href="/medicines" className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${(pathname === '/medicines' || (pathname.startsWith('/medicines/') && !pathname.startsWith('/medicines/order'))) ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
+                      <Link href="/medicines" className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${(pathname === '/medicines' || (pathname.startsWith('/medicines/') && !pathname.startsWith('/medicines/add-medicine'))) ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
                         <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="9" y1="6" x2="20" y2="6" /><line x1="9" y1="12" x2="20" y2="12" /><line x1="9" y1="18" x2="20" y2="18" /><circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" /></svg>
                         View All
                       </Link>
-                      <Link href="/medicines/order" className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/medicines/order' || pathname.startsWith('/medicines/order/') ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
+                      <Link href="/medicines/add-medicine" className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${pathname === '/medicines/add-medicine' || pathname.startsWith('/medicines/add-medicine/') ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'}`}>
                         <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                         Add Medicines
                       </Link>

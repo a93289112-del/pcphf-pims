@@ -202,7 +202,7 @@ export default function MedicineDetailPage() {
                 Back
               </Link>
               <Link
-                href="/medicines/order"
+                href="/medicines/add-medicine"
                 className="flex-1 px-6 py-3 bg-slate-900 text-white font-semibold rounded-xl hover:bg-slate-950 transition-colors text-center shadow-sm"
               >
                 Order More
@@ -221,7 +221,7 @@ export default function MedicineDetailPage() {
             <p className="text-sm font-medium text-slate-900 group-hover:text-blue-600 transition-colors">View All Medicines</p>
           </Link>
           <Link
-            href="/medicines/order"
+            href="/medicines/add-medicine"
             className="surface-card surface-card-hover p-6 transition-all group text-center"
           >
             <div className="text-3xl mb-3">➕</div>

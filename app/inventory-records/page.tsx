@@ -193,7 +193,7 @@ export default function InventoryRecordsPage() {
             </p>
           </div>
           <Link
-            href="/medicines/order"
+            href="/medicines/add-medicine"
             className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white font-semibold rounded-xl transition-colors text-sm shrink-0"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" viewBox="0 0 24 24">
@@ -297,7 +297,7 @@ export default function InventoryRecordsPage() {
                 Clear filters
               </button>
             ) : (
-              <Link href="/medicines/order" className="text-xs text-slate-500 underline underline-offset-2">
+              <Link href="/medicines/add-medicine" className="text-xs text-slate-500 underline underline-offset-2">
                 Add your first medicine →
               </Link>
             )}

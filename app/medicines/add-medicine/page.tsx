@@ -11,6 +11,7 @@ import BackButton from '@/lib/components/back-button';
 import Image from 'next/image';
 import Processing from '@/lib/components/processing';
 import UnitConversion, { type UnitConversion as UnitConversionType } from '@/lib/ui/unit-conversion';
+import { logActivity } from '@/lib/services/activity-logs';
 
 const CLOUDINARY_NAME          = 'do8l51z5q';
 const CLOUDINARY_UPLOAD_PRESET = 'cap-pims';
@@ -508,7 +509,7 @@ function SuccessModal({
 }
 
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
-export default function OrderMedicinePage() {
+export default function AddMedicinePage() {
   const { user, loading } = useAuth();
   const { isCollapsed }   = useSidebar();
   const router = useRouter();
@@ -818,6 +819,7 @@ export default function OrderMedicinePage() {
           }))
         : [{
             name:                 baseName,
+            baseName:             baseName,
             description:          description,
             quantity:             incomingQty,
             unit:                 finalUnit,
@@ -880,6 +882,22 @@ export default function OrderMedicinePage() {
       }
 
       await update(ref(database), updates);
+
+      // Log each medicine added to activity logs
+      for (const item of itemsToAdd) {
+        await logActivity(
+          'medicine_added',
+          user.uid,
+          user.email || '',
+          `Added medicine: ${item.name || item.baseName} (${item.quantity} ${item.unit}) - Brand: ${item.brandModel}`,
+          {
+            medicineName: item.name || item.baseName,
+            quantity: item.quantity,
+            unitType: item.unit,
+            unitCost: item.unitCost,
+          }
+        );
+      }
 
       setSuccessInfo({
         name:           formData.name.trim(),

@@ -131,7 +131,7 @@ export default function MedicinesPage() {
         {/* Action Bar */}
         <div className="flex items-center justify-end mb-4 sm:mb-6">
           <Link
-            href="/medicines/order"
+            href="/medicines/add-medicine"
             className="px-5 py-2.5 bg-slate-900 text-white font-semibold text-sm rounded-xl hover:bg-slate-950 transition-colors shadow-sm hover:shadow-md"
           >
             + Add Medicines
@@ -239,7 +239,7 @@ export default function MedicinesPage() {
               <>
                 <p className="text-xl text-gray-500 mb-6">No medicines added yet</p>
                 <Link
-                  href="/medicines/order"
+                  href="/medicines/add-medicine"
                   className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
                 >
                   Add your first medicine

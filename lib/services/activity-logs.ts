@@ -16,6 +16,7 @@ export type ActivityType =
   | 'stock_adjusted'
   | 'medicine_dispensed'
   | 'medicine_sold'
+  | 'medicine_added'
   | 'staff_created'
   | 'staff_disabled'
   | 'session_ended'
