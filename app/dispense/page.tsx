@@ -560,7 +560,8 @@ export default function DispensePage() {
     setSelectedPatientId(patientId);
     const patient = patients.find((p) => p.id === patientId);
     if (patient && patient.fullPatientData) {
-      setPatientInfo(patient.fullPatientData as unknown as PatientInfo);
+      // @ts-expect-error - fullPatientData is Record<string, unknown> but contains PatientInfo structure
+      setPatientInfo(patient.fullPatientData);
     }
   }, [patients]);
 
