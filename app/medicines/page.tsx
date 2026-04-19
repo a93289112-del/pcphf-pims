@@ -6,7 +6,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { database, getUserPath } from '@/lib/services/firebase';
 import { ref, onValue } from 'firebase/database';
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface MedicineBatch {
   quantity: number;

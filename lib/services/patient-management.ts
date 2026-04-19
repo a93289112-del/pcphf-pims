@@ -16,43 +16,6 @@ export interface PatientRecord {
 }
 
 /**
- * Migrate patients from old user-scoped path to global path (one-time migration)
- */
-const migrateOldPatients = async (userId: string): Promise<void> => {
-  try {
-    // Check if patients already exist in global path
-    const globalPatientsSnapshot = await get(ref(database, 'patients'));
-    if (globalPatientsSnapshot.exists()) {
-      console.log('[migrateOldPatients] Global patients already exist, skipping migration');
-      return;
-    }
-
-    // Check old user-scoped path
-    const oldPath = `userData/${userId}/patients`;
-    const oldPatientsSnapshot = await get(ref(database, oldPath));
-    
-    if (!oldPatientsSnapshot.exists()) {
-      console.log('[migrateOldPatients] No old patients to migrate');
-      return;
-    }
-
-    console.log('[migrateOldPatients] Found patients in old location, migrating...');
-    const oldPatients = oldPatientsSnapshot.val() as Record<string, Record<string, unknown>>;
-    
-    // Copy each patient to new global location
-    Object.entries(oldPatients).forEach(async ([patientId, patient]: [string, Record<string, unknown>]) => {
-      await set(ref(database, `patients/${patientId}`), patient);
-      console.log('[migrateOldPatients] Migrated patient:', patientId);
-    });
-
-    console.log('[migrateOldPatients] Migration complete');
-  } catch (error) {
-    console.error('[migrateOldPatients] Error during migration:', error);
-    // Don't throw - migration failure shouldn't break the app
-  }
-};
-
-/**
  * Save or update a patient record
  */
 export const savePatientRecord = async (userId: string, patientData: Record<string, unknown>): Promise<string> => {
@@ -210,8 +173,7 @@ export const getPatientById = async (userId: string, patientId: string): Promise
  */
 export const listenToPatients = (userId: string, callback: (patients: PatientRecord[]) => void) => {
   try {
-    // Attempt migration on first load
-    migrateOldPatients(userId).catch(console.error);
+    // REMOVED: migrateOldPatients(userId).catch(console.error);
     
     const patientsPath = getUserPath(userId, 'patients');
     console.log('[listenToPatients] Listening to path:', patientsPath);
@@ -234,14 +196,12 @@ export const listenToPatients = (userId: string, callback: (patients: PatientRec
       },
       (error) => {
         console.error('Error listening to patients:', error);
-        // Call callback with empty array to unload loading state
         callback([]);
       }
     );
     return unsub;
   } catch (error) {
     console.error('Error setting up patient listener:', error);
-    // Return a no-op unsubscribe function
     return () => {};
   }
 };

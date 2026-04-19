@@ -28,9 +28,15 @@
 }
 
 body {
+  /* Removed overflow:hidden — it blocks scroll on mobile */
   background: linear-gradient(180deg, #f8fafc 0%, #ffffff 55%, #f1f5f9 100%);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    var(--font-geist-sans),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   min-height: 100%;
   text-rendering: optimizeLegibility;
 }
@@ -60,6 +66,8 @@ body {
   border: 1px solid #e2e8f0;
   color: #0f172a;
   transition: all 0.3s ease;
+  /* Prevent iOS zoom on focus (font-size must be >= 16px) */
+  font-size: 16px;
 }
 
 .input-field:focus {
@@ -92,6 +100,8 @@ select {
   font-weight: 600;
   transition: all 0.3s ease;
   box-shadow: 0 10px 25px rgba(37, 99, 235, 0.2);
+  /* Minimum tap target for mobile */
+  min-height: 44px;
 }
 
 .btn-primary:hover {
@@ -110,17 +120,20 @@ select {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
 .surface-card {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 20px;
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
+
 .surface-card-hover:hover {
   border-color: rgba(148, 163, 184, 0.7);
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
   transform: translateY(-2px);
 }
+
 .animation-delay-200 {
   animation-delay: 200ms;
 }
@@ -154,7 +167,6 @@ select {
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-out;
 }
-
 .animate-slideDown {
   animation: slideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

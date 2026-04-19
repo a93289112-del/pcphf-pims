@@ -39,14 +39,14 @@ export default function ConfirmationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
         onClick={onCancel}
       />
       {/* Modal */}
-      <div className="relative z-10 bg-white rounded-xl shadow-xl max-w-sm w-full p-6 sm:p-8 transform transition-all">
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 sm:p-8 transform transition-all">
         {/* Title */}
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
           {title}

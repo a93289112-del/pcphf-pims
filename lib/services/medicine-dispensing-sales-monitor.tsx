@@ -2,8 +2,8 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, ComposedChart, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, ComposedChart, AreaChart, Area, PieChart, Pie, Cell, Bar,
 } from 'recharts';
 import { database, getUserPath } from './firebase';
 import { ref, onValue } from 'firebase/database';

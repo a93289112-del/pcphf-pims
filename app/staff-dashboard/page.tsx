@@ -47,7 +47,7 @@ interface Medicine {
   sellingPrice?: number;
   minStock?: number;
   expirationDate?: string;
-  batches?: Record<string, MedicineBatch>; // FIFO batches with individual expirations
+  batches?: Record<string, MedicineBatch>;
   createdAt: string;
   strength?: string;
   strengths?: string[] | null;
@@ -109,7 +109,7 @@ function getMedicineStatus(m: Medicine): { label: string; variant: MedicineStatu
   if (stock === 0)        return { label: 'Out of Stock', variant: 'out'     };
   if (exp && exp < now)   return { label: 'Expired',      variant: 'expired' };
 
-  const isLowStock = min > 0 && stock <= min;
+  const isLow = min > 0 && stock <= min;
   let isExpiringSoon = false;
   let expDays = 0;
   if (exp) {
@@ -117,9 +117,9 @@ function getMedicineStatus(m: Medicine): { label: string; variant: MedicineStatu
     if (expDays <= 30) isExpiringSoon = true;
   }
 
-  if (isLowStock && isExpiringSoon) return { label: 'Urgent Alert',  variant: 'urgent'   };
-  if (isExpiringSoon)               return { label: `Exp. ${expDays}d`, variant: 'expiring' };
-  if (isLowStock)                   return { label: 'Low Stock',     variant: 'low'      };
+  if (isLow && isExpiringSoon) return { label: 'Urgent Alert',     variant: 'urgent'   };
+  if (isExpiringSoon)           return { label: `Exp. ${expDays}d`, variant: 'expiring' };
+  if (isLow)                    return { label: 'Low Stock',        variant: 'low'      };
 
   return { label: 'In Stock', variant: 'in' };
 }
@@ -171,20 +171,20 @@ function StatCard({
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden rounded-2xl p-5 flex flex-col justify-between min-h-36.25 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl ${onClick ? 'cursor-pointer' : ''} ${alert ? 'bg-red-50 border border-red-200' : 'bg-white border border-slate-100 shadow-sm'}`}
+      className={`relative overflow-hidden rounded-2xl p-4 sm:p-5 flex flex-col justify-between min-h-[130px] sm:min-h-[145px] transition-all duration-200 active:scale-[0.98] hover:scale-[1.02] hover:shadow-xl ${onClick ? 'cursor-pointer' : ''} ${alert ? 'bg-red-50 border border-red-200' : 'bg-white border border-slate-100 shadow-sm'}`}
       style={{ boxShadow: alert ? undefined : `0 2px 16px 0 ${accent}18` }}
     >
       <div className="absolute top-0 left-0 right-0 h-0.75 rounded-t-2xl" style={{ background: accent }} />
       <div className="flex items-start justify-between gap-2">
-        <p className={`text-[10px] font-bold uppercase tracking-widest ${alert ? 'text-red-600' : 'text-slate-400'}`}>{label}</p>
-        <span className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${accent}18`, color: accent }}>{icon}</span>
+        <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest leading-tight ${alert ? 'text-red-600' : 'text-slate-400'}`}>{label}</p>
+        <span className="shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center" style={{ background: `${accent}18`, color: accent }}>{icon}</span>
       </div>
       <div>
-        <p className={`text-3xl sm:text-4xl font-black leading-none tabular-nums ${alert ? 'text-red-600' : 'text-slate-900'}`}>{fmt(value)}</p>
-        <p className="text-[11px] text-slate-400 mt-1.5 font-medium truncate">{sub}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 min-h-5">
+        <p className={`text-2xl sm:text-3xl lg:text-4xl font-black leading-none tabular-nums ${alert ? 'text-red-600' : 'text-slate-900'}`}>{fmt(value)}</p>
+        <p className="text-[10px] sm:text-[11px] text-slate-400 mt-1 sm:mt-1.5 font-medium truncate">{sub}</p>
+        <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1 sm:gap-1.5 min-h-4 sm:min-h-5">
           {hasDelta && <Delta current={current!} prev={prev!} />}
-          {clickLabel && <span className="text-[10px] text-blue-500 font-semibold">{clickLabel}</span>}
+          {clickLabel && <span className="text-[9px] sm:text-[10px] text-blue-500 font-semibold">{clickLabel}</span>}
         </div>
       </div>
     </div>
@@ -192,7 +192,9 @@ function StatCard({
 }
 
 // ─── Today strip ──────────────────────────────────────────────────────────────
-function TodayStrip({ dispensed, transactions, pharmacyName }: { dispensed: number; transactions: number; pharmacyName: string | null }) {
+function TodayStrip({ dispensed, transactions, pharmacyName }: {
+  dispensed: number; transactions: number; pharmacyName: string | null;
+}) {
   return (
     <div
       className="rounded-2xl overflow-hidden relative"
@@ -204,10 +206,48 @@ function TodayStrip({ dispensed, transactions, pharmacyName }: { dispensed: numb
         <div className="pharmacy-ring pharmacy-ring-3" />
       </div>
 
-      <div className="relative px-6 md:px-8 py-6 md:py-8">
-        <div className="flex items-center justify-between gap-4">
+      <div className="relative px-4 sm:px-6 md:px-8 py-5 sm:py-6 md:py-8">
 
-          {/* Left — Today's Activity */}
+        {/* Mobile layout: stacked */}
+        <div className="flex flex-col gap-4 sm:hidden">
+          {/* Date row */}
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 shrink-0">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
+              </svg>
+            </span>
+            <div>
+              <p className="text-[9px] font-bold text-white/40 uppercase tracking-widest">Today&apos;s Activity</p>
+              <p className="text-xs text-white font-semibold mt-0.5">
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </p>
+            </div>
+          </div>
+
+          {/* Pharmacy name */}
+          {pharmacyName && (
+            <p className="pharmacy-name-text text-2xl font-black text-white text-center tracking-tight leading-tight break-words">
+              {pharmacyName}
+            </p>
+          )}
+
+          {/* Metrics row */}
+          <div className="flex items-center justify-center gap-6">
+            <div className="flex flex-col items-center">
+              <p className="text-xl font-black text-white tabular-nums leading-none">{fmt(dispensed)}</p>
+              <p className="text-[9px] text-white/50 uppercase tracking-widest font-semibold mt-1">Units Dispensed</p>
+            </div>
+            <div className="w-px h-8 bg-white/20" />
+            <div className="flex flex-col items-center">
+              <p className="text-xl font-black text-emerald-400 tabular-nums leading-none">{fmt(transactions)}</p>
+              <p className="text-[9px] text-white/50 uppercase tracking-widest font-semibold mt-1">Transactions</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop layout: horizontal */}
+        <div className="hidden sm:flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 shrink-0">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -222,18 +262,15 @@ function TodayStrip({ dispensed, transactions, pharmacyName }: { dispensed: numb
             </div>
           </div>
 
-
-        {/* Center — Pharmacy Name */}
           {pharmacyName && (
             <div className="flex-1 min-w-0 flex items-center justify-center px-4">
-              <p className="pharmacy-name-text text-3xl sm:text-4xl md:text-5xl font-black text-white text-center tracking-tight leading-tight wrap-break-word w-full">
+              <p className="pharmacy-name-text text-3xl sm:text-4xl md:text-5xl font-black text-white text-center tracking-tight leading-tight break-words w-full">
                 {pharmacyName}
               </p>
             </div>
           )}
 
-          {/* Right — Metrics */}
-          <div className="flex items-center gap-6 shrink-0">
+          <div className="flex items-center gap-4 sm:gap-6 shrink-0">
             <div className="flex flex-col items-center whitespace-nowrap">
               <p className="text-2xl md:text-3xl font-black text-white tabular-nums leading-none">{fmt(dispensed)}</p>
               <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold mt-1.5">Units Dispensed</p>
@@ -244,8 +281,8 @@ function TodayStrip({ dispensed, transactions, pharmacyName }: { dispensed: numb
               <p className="text-[10px] text-white/50 uppercase tracking-widest font-semibold mt-1.5">Transactions</p>
             </div>
           </div>
-
         </div>
+
       </div>
     </div>
   );
@@ -274,7 +311,6 @@ function PrintReportModal({
   printYear: number; setPrintYear: (v: number) => void;
   years: number[]; onClose: () => void;
 }) {
-  // ── Date range ──────────────────────────────────────────────────────────────
   const { start, end, label } = useMemo(() => {
     if (printMode === 'all') return { start: null, end: null, label: 'All Time' };
     if (printMode === 'monthly') {
@@ -301,7 +337,6 @@ function PrintReportModal({
     };
   }, [printMode, printMonth, printQuarter, printYear]);
 
-  // ── Filter transactions ─────────────────────────────────────────────────────
   const periodTx = useMemo(() =>
     transactions.filter(t => {
       if (!['dispense','sale','adjustment'].includes(t.type)) return false;
@@ -311,7 +346,6 @@ function PrintReportModal({
     }),
   [transactions, start, end]);
 
-  // ── Per-medicine summary ────────────────────────────────────────────────────
   const medicineSummary = useMemo(() => {
     type Row = {
       name: string; category: string; unit: string; originalUnit: string;
@@ -375,7 +409,6 @@ function PrintReportModal({
       .sort((a, b) => b.totalOut - a.totalOut || a.name.localeCompare(b.name));
   }, [medicines, periodTx]);
 
-  // ── Overall totals ──────────────────────────────────────────────────────────
   const totals = useMemo(() => ({
     dispensed:    periodTx.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
     sold:         periodTx.filter(t => t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
@@ -390,7 +423,6 @@ function PrintReportModal({
     expired:   medicines.filter(m => isExpired(m)).length,
   }), [periodTx, medicines, medicineSummary]);
 
-  // ── Daily timeline ──────────────────────────────────────────────────────────
   const dayTimeline = useMemo(() => {
     const map = new Map<string, { dispensed: number; sold: number; adjusted: number; events: number }>();
     periodTx.forEach(t => {
@@ -408,7 +440,6 @@ function PrintReportModal({
       .map(([date, v]) => ({ date, ...v, totalOut: v.dispensed + v.sold }));
   }, [periodTx]);
 
-  // ── Print ───────────────────────────────────────────────────────────────────
   const now = new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' });
 
   const printNow = () => {
@@ -473,52 +504,52 @@ function PrintReportModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 transition-all duration-300">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 transition-all duration-300">
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-6xl max-h-[95vh] sm:max-h-[92vh] overflow-hidden flex flex-col">
 
         {/* Modal header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" /></svg>
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-200 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-slate-900 rounded-xl flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" /></svg>
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-900">Print Inventory Report</h3>
-              <p className="text-xs text-slate-400">Comprehensive stock, transaction &amp; activity summary</p>
+              <h3 className="text-sm sm:text-base font-bold text-slate-900">Print Inventory Report</h3>
+              <p className="text-[10px] sm:text-xs text-slate-400 hidden sm:block">Comprehensive stock, transaction &amp; activity summary</p>
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors text-xl leading-none">×</button>
         </div>
 
         {/* Period controls */}
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 shrink-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Period</span>
-            <div className="flex gap-1">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-100 bg-slate-50 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Period</span>
+            <div className="flex gap-1 flex-wrap">
               {(['monthly', 'quarterly', 'annual', 'all'] as const).map(m => (
                 <button key={m} onClick={() => setPrintMode(m)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${printMode === m ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}>
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-semibold rounded-lg border transition-colors ${printMode === m ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}>
                   {m === 'all' ? 'All Time' : m.charAt(0).toUpperCase() + m.slice(1)}
                 </button>
               ))}
             </div>
             {printMode === 'monthly' && (
               <input type="month" value={printMonth} onChange={e => setPrintMonth(e.target.value)}
-                className="px-3 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-slate-900 border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
             )}
             {printMode === 'quarterly' && (<>
               <select value={printQuarter} onChange={e => setPrintQuarter(e.target.value as QuarterType)}
-                className="px-3 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
                 {(['Q1','Q2','Q3','Q4'] as QuarterType[]).map(q => <option key={q}>{q}</option>)}
               </select>
               <select value={printYear} onChange={e => setPrintYear(Number(e.target.value))}
-                className="px-3 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
                 {years.map(y => <option key={y}>{y}</option>)}
               </select>
             </>)}
             {printMode === 'annual' && (
               <select value={printYear} onChange={e => setPrintYear(Number(e.target.value))}
-                className="px-3 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
+                className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
                 {years.map(y => <option key={y}>{y}</option>)}
               </select>
             )}
@@ -526,10 +557,9 @@ function PrintReportModal({
         </div>
 
         {/* Preview */}
-        <div className="flex-1 overflow-y-auto p-6 bg-white">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white">
           <div id="print-report-content">
 
-            {/* ═══ SECTION 1 — Report header & KPI cards ════════════════════ */}
             <div style={S.section}>
               <h1 style={S.h1}>Pharmacy Inventory &amp; Transaction Report</h1>
               <p style={S.subtitle}>Generated: {now}</p>
@@ -566,7 +596,6 @@ function PrintReportModal({
               </div>
             </div>
 
-            {/* ═══ SECTION 2 — Per-Medicine Breakdown ══════════════════════ */}
             <div style={S.divider} />
             <div style={S.section}>
               <h2 style={S.h2}>
@@ -658,7 +687,6 @@ function PrintReportModal({
               </p>
             </div>
 
-            {/* ═══ SECTION 3 — Daily Activity Timeline ══════════════════════ */}
             {dayTimeline.length > 0 && (
               <>
                 <div style={S.divider} />
@@ -713,7 +741,6 @@ function PrintReportModal({
               </>
             )}
 
-            {/* ═══ SECTION 4 — Inventory Health Snapshot ═══════════════════ */}
             <div style={S.divider} />
             <div style={S.section}>
               <h2 style={S.h2}>Inventory Health Snapshot</h2>
@@ -774,7 +801,6 @@ function PrintReportModal({
               )}
             </div>
 
-            {/* ═══ FOOTER ════════════════════════════════════════════════════ */}
             <div style={S.footer}>
               <span>Pharmacy Inventory System — Confidential</span>
               <span>Printed: {now}</span>
@@ -784,10 +810,10 @@ function PrintReportModal({
         </div>
 
         {/* Modal footer */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">Close</button>
-          <button onClick={printNow} className="flex items-center gap-2 px-5 py-2 bg-slate-900 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" /></svg>
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2 sm:gap-3 shrink-0">
+          <button onClick={onClose} className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors">Close</button>
+          <button onClick={printNow} className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-5 py-2 bg-slate-900 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold rounded-xl transition-all">
+            <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" /></svg>
             Print Report
           </button>
         </div>
@@ -821,7 +847,6 @@ export default function DashboardPage() {
 
   useEffect(() => { if (!loading && !user) router.push('/login'); }, [user, loading, router]);
 
-  // ── Redirect admins to admin dashboard ──────────────────────────────────────
   useEffect(() => {
     if (!loading && user && role === 'admin') {
       router.push('/admin-dashboard');
@@ -945,48 +970,20 @@ export default function DashboardPage() {
   const totalStockDeducted    = useMemo(() => filteredTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [filteredTransactions]);
   const prevStockDeducted     = useMemo(() => prevTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [prevTransactions]);
 
-  const totalMedicines  = useMemo(() => {
-    // Only show medicines that have transactions in the selected period
+  const totalMedicines = useMemo(() => {
     if (!rangeStart || !rangeEnd) return medicines.length;
-    const medicineIdsInRange = new Set(
-      filteredTransactions.map(t => t.medicineId).filter(Boolean)
-    );
+    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
     return medicineIdsInRange.size > 0 ? medicineIdsInRange.size : 0;
   }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
 
   const totalCategories = useMemo(() => {
-    // Only show categories for medicines with transactions in the selected period
     if (!rangeStart || !rangeEnd) return new Set(medicines.map(getCategory)).size;
-    const medicineIdsInRange = new Set(
-      filteredTransactions.map(t => t.medicineId).filter(Boolean)
-    );
-    return new Set(
-      medicines
-        .filter(m => medicineIdsInRange.has(m.id))
-        .map(getCategory)
-    ).size;
+    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
+    return new Set(medicines.filter(m => medicineIdsInRange.has(m.id)).map(getCategory)).size;
   }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
 
   const inStockCount = useMemo(() => {
-    // Only show medicines with activity in the selected period
-    if (!rangeStart || !rangeEnd) {
-      return medicines.filter(m => {
-        const s   = getEffectiveStock(m);
-        const min = m.minStock ?? 0;
-        const exp = m.expirationDate ? new Date(m.expirationDate) < new Date() : false;
-        const dying = (() => {
-          if (!m.expirationDate) return false;
-          const days = Math.floor((new Date(m.expirationDate).getTime() - Date.now()) / 86400000);
-          return days >= 0 && days <= 30;
-        })();
-        return s > 0 && !exp && !dying && (min === 0 || s > min);
-      }).length;
-    }
-    const medicineIdsInRange = new Set(
-      filteredTransactions.map(t => t.medicineId).filter(Boolean)
-    );
-    return medicines.filter(m => {
-      if (!medicineIdsInRange.has(m.id)) return false;
+    const checker = (m: Medicine) => {
       const s   = getEffectiveStock(m);
       const min = m.minStock ?? 0;
       const exp = m.expirationDate ? new Date(m.expirationDate) < new Date() : false;
@@ -996,39 +993,28 @@ export default function DashboardPage() {
         return days >= 0 && days <= 30;
       })();
       return s > 0 && !exp && !dying && (min === 0 || s > min);
-    }).length;
+    };
+    if (!rangeStart || !rangeEnd) return medicines.filter(checker).length;
+    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
+    return medicines.filter(m => medicineIdsInRange.has(m.id)).filter(checker).length;
   }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
 
   const lowStockCount = useMemo(() => {
-    // Only show medicines with activity in the selected period
     if (!rangeStart || !rangeEnd) return medicines.filter(isLowStock).length;
-    const medicineIdsInRange = new Set(
-      filteredTransactions.map(t => t.medicineId).filter(Boolean)
-    );
-    return medicines
-      .filter(m => medicineIdsInRange.has(m.id))
-      .filter(isLowStock).length;
+    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
+    return medicines.filter(m => medicineIdsInRange.has(m.id)).filter(isLowStock).length;
   }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
-  const expiredCount   = useMemo(() => {
+
+  const expiredCount = useMemo(() => {
     if (!rangeStart || !rangeEnd) return medicines.filter(isExpired).length;
-    const medicineIdsInRange = new Set(
-      filteredTransactions.map(t => t.medicineId).filter(Boolean)
-    );
-    return medicines
-      .filter(m => medicineIdsInRange.has(m.id))
-      .filter(isExpired).length;
+    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
+    return medicines.filter(m => medicineIdsInRange.has(m.id)).filter(isExpired).length;
   }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
 
   const remainingStock = useMemo(() => {
-    if (!rangeStart || !rangeEnd) {
-      return medicines.reduce((s, m) => s + getEffectiveStock(m), 0);
-    }
-    const medicineIdsInRange = new Set(
-      filteredTransactions.map(t => t.medicineId).filter(Boolean)
-    );
-    return medicines
-      .filter(m => medicineIdsInRange.has(m.id))
-      .reduce((s, m) => s + getEffectiveStock(m), 0);
+    if (!rangeStart || !rangeEnd) return medicines.reduce((s, m) => s + getEffectiveStock(m), 0);
+    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
+    return medicines.filter(m => medicineIdsInRange.has(m.id)).reduce((s, m) => s + getEffectiveStock(m), 0);
   }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
 
   const todayTransactions   = transactions.filter(t => { const dt = new Date(t.date); return dt >= todayStart && dt < todayEnd; });
@@ -1045,7 +1031,6 @@ export default function DashboardPage() {
   const defaultStockParam = expiredCount > 0 ? 'expired' : lowStockCount > 0 ? 'low' : 'ok';
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  // Show loading if still loading or if admin is being redirected
   if (loading || role === 'admin') return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
@@ -1058,7 +1043,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <style>{`
-        /* ── Existing animations ── */
         @keyframes marquee-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
         .marquee-track { display: flex; width: max-content; animation: marquee-scroll ${marqueeSpeed}s linear infinite; }
         .marquee-track:hover { animation-play-state: paused; }
@@ -1069,46 +1053,19 @@ export default function DashboardPage() {
         .fade-up-5 { animation-delay: 0.25s; } .fade-up-6 { animation-delay: 0.30s; }
         .fade-up-7 { animation-delay: 0.35s; } .fade-up-8 { animation-delay: 0.40s; }
 
-        /* ── Pharmacy name — reveal ── */
         @keyframes pharmacy-reveal {
           from { opacity: 0; transform: translateY(14px) scale(0.97); }
           to   { opacity: 1; transform: translateY(0)   scale(1);    }
         }
-        @keyframes pharmacy-cross-spin {
-          0%   { transform: rotate(0deg)   scale(0.4); opacity: 0; }
-          60%  { transform: rotate(200deg) scale(1.2); opacity: 1; }
-          100% { transform: rotate(180deg) scale(1);   opacity: 1; }
-        }
-        @keyframes pharmacy-underline-in {
-          from { width: 0;    opacity: 0; }
-          to   { width: 88px; opacity: 1; }
-        }
-
-        /* ── Pulsing background rings ── */
         @keyframes pharmacy-pulse-ring {
           0%   { transform: translateX(-50%) scale(0.55); opacity: 0.18; }
           70%  { opacity: 0.07; }
           100% { transform: translateX(-50%) scale(1.9);  opacity: 0;    }
         }
-
-        .pharmacy-name-reveal {
-          animation: pharmacy-reveal 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
-        }
-        .pharmacy-cross-icon {
-          animation: pharmacy-cross-spin 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.08s both;
-        }
         .pharmacy-name-text {
           text-shadow: 0 0 80px rgba(255, 255, 255, 0.18);
           letter-spacing: -0.025em;
         }
-        .pharmacy-underline {
-          height: 3px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
-          border-radius: 2px;
-          animation: pharmacy-underline-in 0.5s ease 0.6s both;
-        }
-
-        /* Rings are centred horizontally via translateX(-50%) inside the @keyframes */
         .pharmacy-ring {
           position: absolute;
           top: -60px;
@@ -1124,58 +1081,96 @@ export default function DashboardPage() {
       `}</style>
 
       <div className="w-full overflow-x-hidden">
-        <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-8 py-6 sm:py-10">
+        <div className="max-w-7xl mx-auto px-3 sm:px-5 lg:px-8 py-5 sm:py-8 lg:py-10">
 
-          {/* Header */}
-          <div className="mb-8 sm:mb-10 flex flex-wrap items-start justify-between gap-4">
+          {/* ── Header ── */}
+          <div className="mb-6 sm:mb-8 lg:mb-10 flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 mb-2">Dashboard</h1>
-              <p className="text-sm sm:text-base text-slate-500 truncate">Welcome back, {staffName || pharmacistInChargeName || user?.email}</p>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 mb-1 sm:mb-2">Dashboard</h1>
+              <p className="text-xs sm:text-sm lg:text-base text-slate-500 truncate max-w-[220px] sm:max-w-none">
+                Welcome back, {staffName || pharmacistInChargeName || user?.email}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowPrintModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-md"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
-                </svg>
-                Print Report
-              </button>
-            </div>
+            <button
+              onClick={() => setShowPrintModal(true)}
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-900 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-md"
+            >
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+              </svg>
+              <span className="hidden xs:inline">Print </span>Report
+            </button>
           </div>
 
-          {/* Today strip */}
-          <div className="fade-up fade-up-1 mb-6">
+          {/* ── Today strip ── */}
+          <div className="fade-up fade-up-1 mb-5 sm:mb-6">
             <TodayStrip dispensed={todayItemsDispensed} transactions={todaySessionCount} pharmacyName={pharmacyName} />
           </div>
 
-          {/* Inventory section */}
-          <div className="mb-2 mt-8 flex items-center gap-3">
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Inventory</span>
+          {/* ── Inventory section label ── */}
+          <div className="mb-2 mt-6 sm:mt-8 flex items-center gap-3">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Inventory</span>
             <div className="flex-1 h-px bg-slate-200" />
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
-            <div className="fade-up fade-up-2"><StatCard label="Total Medicines" value={totalMedicines} sub="In inventory" accent="#3b82f6" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21a48.309 48.309 0 01-8.135-1.587c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>} /></div>
-            <div className="fade-up fade-up-3"><StatCard label="Categories" value={totalCategories} sub="Distinct types" accent="#8b5cf6" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>} /></div>
-            <div className="fade-up fade-up-4"><StatCard label="In Stock" value={inStockCount} sub="Available now" accent="#10b981" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} /></div>
-            <div className="fade-up fade-up-5"><StatCard label="Low Stock" value={lowStockCount} sub="Need reorder" accent={lowStockCount > 0 ? '#ef4444' : '#94a3b8'} alert={lowStockCount > 0} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>} /></div>
           </div>
 
-          {/* Dispensing & Sales */}
-          <div className="mb-2 mt-2 flex items-center gap-3">
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Dispensing &amp; Sales</span>
+          {/* ── Inventory stat cards: 2 cols on mobile, 4 on desktop ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-4 mb-6 sm:mb-8">
+            <div className="fade-up fade-up-2">
+              <StatCard label="Total Medicines" value={totalMedicines} sub="In inventory" accent="#3b82f6"
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21a48.309 48.309 0 01-8.135-1.587c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>}
+              />
+            </div>
+            <div className="fade-up fade-up-3">
+              <StatCard label="Categories" value={totalCategories} sub="Distinct types" accent="#8b5cf6"
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>}
+              />
+            </div>
+            <div className="fade-up fade-up-4">
+              <StatCard label="In Stock" value={inStockCount} sub="Available now" accent="#10b981"
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              />
+            </div>
+            <div className="fade-up fade-up-5">
+              <StatCard label="Low Stock" value={lowStockCount} sub="Need reorder" accent={lowStockCount > 0 ? '#ef4444' : '#94a3b8'} alert={lowStockCount > 0}
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>}
+              />
+            </div>
+          </div>
+
+          {/* ── Dispensing & Sales label ── */}
+          <div className="mb-2 mt-1 sm:mt-2 flex items-center gap-3">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 whitespace-nowrap">Dispensing &amp; Sales</span>
             <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-[10px] text-slate-400 font-medium">selected period</span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400 font-medium whitespace-nowrap">selected period</span>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-3">
-            <div className="fade-up fade-up-2"><StatCard label="Total Dispensed" value={totalDispensed} sub={`${fmt(totalDispenseSessions)} transactions`} accent="#3b82f6" current={totalDispensed} prev={prevDispensed} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 004.5 9.75v7.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25v-7.5a2.25 2.25 0 00-2.25-2.25h-.75m-6 3.75l3 3m0 0l3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 012.25 2.25v7.5a2.25 2.25 0 01-2.25 2.25h-7.5a2.25 2.25 0 01-2.25-2.25v-.75" /></svg>} /></div>
-            <div className="fade-up fade-up-3"><StatCard label="POS Sales" value={totalPosSales} sub="Unique sale orders" accent="#10b981" current={totalPosSales} prev={prevPosSales} icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>} /></div>
-            <div className="fade-up fade-up-4"><StatCard label="Stock Deducted" value={totalStockDeducted} sub="Dispense + sales only" accent="#f59e0b" current={totalStockDeducted} prev={prevStockDeducted} onClick={() => setShowStockModal(true)} clickLabel="Click for details →" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>} /></div>
-            <div className="fade-up fade-up-5"><StatCard label="Remaining Stock" value={remainingStock} sub="Total units across all medicines" accent="#8b5cf6" icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>} /></div>
+
+          {/* ── Dispensing stat cards: 2 cols mobile, 4 desktop ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-4 mb-2.5 sm:mb-3">
+            <div className="fade-up fade-up-2">
+              <StatCard label="Total Dispensed" value={totalDispensed} sub={`${fmt(totalDispenseSessions)} transactions`} accent="#3b82f6" current={totalDispensed} prev={prevDispensed}
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 004.5 9.75v7.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25v-7.5a2.25 2.25 0 00-2.25-2.25h-.75m-6 3.75l3 3m0 0l3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 012.25 2.25v7.5a2.25 2.25 0 01-2.25 2.25h-7.5a2.25 2.25 0 01-2.25-2.25v-.75" /></svg>}
+              />
+            </div>
+            <div className="fade-up fade-up-3">
+              <StatCard label="POS Sales" value={totalPosSales} sub="Unique sale orders" accent="#10b981" current={totalPosSales} prev={prevPosSales}
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" /></svg>}
+              />
+            </div>
+            <div className="fade-up fade-up-4">
+              <StatCard label="Stock Deducted" value={totalStockDeducted} sub="Dispense + sales only" accent="#f59e0b" current={totalStockDeducted} prev={prevStockDeducted} onClick={() => setShowStockModal(true)} clickLabel="Tap for details →"
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>}
+              />
+            </div>
+            <div className="fade-up fade-up-5">
+              <StatCard label="Remaining Stock" value={remainingStock} sub="Total units across all" accent="#8b5cf6"
+                icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>}
+              />
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-8">
-            {expiredCount > 0 && (
+
+          {/* Expired alert card */}
+          {expiredCount > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-4 mb-6 sm:mb-8">
               <div className="fade-up fade-up-6">
                 <StatCard
                   label="Expired Items"
@@ -1183,14 +1178,14 @@ export default function DashboardPage() {
                   sub="Remove from stock immediately"
                   accent="#ef4444"
                   alert
-                  icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
+                  icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
                 />
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Charts */}
-          <div className="my-8 pt-8 border-t border-slate-200">
+          {/* ── Charts ── */}
+          <div className="my-6 sm:my-8 pt-6 sm:pt-8 border-t border-slate-200">
             <MedicineDispensingMonitor
               hideHeader hideMetricCards
               userId={user?.uid}
@@ -1209,47 +1204,71 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Brand marquee */}
-          <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-4 sm:p-5 mb-6 overflow-hidden">
-            <h2 className="text-sm font-bold text-slate-700 mb-4 uppercase tracking-widest">Medicines by Brand</h2>
+          {/* ── Brand marquee ── */}
+          <div className="rounded-2xl bg-white border border-slate-100 shadow-sm p-3 sm:p-4 lg:p-5 mb-4 sm:mb-6 overflow-hidden">
+            <h2 className="text-xs sm:text-sm font-bold text-slate-700 mb-3 sm:mb-4 uppercase tracking-widest">Medicines by Brand</h2>
             {uniqueBrands.length > 0 ? (
               <div className="relative overflow-hidden">
-                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-10 z-10" style={{ background: 'linear-gradient(to right, white, transparent)' }} />
-                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-10 z-10" style={{ background: 'linear-gradient(to left, white, transparent)' }} />
-                <div key={`marquee-${isCollapsed}`} className="marquee-track gap-3 py-1">
+                <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 sm:w-10 z-10" style={{ background: 'linear-gradient(to right, white, transparent)' }} />
+                <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 sm:w-10 z-10" style={{ background: 'linear-gradient(to left, white, transparent)' }} />
+                <div key={`marquee-${isCollapsed}`} className="marquee-track gap-2 sm:gap-3 py-1">
                   {uniqueBrands.map(([brand, image]) => (
-                    <div key={brand} className="shrink-0 flex flex-col items-center justify-center bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 cursor-default select-none hover:bg-slate-100 transition-colors gap-2" style={{ minWidth: '96px' }}>
+                    <div key={brand} className="shrink-0 flex flex-col items-center justify-center bg-slate-50 border border-slate-100 rounded-xl px-3 sm:px-4 py-2 sm:py-3 cursor-default select-none hover:bg-slate-100 transition-colors gap-1.5 sm:gap-2" style={{ minWidth: '76px' }}>
                       {image
-                        ? <Image src={image} alt={brand} width={40} height={40} className="w-10 h-10 object-contain rounded-lg" />
-                        : <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center"><svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.318A48.309 48.309 0 0112 21a48.309 48.309 0 01-8.135-1.587c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg></div>
+                        ? <Image src={image} alt={brand} width={32} height={32} className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-lg" />
+                        : <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-slate-200 flex items-center justify-center">
+                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.318A48.309 48.309 0 0112 21a48.309 48.309 0 01-8.135-1.587c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
+                          </div>
                       }
-                      <p className="text-[11px] font-semibold text-slate-700 text-center leading-tight" style={{ maxWidth: '80px', wordBreak: 'break-word' }}>{brand}</p>
+                      <p className="text-[10px] sm:text-[11px] font-semibold text-slate-700 text-center leading-tight" style={{ maxWidth: '70px', wordBreak: 'break-word' }}>{brand}</p>
                     </div>
                   ))}
                 </div>
               </div>
-            ) : <p className="text-slate-500 text-center py-8">No medicines added yet</p>}
+            ) : <p className="text-slate-500 text-center text-sm py-6 sm:py-8">No medicines added yet</p>}
           </div>
 
-          {/* Quick Actions */}
+          {/* ── Quick Actions ── */}
           <div className="mb-2 flex items-center gap-3">
-            <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Quick Actions</span>
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Quick Actions</span>
             <div className="flex-1 h-px bg-slate-200" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          {/* 1 col on mobile, 3 on sm+ */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-4">
             {[
-              { href: '/medicines',      title: 'View Medicines',       sub: 'Browse all medicines in your pharmacy',  accent: '#3b82f6', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
-              { href: '/medicines/add-medicine', title: 'Add Medicines',        sub: 'Directly add new medicines to inventory', accent: '#10b981', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg> },
-              { href: `/inventory?stock=${defaultStockParam}&range=${filterRange}${filterRange === 'custom' && filterStartDate && filterEndDate ? `&start=${filterStartDate}&end=${filterEndDate}` : ''}`, title: 'Inventory Management', sub: 'Monitor stock, pricing, and expiration', accent: '#8b5cf6', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" /></svg> },
+              {
+                href: '/medicines',
+                title: 'View Medicines',
+                sub: 'Browse all medicines in your pharmacy',
+                accent: '#3b82f6',
+                icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+              },
+              {
+                href: '/medicines/add-medicine',
+                title: 'Add Medicines',
+                sub: 'Directly add new medicines to inventory',
+                accent: '#10b981',
+                icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>,
+              },
+              {
+                href: `/inventory?stock=${defaultStockParam}&range=${filterRange}${filterRange === 'custom' && filterStartDate && filterEndDate ? `&start=${filterStartDate}&end=${filterEndDate}` : ''}`,
+                title: 'Inventory Management',
+                sub: 'Monitor stock, pricing, and expiration',
+                accent: '#8b5cf6',
+                icon: <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5" /></svg>,
+              },
             ].map(({ href, title, sub, accent, icon }) => (
-              <Link key={href} href={href} className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm p-5 flex items-center gap-4 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg" style={{ boxShadow: `0 2px 16px 0 ${accent}12` }}>
+              <Link key={href} href={href}
+                className="group relative overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm p-4 sm:p-5 flex items-center gap-3 sm:gap-4 transition-all duration-200 active:scale-[0.98] hover:scale-[1.02] hover:shadow-lg"
+                style={{ boxShadow: `0 2px 16px 0 ${accent}12` }}
+              >
                 <div className="absolute top-0 left-0 right-0 h-0.75 rounded-t-2xl" style={{ background: accent }} />
-                <span className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${accent}15`, color: accent }}>{icon}</span>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">{title}</p>
-                  <p className="text-xs text-slate-500 truncate">{sub}</p>
+                <span className="shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center" style={{ background: `${accent}15`, color: accent }}>{icon}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">{title}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 truncate">{sub}</p>
                 </div>
-                <svg className="w-4 h-4 text-slate-300 ml-auto shrink-0 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-300 ml-auto shrink-0 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
               </Link>
             ))}
           </div>
@@ -1257,26 +1276,31 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stock Modal */}
+      {/* ── Stock Modal ── */}
       {showStockModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-all duration-300">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-slate-200">
-              <h3 className="text-xl font-bold text-slate-900">Medicine Stock Overview</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 transition-all duration-300">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-3xl max-h-[90vh] sm:max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-200">
+              <h3 className="text-base sm:text-xl font-bold text-slate-900">Medicine Stock Overview</h3>
               <button onClick={() => setShowStockModal(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100">×</button>
             </div>
-            <div className="px-6 pt-4 pb-2">
-              <input type="text" placeholder="Search medicine name or category..." value={stockModalSearch} onChange={e => setStockModalSearch(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-2">
+              <input
+                type="text"
+                placeholder="Search medicine name or category..."
+                value={stockModalSearch}
+                onChange={e => setStockModalSearch(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
             <div className="overflow-y-auto flex-1">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs sm:text-sm">
                 <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold text-slate-700">Medicine</th>
-                    <th className="px-6 py-3 text-left font-semibold text-slate-700">Category</th>
-                    <th className="px-6 py-3 text-right font-semibold text-slate-700">Current Stock</th>
-                    <th className="px-6 py-3 text-right font-semibold text-slate-700">Status</th>
+                    <th className="px-3 sm:px-6 py-2.5 sm:py-3 text-left font-semibold text-slate-700">Medicine</th>
+                    <th className="px-3 sm:px-6 py-2.5 sm:py-3 text-left font-semibold text-slate-700 hidden sm:table-cell">Category</th>
+                    <th className="px-3 sm:px-6 py-2.5 sm:py-3 text-right font-semibold text-slate-700">Stock</th>
+                    <th className="px-3 sm:px-6 py-2.5 sm:py-3 text-right font-semibold text-slate-700">Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1288,11 +1312,14 @@ export default function DashboardPage() {
                       const { label, variant } = getMedicineStatus(med);
                       return (
                         <tr key={med.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-6 py-3 font-medium text-slate-900">{med.baseName || med.name || '—'}</td>
-                          <td className="px-6 py-3 text-slate-500 text-xs">{med.category || 'Uncategorized'}</td>
-                          <td className="px-6 py-3 text-right font-bold text-slate-900">{stock.toLocaleString()}</td>
-                          <td className="px-6 py-3 text-right">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${stockModalStatusStyles[variant]}`}>
+                          <td className="px-3 sm:px-6 py-2.5 sm:py-3 font-medium text-slate-900">
+                            <div>{med.baseName || med.name || '—'}</div>
+                            <div className="text-[10px] text-slate-400 sm:hidden">{med.category || 'Uncategorized'}</div>
+                          </td>
+                          <td className="px-3 sm:px-6 py-2.5 sm:py-3 text-slate-500 text-xs hidden sm:table-cell">{med.category || 'Uncategorized'}</td>
+                          <td className="px-3 sm:px-6 py-2.5 sm:py-3 text-right font-bold text-slate-900">{stock.toLocaleString()}</td>
+                          <td className="px-3 sm:px-6 py-2.5 sm:py-3 text-right">
+                            <span className={`px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold ${stockModalStatusStyles[variant]}`}>
                               {label}
                             </span>
                           </td>
@@ -1302,14 +1329,14 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             </div>
-            <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
-              <button onClick={() => setShowStockModal(false)} className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors">Close</button>
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button onClick={() => setShowStockModal(false)} className="px-4 sm:px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors text-sm">Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Print Report Modal */}
+      {/* ── Print Report Modal ── */}
       {showPrintModal && (
         <PrintReportModal
           medicines={medicines}

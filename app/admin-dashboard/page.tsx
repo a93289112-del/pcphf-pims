@@ -44,7 +44,6 @@ export default function AdminDashboard() {
       setLoadingStates({ users: false, medicines: false, transactions: false, activityLogs: false });
     }, 10000);
 
-    // Users
     const unsubUsers = onValue(
       ref(database, 'users'),
       (snap) => {
@@ -58,7 +57,6 @@ export default function AdminDashboard() {
       },
     );
 
-    // All medicines and transactions are now globally shared
     const unsubMedicines = onValue(
       ref(database, 'medicines'),
       (snapshot) => {
@@ -91,7 +89,6 @@ export default function AdminDashboard() {
       },
     );
 
-    // Activity logs (session events live here)
     const unsubLogs = subscribeToActivityLogs((logs) => {
       setActivityLogs(logs);
       setLoadingStates((p) => ({ ...p, activityLogs: false }));
@@ -106,38 +103,23 @@ export default function AdminDashboard() {
     };
   }, [user]);
 
-  // ── Session stats derived from activity logs ───────────────────────────────
+  // ── Session stats ──────────────────────────────────────────────────────────
   const sessionStats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const sessionsEndedToday = activityLogs.filter(
-      (l) => l.type === 'session_ended' && new Date(l.timestamp) >= today,
-    );
-    const sessionsStartedToday = activityLogs.filter(
-      (l) => l.type === 'session_started' && new Date(l.timestamp) >= today,
-    );
-
-    // Total sessions ever (all time session_ended count = completed sessions)
+    const sessionsEndedToday   = activityLogs.filter((l) => l.type === 'session_ended'   && new Date(l.timestamp) >= today);
+    const sessionsStartedToday = activityLogs.filter((l) => l.type === 'session_started' && new Date(l.timestamp) >= today);
     const totalSessionsAllTime = activityLogs.filter((l) => l.type === 'session_ended').length;
 
-    // Active sessions right now: staff whose LAST session event today is session_started
-    // (i.e. they started a session but haven't ended it yet)
-    const staffSessionMap = new Map<string, string>(); // staffId → last event type today
+    const staffSessionMap = new Map<string, string>();
     activityLogs
-      .filter(
-        (l) =>
-          new Date(l.timestamp) >= today &&
-          (l.type === 'session_ended' || l.type === 'session_started'),
-      )
+      .filter((l) => new Date(l.timestamp) >= today && (l.type === 'session_ended' || l.type === 'session_started'))
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       .forEach((l) => staffSessionMap.set(l.staffId, l.type));
 
-    const activeSessionsNow = Array.from(staffSessionMap.values()).filter(
-      (v) => v === 'session_started',
-    ).length;
+    const activeSessionsNow = Array.from(staffSessionMap.values()).filter((v) => v === 'session_started').length;
 
-    // Average session duration (from completed sessions that have duration data)
     const durationsMinutes = activityLogs
       .filter((l) => l.type === 'session_ended' && l.details?.sessionDurationMinutes != null)
       .map((l) => Number(l.details!.sessionDurationMinutes));
@@ -153,59 +135,39 @@ export default function AdminDashboard() {
       ? avgHours > 0 ? `${avgHours}h ${avgMins}m` : `${avgMins}m`
       : '—';
 
-    // Per-staff session breakdown (all time)
     const perStaff = new Map<string, { email: string; ended: number; started: number; totalMinutes: number }>();
     activityLogs
       .filter((l) => l.type === 'session_ended' || l.type === 'session_started')
       .forEach((l) => {
-        if (!perStaff.has(l.staffId)) {
-          perStaff.set(l.staffId, {
-            email: l.staffEmail,
-            ended: 0,
-            started: 0,
-            totalMinutes: 0,
-          });
-        }
+        if (!perStaff.has(l.staffId)) perStaff.set(l.staffId, { email: l.staffEmail, ended: 0, started: 0, totalMinutes: 0 });
         const entry = perStaff.get(l.staffId)!;
-        if (l.type === 'session_ended') {
-          entry.ended++;
-          entry.totalMinutes += Number(l.details?.sessionDurationMinutes ?? 0);
-        } else {
-          entry.started++;
-        }
+        if (l.type === 'session_ended') { entry.ended++; entry.totalMinutes += Number(l.details?.sessionDurationMinutes ?? 0); }
+        else entry.started++;
       });
 
     return {
-      endedToday:         sessionsEndedToday.length,
-      startedToday:       sessionsStartedToday.length,
-      activeNow:          activeSessionsNow,
-      totalAllTime:       totalSessionsAllTime,
+      endedToday:   sessionsEndedToday.length,
+      startedToday: sessionsStartedToday.length,
+      activeNow:    activeSessionsNow,
+      totalAllTime: totalSessionsAllTime,
       avgLabel,
-      perStaff: Array.from(perStaff.entries())
-        .map(([uid, v]) => ({ uid, ...v }))
-        .sort((a, b) => b.ended - a.ended),
+      perStaff: Array.from(perStaff.entries()).map(([uid, v]) => ({ uid, ...v })).sort((a, b) => b.ended - a.ended),
     };
   }, [activityLogs]);
 
-  // ── Staff activity (transactions) ──────────────────────────────────────────
+  // ── Staff activity ─────────────────────────────────────────────────────────
   const staffActivity = useMemo(() => {
     const activity: Record<string, { count: number; recent: FirebaseTransaction[] }> = {};
-    const validTx = transactions.filter((t) => t && t.date && t.userId);
-    const sorted  = [...validTx].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-    const counted = new Set<string>();
+    const validTx  = transactions.filter((t) => t && t.date && t.userId);
+    const sorted   = [...validTx].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const counted  = new Set<string>();
 
     sorted.forEach((t) => {
       if (!t.userId) return;
       if (!activity[t.userId]) activity[t.userId] = { count: 0, recent: [] };
-
       if ((t.type === 'dispense' || t.type === 'sale') && t.referenceId) {
         const key = `${t.userId}-${t.referenceId}`;
-        if (!counted.has(key)) {
-          activity[t.userId].count++;
-          counted.add(key);
-        }
+        if (!counted.has(key)) { activity[t.userId].count++; counted.add(key); }
       } else {
         activity[t.userId].count++;
       }
@@ -223,10 +185,8 @@ export default function AdminDashboard() {
       .slice(0, 6);
   }, [transactions, users]);
 
-  // ── Derived counts ─────────────────────────────────────────────────────────
-  const pendingApprovals = useMemo(() => users.filter((u) => u.status === 'pending').length, [users]);
-  const totalStaffs      = useMemo(() => users.filter((u) => u.role === 'staff').length, [users]);
-  const lowStockItems    = useMemo(() =>
+  const totalStaffs   = useMemo(() => users.filter((u) => u.role === 'staff').length, [users]);
+  const lowStockItems = useMemo(() =>
     medicines.filter((m) => {
       const stock = (m.quantity ?? 0) * (m.stockPerUnit ?? 1);
       return stock <= (m.minStock ?? 10);
@@ -236,265 +196,320 @@ export default function AdminDashboard() {
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      <div className="flex items-center justify-center min-h-screen bg-[#f8f7f4]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-4 border-slate-200" />
+            <div className="absolute inset-0 rounded-full border-4 border-t-indigo-600 animate-spin" />
+          </div>
+          <p className="text-sm font-semibold text-slate-400 tracking-widest uppercase">Loading dashboard</p>
+        </div>
       </div>
     );
   }
 
+  const now = new Date();
+  const greeting =
+    now.getHours() < 12 ? 'Good morning' :
+    now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+
   return (
-    <div className="min-h-screen transition-all duration-300 bg-slate-50/70 w-full overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div className="min-h-screen bg-[#f8f7f4] w-full">
 
-        {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2">Admin Dashboard</h1>
-          <p className="text-slate-500">Staff management, approvals, and system activity</p>
-        </div>
-
-        {/* ── Row 1: Staff / Stock stats ─────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <StatCard
-            title="Account Requests"
-            value={pendingApprovals}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>}
-            color="orange"
-            link="/admin-dashboard/accounts?filter=pending"
-          />
-          <StatCard
-            title="Active Staffs"
-            value={totalStaffs}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM6 20a9 9 0 0118 0v1H1v-1a9 9 0 0118 0z" /></svg>}
-            color="blue"
-            link="/admin-dashboard/accounts"
-          />
-          <StatCard
-            title="Low Stock Items"
-            value={lowStockItems}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4v2m0 5v1M7.08 6.47A9.969 9.969 0 0112 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12c0-1.821.487-3.53 1.333-5M12 12h.01" /></svg>}
-            color={lowStockItems > 0 ? 'orange' : 'emerald'}
-          />
-        </div>
-
-        {/* ── Row 2: Session stats ───────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-          <StatCard
-            title="Sessions Today"
-            value={sessionStats.endedToday}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>}
-            color="rose"
-            sub="ended today"
-          />
-          <StatCard
-            title="New Sessions Today"
-            value={sessionStats.startedToday}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>}
-            color="teal"
-            sub="started today"
-          />
-          <StatCard
-            title="Total Sessions"
-            value={sessionStats.totalAllTime}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M14 3v18" /><rect x="3" y="3" width="18" height="18" rx="2" /></svg>}
-            color="violet"
-            sub="all time completed"
-          />
-          <StatCard
-            title="Avg Session Length"
-            value={sessionStats.avgLabel}
-            icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /></svg>}
-            color="blue"
-            sub="per completed session"
-          />
-        </div>
-
-        {/* ── Per-staff session breakdown panel ─────────────────────────── */}
-        {sessionStats.perStaff.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-8">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Session Breakdown by Staff</h2>
-                <p className="text-xs text-slate-500">Total completed sessions and average duration per staff member</p>
-              </div>
-              {/* Active now badge */}
-              {sessionStats.activeNow > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold text-emerald-700">
-                    {sessionStats.activeNow} active session{sessionStats.activeNow !== 1 ? 's' : ''} now
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Staff</th>
-                    <th className="text-right py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Sessions Completed</th>
-                    <th className="text-right py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">New Sessions Started</th>
-                    <th className="text-right py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Time Worked</th>
-                    <th className="text-right py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg per Session</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sessionStats.perStaff.map((s) => {
-                    const totalH   = Math.floor(s.totalMinutes / 60);
-                    const totalM   = s.totalMinutes % 60;
-                    const totalStr = s.totalMinutes > 0
-                      ? totalH > 0 ? `${totalH}h ${totalM}m` : `${totalM}m`
-                      : '—';
-                    const avgM  = s.ended > 0 ? Math.round(s.totalMinutes / s.ended) : 0;
-                    const avgH  = Math.floor(avgM / 60);
-                    const avgMr = avgM % 60;
-                    const avgStr = avgM > 0
-                      ? avgH > 0 ? `${avgH}h ${avgMr}m` : `${avgMr}m`
-                      : '—';
-
-                    return (
-                      <tr key={s.uid} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-xs shadow-sm shadow-blue-100">
-                              {s.email[0].toUpperCase()}
-                            </div>
-                            <span className="font-semibold text-slate-800 text-xs truncate max-w-45">{s.email}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="inline-flex items-center justify-center min-w-8 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-100 text-rose-700 font-black text-sm">
-                            {s.ended}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="inline-flex items-center justify-center min-w-8 px-2.5 py-1 rounded-lg bg-teal-50 border border-teal-100 text-teal-700 font-black text-sm">
-                            {s.started}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-semibold text-slate-700 text-xs">{totalStr}</td>
-                        <td className="py-3 px-4 text-right font-semibold text-slate-500 text-xs">{avgStr}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+      {/* ── Top hero header ─────────────────────────────────────────────── */}
+      <div className="bg-white border-b border-slate-100 px-4 sm:px-8 py-8 mb-8">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold text-indigo-500 uppercase tracking-widest mb-1">{greeting}</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 leading-none">
+              Admin Dashboard
+            </h1>
+            <p className="text-slate-400 text-sm mt-2">
+              {now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
           </div>
+
+          {/* Live active sessions pill */}
+          {sessionStats.activeNow > 0 && (
+            <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-200 self-start sm:self-auto">
+              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              <span className="text-sm font-bold">
+                {sessionStats.activeNow} session{sessionStats.activeNow !== 1 ? 's' : ''} active
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12 space-y-8">
+
+        {/* ── Section: Overview ───────────────────────────────────────────── */}
+        <Section label="Overview">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              title="Active Staff"
+              value={totalStaffs}
+              icon={<PeopleIcon />}
+              accent="indigo"
+              link="/admin-dashboard/staff-list"
+              sub="team members"
+            />
+            <StatCard
+              title="Low Stock"
+              value={lowStockItems}
+              icon={<AlertIcon />}
+              accent={lowStockItems > 0 ? 'amber' : 'emerald'}
+              sub={lowStockItems > 0 ? 'need restocking' : 'all stocked up'}
+            />
+            <StatCard
+              title="Sessions Today"
+              value={sessionStats.endedToday}
+              icon={<CheckIcon />}
+              accent="rose"
+              sub="completed"
+            />
+            <StatCard
+              title="Active Now"
+              value={sessionStats.activeNow}
+              icon={<LiveIcon />}
+              accent="emerald"
+              sub="in progress"
+            />
+          </div>
+        </Section>
+
+        {/* ── Section: Session metrics ─────────────────────────────────────── */}
+        <Section label="Session Metrics">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <MetricTile label="Started Today"  value={sessionStats.startedToday} color="teal" />
+            <MetricTile label="Total All Time" value={sessionStats.totalAllTime} color="violet" />
+            <MetricTile label="Avg Duration"   value={sessionStats.avgLabel}     color="indigo" isText />
+          </div>
+        </Section>
+
+        {/* ── Section: Per-staff session breakdown ─────────────────────────── */}
+        {sessionStats.perStaff.length > 0 && (
+          <Section label="Session Breakdown by Staff">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/60">
+                      {['Staff Member', 'Completed', 'Started', 'Total Time', 'Avg / Session'].map((h) => (
+                        <th
+                          key={h}
+                          className={`py-3.5 px-5 text-[10px] font-black text-slate-400 uppercase tracking-widest ${h === 'Staff Member' ? 'text-left' : 'text-right'}`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {sessionStats.perStaff.map((s, i) => {
+                      const totalH   = Math.floor(s.totalMinutes / 60);
+                      const totalM   = s.totalMinutes % 60;
+                      const totalStr = s.totalMinutes > 0 ? (totalH > 0 ? `${totalH}h ${totalM}m` : `${totalM}m`) : '—';
+                      const avgM     = s.ended > 0 ? Math.round(s.totalMinutes / s.ended) : 0;
+                      const avgH     = Math.floor(avgM / 60);
+                      const avgMr    = avgM % 60;
+                      const avgStr   = avgM > 0 ? (avgH > 0 ? `${avgH}h ${avgMr}m` : `${avgMr}m`) : '—';
+
+                      return (
+                        <tr key={s.uid} className="hover:bg-slate-50/70 transition-colors group">
+                          <td className="py-3.5 px-5">
+                            <div className="flex items-center gap-3">
+                              <Avatar email={s.email} index={i} />
+                              <span className="font-semibold text-slate-800 text-xs truncate max-w-[160px]">{s.email}</span>
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-5 text-right">
+                            <Pill value={s.ended} color="rose" />
+                          </td>
+                          <td className="py-3.5 px-5 text-right">
+                            <Pill value={s.started} color="teal" />
+                          </td>
+                          <td className="py-3.5 px-5 text-right text-xs font-semibold text-slate-600">{totalStr}</td>
+                          <td className="py-3.5 px-5 text-right text-xs font-medium text-slate-400">{avgStr}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </Section>
         )}
 
-        {/* ── Staff Activity Monitor ─────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Staff Activity Monitor</h2>
-              <p className="text-xs text-slate-500">Activity tracking and performance per staff member</p>
+        {/* ── Section: Staff Activity Monitor ──────────────────────────────── */}
+        <Section label="Staff Activity Monitor">
+          {staffActivity.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center py-16">
+              <p className="text-sm text-slate-400">No staff activity recorded yet</p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {staffActivity.map((staff) => (
-              <div key={staff.uid} className="p-5 rounded-2xl bg-slate-50/50 border border-slate-100 flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-md shadow-blue-100">
-                      {staff.email[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{staff.email}</p>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{staff.count} Total Actions</p>
-                    </div>
-                  </div>
-                  <div className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-black text-slate-500">
-                    RANK #{staffActivity.indexOf(staff) + 1}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Recent Activity</p>
-                  {staff.recent.map((log, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-2.5 bg-white rounded-xl border border-slate-100 shadow-sm">
-                      <div className={`w-2 h-2 rounded-full ${
-                        log.type === 'adjustment' ? 'bg-orange-400' :
-                        log.type === 'sale'       ? 'bg-emerald-400' : 'bg-blue-400'
-                      }`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-slate-700 capitalize leading-tight">
-                          {log.type} recorded
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-medium">
-                          Qty: {log.quantity} · {new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  {staff.recent.length === 0 && (
-                    <p className="text-[10px] text-slate-400 italic py-2">No recent activity</p>
-                  )}
-                </div>
-              </div>
-            ))}
-            {staffActivity.length === 0 && (
-              <div className="col-span-full text-center py-12">
-                <p className="text-sm text-slate-400">No staff activity recorded</p>
-              </div>
-            )}
-          </div>
-        </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {staffActivity.map((staff, idx) => (
+                <StaffCard key={staff.uid} staff={staff} rank={idx + 1} />
+              ))}
+            </div>
+          )}
+        </Section>
 
       </div>
+    </div>
+  );
+}
+
+// ── Section wrapper ────────────────────────────────────────────────────────────
+function Section({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</span>
+        <div className="flex-1 h-px bg-slate-100" />
+      </div>
+      {children}
     </div>
   );
 }
 
 // ── StatCard ───────────────────────────────────────────────────────────────────
+const accentMap: Record<string, { bg: string; text: string; ring: string; icon: string }> = {
+  indigo: { bg: 'bg-indigo-50',  text: 'text-indigo-700',  ring: 'ring-indigo-100',  icon: 'bg-indigo-600 text-white' },
+  amber:  { bg: 'bg-amber-50',   text: 'text-amber-700',   ring: 'ring-amber-100',   icon: 'bg-amber-500 text-white' },
+  emerald:{ bg: 'bg-emerald-50', text: 'text-emerald-700', ring: 'ring-emerald-100', icon: 'bg-emerald-500 text-white' },
+  rose:   { bg: 'bg-rose-50',    text: 'text-rose-700',    ring: 'ring-rose-100',    icon: 'bg-rose-500 text-white' },
+  teal:   { bg: 'bg-teal-50',    text: 'text-teal-700',    ring: 'ring-teal-100',    icon: 'bg-teal-500 text-white' },
+  violet: { bg: 'bg-violet-50',  text: 'text-violet-700',  ring: 'ring-violet-100',  icon: 'bg-violet-600 text-white' },
+};
+
 function StatCard({
-  title, value, icon, color, link, sub,
+  title, value, icon, accent, link, sub,
 }: {
   title: string;
   value: string | number;
   icon: React.ReactNode;
-  color: string;
+  accent: string;
   link?: string;
   sub?: string;
 }) {
-  const colors: Record<string, string> = {
-    blue:   'bg-blue-50/50   text-blue-600   border-blue-100/50',
-    orange: 'bg-orange-50/50 text-orange-600 border-orange-100/50',
-    emerald:'bg-emerald-50/50 text-emerald-600 border-emerald-100/50',
-    rose:   'bg-rose-50/50   text-rose-600   border-rose-100/50',
-    teal:   'bg-teal-50/50   text-teal-600   border-teal-100/50',
-    violet: 'bg-violet-50/50 text-violet-600 border-violet-100/50',
-  };
-  const iconColors: Record<string, string> = {
-    blue:   'bg-blue-600   text-white',
-    orange: 'bg-orange-500 text-white',
-    emerald:'bg-emerald-500 text-white',
-    rose:   'bg-rose-500   text-white',
-    teal:   'bg-teal-500   text-white',
-    violet: 'bg-violet-600 text-white',
-  };
+  const a = accentMap[accent] || accentMap.indigo;
 
   const content = (
-    <div className={`group p-6 rounded-2xl border ${colors[color] || 'bg-slate-50 text-slate-600'} bg-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}>
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-2.5 rounded-xl shadow-sm ${iconColors[color] || 'bg-slate-600 text-white'}`}>
-          {icon}
-        </div>
+    <div className={`group relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden`}>
+      {/* Subtle tint blob */}
+      <div className={`absolute -top-4 -right-4 w-20 h-20 rounded-full ${a.bg} opacity-60 blur-xl pointer-events-none`} />
+
+      <div className="relative flex items-start justify-between mb-5">
+        <div className={`p-2.5 rounded-xl ${a.icon} shadow-sm`}>{icon}</div>
         {link && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity text-slate-400">
+            <ArrowIcon />
           </div>
         )}
       </div>
-      <p className="text-3xl font-black text-slate-900 mb-1">{value}</p>
-      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{title}</p>
-      {sub && <p className="text-[10px] text-slate-400 mt-1 font-medium">{sub}</p>}
+
+      <p className="text-3xl font-black text-slate-900 leading-none mb-1.5">{value}</p>
+      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
+      {sub && <p className="text-[10px] text-slate-400 mt-1">{sub}</p>}
     </div>
   );
 
-  if (link) return <Link href={link}>{content}</Link>;
-  return content;
+  return link ? <Link href={link}>{content}</Link> : content;
 }
+
+// ── MetricTile ─────────────────────────────────────────────────────────────────
+function MetricTile({ label, value, color, isText }: { label: string; value: string | number; color: string; isText?: boolean }) {
+  const a = accentMap[color] || accentMap.indigo;
+  return (
+    <div className={`${a.bg} rounded-2xl p-5 ring-1 ${a.ring}`}>
+      <p className={`text-2xl sm:text-3xl font-black ${a.text} leading-none mb-1.5`}>{value}</p>
+      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{label}</p>
+    </div>
+  );
+}
+
+// ── StaffCard ──────────────────────────────────────────────────────────────────
+function StaffCard({ staff, rank }: { staff: { uid: string; email: string; count: number; recent: FirebaseTransaction[] }; rank: number }) {
+  const txTypeStyle: Record<string, string> = {
+    adjustment: 'bg-amber-100 text-amber-700',
+    sale:       'bg-emerald-100 text-emerald-700',
+    dispense:   'bg-blue-100 text-blue-700',
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Avatar email={staff.email} index={rank - 1} size="lg" />
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-slate-900 truncate">{staff.email}</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{staff.count} total actions</p>
+          </div>
+        </div>
+        <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2.5 py-1.5 rounded-lg">#{rank}</span>
+      </div>
+
+      {/* Recent activity */}
+      <div>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Recent Activity</p>
+        <div className="space-y-1.5">
+          {staff.recent.length === 0 && (
+            <p className="text-[10px] text-slate-400 italic py-1">No recent activity</p>
+          )}
+          {staff.recent.map((log, idx) => (
+            <div key={idx} className="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2">
+              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${txTypeStyle[log.type] || 'bg-slate-100 text-slate-600'}`}>
+                {log.type}
+              </span>
+              <span className="text-[10px] text-slate-500 flex-1 truncate">qty: {log.quantity}</span>
+              <span className="text-[10px] text-slate-400 shrink-0">
+                {new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Avatar ─────────────────────────────────────────────────────────────────────
+const avatarColors = [
+  'bg-indigo-600', 'bg-violet-600', 'bg-rose-500',
+  'bg-teal-600',   'bg-amber-500',  'bg-emerald-600',
+];
+function Avatar({ email, index, size = 'sm' }: { email: string; index: number; size?: 'sm' | 'lg' }) {
+  const color = avatarColors[index % avatarColors.length];
+  const dim   = size === 'lg' ? 'w-10 h-10 text-sm' : 'w-8 h-8 text-xs';
+  return (
+    <div className={`${dim} ${color} rounded-xl text-white flex items-center justify-center font-black shadow-sm shrink-0`}>
+      {email[0].toUpperCase()}
+    </div>
+  );
+}
+
+// ── Pill ───────────────────────────────────────────────────────────────────────
+function Pill({ value, color }: { value: number; color: string }) {
+  const a = accentMap[color] || accentMap.indigo;
+  return (
+    <span className={`inline-flex items-center justify-center min-w-[2rem] px-2.5 py-1 rounded-lg ${a.bg} ${a.text} font-black text-sm ring-1 ${a.ring}`}>
+      {value}
+    </span>
+  );
+}
+
+// ── Icons ──────────────────────────────────────────────────────────────────────
+const i = (d: string) => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d={d} />
+  </svg>
+);
+
+const PeopleIcon = () => i('M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM6 20a9 9 0 0118 0v1H1v-1a9 9 0 0118 0z');
+const AlertIcon  = () => i('M12 9v2m0 4v2m0 5v1M7.08 6.47A9.969 9.969 0 0112 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12c0-1.821.487-3.53 1.333-5M12 12h.01');
+const CheckIcon  = () => i('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0');
+const LiveIcon   = () => i('M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728M12 12h.01M8.464 15.536a5 5 0 010-7.072m7.072 0a5 5 0 010 7.072');
+const ArrowIcon  = () => i('M17 8l4 4m0 0l-4 4m4-4H3');

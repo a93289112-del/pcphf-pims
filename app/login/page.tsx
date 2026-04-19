@@ -26,7 +26,6 @@ export default function LoginPage() {
       } else if (status === 'disabled') {
         router.push('/account-disabled');
       }
-      // status === 'pending' is handled by the UI message below
     }
   }, [user, loading, status, role, router]);
 
@@ -42,7 +41,6 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-
       await signIn(email, password);
       setIsLoading(false);
     } catch (err) {
@@ -54,18 +52,20 @@ export default function LoginPage() {
 
   const displayError = localError || error;
 
-  // Show pending status message if user is logged in but pending approval
+  // ── Pending approval screen ────────────────────────────────────────────────
   if (user && !loading && status === 'pending') {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-md mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <div className="w-full max-w-md text-center bg-white rounded-2xl shadow-xl p-8">
           <div className="mb-4">
             <svg className="w-16 h-16 mx-auto text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Pending Approval</h2>
-          <p className="text-gray-600 mb-6">Your account has been registered successfully. An administrator is reviewing your request and will approve your access soon.</p>
+          <p className="text-gray-600 mb-6">
+            Your account has been registered successfully. An administrator is reviewing your request and will approve your access soon.
+          </p>
           <button
             onClick={() => {
               signOut(auth).catch(console.error);
@@ -80,44 +80,64 @@ export default function LoginPage() {
     );
   }
 
+  // ── Main login page ────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-white">
-      {/* Hero Section - Left Side */}
-      <div className="absolute inset-0 flex flex-col items-start justify-center pl-8 md:pl-12 lg:pl-24 max-w-3xl pr-8">
-        <div className="space-y-6">
-          <div>
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-blue-400 leading-none tracking-tight mb-1">
-              City
-            </h1>
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-black text-blue-600 leading-none tracking-tight mb-2">
+    <div className="min-h-screen w-full bg-gradient-to-b from-slate-50 via-white to-slate-100 flex flex-col lg:flex-row">
+
+      {/* ── LEFT / TOP: Hero branding ────────────────────────────────────────── */}
+      <div className="
+        flex-1 flex flex-col justify-center
+        px-8 pt-12 pb-8
+        sm:px-12 sm:pt-16 sm:pb-10
+        lg:px-16 lg:py-0 lg:min-h-screen
+        max-w-full lg:max-w-[55%]
+      ">
+        <div className="space-y-5 lg:space-y-6 max-w-xl">
+          {/* Eyebrow */}
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-blue-400">
+            Passi City
+          </p>
+
+          {/* Main headline — scales fluidly */}
+          <div className="leading-none">
+            <div className="text-[clamp(2.8rem,10vw,7rem)] font-black text-blue-600 tracking-tight leading-none">
               Primary
-            </h1>
-            <h1 className="text-6xl md:text-7xl lg:text-8xl font-black text-blue-600 leading-none tracking-tight mb-2">
+            </div>
+            <div className="text-[clamp(2.8rem,10vw,7rem)] font-black text-blue-600 tracking-tight leading-none">
               Pharmacy
-            </h1>
+            </div>
             <div className="flex items-center gap-3 mt-3">
-              <div className="h-1 w-20 bg-gray-900 rounded-full"></div>
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-gray-900 leading-none tracking-tight">
+              <div className="h-[3px] w-10 sm:w-16 bg-slate-900 rounded-full shrink-0" />
+              <div className="text-[clamp(1.6rem,5.5vw,4rem)] font-black text-slate-900 tracking-tight leading-none">
                 Health <span className="text-blue-600">Facility</span>
-              </h1>
+              </div>
             </div>
           </div>
-          <p className="text-xl md:text-2xl text-gray-600 max-w-lg leading-relaxed font-light">
+
+          {/* Subtitle */}
+          <p className="text-base sm:text-lg lg:text-xl text-slate-500 max-w-sm leading-relaxed font-light">
             Streamline your pharmaceutical operations with intelligent, real-time inventory management
           </p>
-          <div className="flex gap-3 pt-6">
-            <div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse"></div>
-            <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse animation-delay-200"></div>
-            <div className="w-3 h-3 rounded-full bg-blue-600 animate-pulse animation-delay-400"></div>
+
+          {/* Animated dots */}
+          <div className="flex gap-2.5 pt-2 lg:pt-6">
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse animation-delay-200" />
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse animation-delay-400" />
           </div>
         </div>
       </div>
 
-      {/* Login Form - Right Side */}
-      <div className="absolute inset-0 flex items-center justify-end pr-8 lg:pr-16">
+      {/* ── RIGHT / BOTTOM: Login form ───────────────────────────────────────── */}
+      <div className="
+        flex items-center justify-center
+        px-6 pb-12 pt-4
+        sm:px-12 sm:pb-16
+        lg:px-16 lg:py-0 lg:min-h-screen lg:w-[45%] lg:shrink-0
+      ">
         <div className="w-full max-w-md">
-          <div className="login-card rounded-2xl p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Login</h2>
+          <div className="login-card rounded-2xl p-7 sm:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Sign In</h2>
 
             {displayError && (
               <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
@@ -134,12 +154,9 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setLocalError('');
-                  }}
+                  onChange={(e) => { setEmail(e.target.value); setLocalError(''); }}
                   placeholder="Enter your email"
-                  className="w-full px-4 py-2 input-field rounded-lg placeholder-opacity-50"
+                  className="w-full px-4 py-2.5 input-field rounded-lg placeholder-opacity-50"
                   disabled={isLoading || loading}
                   required
                   suppressHydrationWarning
@@ -154,12 +171,9 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setLocalError('');
-                  }}
+                  onChange={(e) => { setPassword(e.target.value); setLocalError(''); }}
                   placeholder="Enter your password"
-                  className="w-full px-4 py-2 input-field rounded-lg placeholder-opacity-50"
+                  className="w-full px-4 py-2.5 input-field rounded-lg placeholder-opacity-50"
                   disabled={isLoading || loading}
                   required
                   suppressHydrationWarning
@@ -169,9 +183,9 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading || loading}
-                className="w-full py-2 px-4 btn-primary rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed mt-6"
+                className="w-full py-2.5 px-4 btn-primary rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed mt-6"
               >
-                {isLoading || loading ? 'Signing in...' : 'Sign In'}
+                {isLoading || loading ? 'Signing in…' : 'Sign In'}
               </button>
             </form>
 

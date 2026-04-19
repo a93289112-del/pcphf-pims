@@ -35,7 +35,7 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden">
       {showAdminSidebar && <AdminSidebarWrapper />}
       {showStaffSidebar && <Sidebar />}
-      <main className="flex-1 min-h-screen w-full transition-all duration-300 ease-in-out bg-slate-50/70 overflow-y-auto">
+      <main className={`flex-1 min-h-screen w-full transition-all duration-300 ease-in-out bg-slate-50/70 overflow-y-auto ${showStaffSidebar ? 'pt-14 pb-16 lg:pt-0 lg:pb-0' : ''}`}>
         {mainContent}
       </main>
     </div>
