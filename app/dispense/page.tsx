@@ -11,7 +11,7 @@ import logoSrc from '@/app/assets/Logo/pharmacylogo.jpeg.png';
 import Processing from '@/lib/components/processing';
 import { deductStockBatch, getTrueEarliestExpiration } from '@/lib/services/stock-management';
 import { logActivity } from '@/lib/services/activity-logs';
-import { Plus, Minus, X } from 'lucide-react';
+import { Plus, Minus, X, CheckCircle2 } from 'lucide-react';
 import { listenToPatients, savePatientRecord, getPatientDisplayName, type PatientRecord } from '@/lib/services/patient-management';
 
 type DispensableUnit = string;
