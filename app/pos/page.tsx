@@ -8,7 +8,7 @@ import { ref, onValue, push, set } from 'firebase/database';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Plus, Minus, ShoppingCart, Grid3x3, List,
+  Plus, Minus, ShoppingCart, Grid3x3, List, Zap,
   CheckCircle2, AlertCircle, Search, X,
   ArrowRight, ChevronRight, Package, Banknote, PanelRightClose,
 } from 'lucide-react';
