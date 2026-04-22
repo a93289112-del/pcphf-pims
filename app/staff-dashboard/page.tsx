@@ -102,12 +102,12 @@ function getOriginalStock(m: Medicine): number | null {
 type MedicineStatusVariant = 'out' | 'expired' | 'urgent' | 'expiring' | 'low' | 'in';
 function getMedicineStatus(m: Medicine): { label: string; variant: MedicineStatusVariant } {
   const stock = getEffectiveStock(m);
-  const min   = getMinStock(m);
-  const exp   = m.expirationDate ? new Date(m.expirationDate) : null;
-  const now   = new Date();
+  const min = getMinStock(m);
+  const exp = m.expirationDate ? new Date(m.expirationDate) : null;
+  const now = new Date();
 
-  if (stock === 0)        return { label: 'Out of Stock', variant: 'out'     };
-  if (exp && exp < now)   return { label: 'Expired',      variant: 'expired' };
+  if (stock === 0) return { label: 'Out of Stock', variant: 'out' };
+  if (exp && exp < now) return { label: 'Expired', variant: 'expired' };
 
   const isLow = min > 0 && stock <= min;
   let isExpiringSoon = false;
@@ -117,20 +117,20 @@ function getMedicineStatus(m: Medicine): { label: string; variant: MedicineStatu
     if (expDays <= 30) isExpiringSoon = true;
   }
 
-  if (isLow && isExpiringSoon) return { label: 'Urgent Alert',     variant: 'urgent'   };
-  if (isExpiringSoon)           return { label: `Exp. ${expDays}d`, variant: 'expiring' };
-  if (isLow)                    return { label: 'Low Stock',        variant: 'low'      };
+  if (isLow && isExpiringSoon) return { label: 'Urgent Alert', variant: 'urgent' };
+  if (isExpiringSoon) return { label: `Exp. ${expDays}d`, variant: 'expiring' };
+  if (isLow) return { label: 'Low Stock', variant: 'low' };
 
   return { label: 'In Stock', variant: 'in' };
 }
 
 const stockModalStatusStyles: Record<MedicineStatusVariant, string> = {
-  out:      'bg-slate-100 text-slate-500',
-  expired:  'bg-red-100 text-red-700',
-  urgent:   'bg-red-600 text-white animate-pulse font-bold',
+  out: 'bg-slate-100 text-slate-500',
+  expired: 'bg-red-100 text-red-700',
+  urgent: 'bg-red-600 text-white animate-pulse font-bold',
   expiring: 'bg-amber-100 text-amber-700',
-  low:      'bg-yellow-100 text-yellow-700',
-  in:       'bg-green-100 text-green-700',
+  low: 'bg-yellow-100 text-yellow-700',
+  in: 'bg-green-100 text-green-700',
 };
 
 const fmt = (value: number): string => {
@@ -290,11 +290,11 @@ function TodayStrip({ dispensed, transactions, pharmacyName }: {
 
 // ─── Print Report Modal ────────────────────────────────────────────────────────
 const colVal = (cls: string) =>
-  cls === 'blue'   ? '#2563eb' :
-  cls === 'green'  ? '#059669' :
-  cls === 'violet' ? '#7c3aed' :
-  cls === 'red'    ? '#dc2626' :
-  cls === 'amber'  ? '#d97706' : '#0f172a';
+  cls === 'blue' ? '#2563eb' :
+    cls === 'green' ? '#059669' :
+      cls === 'violet' ? '#7c3aed' :
+        cls === 'red' ? '#dc2626' :
+          cls === 'amber' ? '#d97706' : '#0f172a';
 
 function PrintReportModal({
   medicines, transactions,
@@ -317,34 +317,34 @@ function PrintReportModal({
       const [y, m] = printMonth.split('-').map(Number);
       return {
         start: new Date(y, m - 1, 1),
-        end:   new Date(y, m, 0, 23, 59, 59),
+        end: new Date(y, m, 0, 23, 59, 59),
         label: new Date(y, m - 1, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' }),
       };
     }
     if (printMode === 'quarterly') {
-      const qMap: Record<QuarterType, [number, number]> = { Q1:[0,2], Q2:[3,5], Q3:[6,8], Q4:[9,11] };
+      const qMap: Record<QuarterType, [number, number]> = { Q1: [0, 2], Q2: [3, 5], Q3: [6, 8], Q4: [9, 11] };
       const [sm, em] = qMap[printQuarter];
       return {
         start: new Date(printYear, sm, 1),
-        end:   new Date(printYear, em + 1, 0, 23, 59, 59),
+        end: new Date(printYear, em + 1, 0, 23, 59, 59),
         label: `${printQuarter} ${printYear}`,
       };
     }
     return {
       start: new Date(printYear, 0, 1),
-      end:   new Date(printYear, 11, 31, 23, 59, 59),
+      end: new Date(printYear, 11, 31, 23, 59, 59),
       label: `Year ${printYear}`,
     };
   }, [printMode, printMonth, printQuarter, printYear]);
 
   const periodTx = useMemo(() =>
     transactions.filter(t => {
-      if (!['dispense','sale','adjustment'].includes(t.type)) return false;
+      if (!['dispense', 'sale', 'adjustment'].includes(t.type)) return false;
       if (!start || !end) return true;
       const d = new Date(t.date);
       return d >= start && d <= end;
     }),
-  [transactions, start, end]);
+    [transactions, start, end]);
 
   const medicineSummary = useMemo(() => {
     type Row = {
@@ -360,19 +360,19 @@ function PrintReportModal({
 
     medicines.forEach(m => {
       map.set(m.id, {
-        name:           m.baseName || m.name || '—',
-        category:       m.category || 'Uncategorized',
-        unit:           m.unit || m.category || '—',
-        originalUnit:   m.originalUnit || m.unit || '—',
-        isConverted:    !!m.unitConversion,
-        packagingUnit:  m.unitConversion?.packagingUnit || null,
-        currentStock:   getEffectiveStock(m),
-        originalStock:  getOriginalStock(m),
+        name: m.baseName || m.name || '—',
+        category: m.category || 'Uncategorized',
+        unit: m.unit || m.category || '—',
+        originalUnit: m.originalUnit || m.unit || '—',
+        isConverted: !!m.unitConversion,
+        packagingUnit: m.unitConversion?.packagingUnit || null,
+        currentStock: getEffectiveStock(m),
+        originalStock: getOriginalStock(m),
         dispensed: 0, sold: 0, adjusted: 0, totalOut: 0, events: 0,
         firstEventDate: null, lastEventDate: null,
-        minStock:       m.minStock ?? 0,
+        minStock: m.minStock ?? 0,
         expirationDate: m.expirationDate ?? null,
-        unitCost:       m.unitCost ?? 0,
+        unitCost: m.unitCost ?? 0,
       });
     });
 
@@ -390,11 +390,11 @@ function PrintReportModal({
       const r = map.get(t.medicineId)!;
       r.events++;
       if (!r.firstEventDate || t.date < r.firstEventDate) r.firstEventDate = t.date;
-      if (!r.lastEventDate  || t.date > r.lastEventDate)  r.lastEventDate  = t.date;
+      if (!r.lastEventDate || t.date > r.lastEventDate) r.lastEventDate = t.date;
       const q = Math.abs(Number(t.quantity) || 0);
-      if (t.type === 'dispense')        { r.dispensed += q; r.totalOut += q; }
-      else if (t.type === 'sale')       { r.sold      += q; r.totalOut += q; }
-      else if (t.type === 'adjustment') { r.adjusted  += (Number(t.quantity) || 0); }
+      if (t.type === 'dispense') { r.dispensed += q; r.totalOut += q; }
+      else if (t.type === 'sale') { r.sold += q; r.totalOut += q; }
+      else if (t.type === 'adjustment') { r.adjusted += (Number(t.quantity) || 0); }
     });
 
     const rows = Array.from(map.values());
@@ -410,17 +410,17 @@ function PrintReportModal({
   }, [medicines, periodTx]);
 
   const totals = useMemo(() => ({
-    dispensed:    periodTx.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
-    sold:         periodTx.filter(t => t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
-    adjusted:     periodTx.filter(t => t.type === 'adjustment').reduce((s, t) => s + (Number(t.quantity) || 0), 0),
-    totalOut:     periodTx.filter(t => ['dispense','sale'].includes(t.type)).reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
-    events:       periodTx.length,
-    uniqueMeds:   new Set(periodTx.map(t => t.medicineId)).size,
-    totalStock:   medicines.reduce((s, m) => s + getEffectiveStock(m), 0),
+    dispensed: periodTx.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
+    sold: periodTx.filter(t => t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
+    adjusted: periodTx.filter(t => t.type === 'adjustment').reduce((s, t) => s + (Number(t.quantity) || 0), 0),
+    totalOut: periodTx.filter(t => ['dispense', 'sale'].includes(t.type)).reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0),
+    events: periodTx.length,
+    uniqueMeds: new Set(periodTx.map(t => t.medicineId)).size,
+    totalStock: medicines.reduce((s, m) => s + getEffectiveStock(m), 0),
     totalOriginal: medicineSummary.reduce((s, r) => s + (r.originalStock || 0), 0),
     posOrders: new Set(periodTx.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size,
-    lowStock:  medicines.filter(m => isLowStock(m)).length,
-    expired:   medicines.filter(m => isExpired(m)).length,
+    lowStock: medicines.filter(m => isLowStock(m)).length,
+    expired: medicines.filter(m => isExpired(m)).length,
   }), [periodTx, medicines, medicineSummary]);
 
   const dayTimeline = useMemo(() => {
@@ -484,22 +484,22 @@ function PrintReportModal({
   };
 
   const S = {
-    h1:      { fontSize: 22, fontWeight: 900, color: '#0f172a', marginBottom: 2 } as React.CSSProperties,
-    h2:      { fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 10, marginTop: 0 } as React.CSSProperties,
-    subtitle:{ fontSize: 11, color: '#64748b', marginBottom: 10 } as React.CSSProperties,
-    badge:   { display: 'inline-block', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 12px', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 20 } as React.CSSProperties,
-    lbl:     { fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: '#94a3b8', marginTop: 4 },
-    grid5:   { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 } as React.CSSProperties,
-    grid4:   { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 } as React.CSSProperties,
-    card:    { border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', background: '#f8fafc' } as React.CSSProperties,
-    table:   { width: '100%', borderCollapse: 'collapse' as const, fontSize: 10 },
-    thead:   { background: '#f1f5f9' },
-    th:      (right = false) => ({ padding: '7px 10px', textAlign: (right ? 'right' : 'left') as 'right' | 'left', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em', color: '#64748b', borderBottom: '2px solid #e2e8f0' }),
-    td:      { padding: '6px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155' } as React.CSSProperties,
-    tdr:     { padding: '6px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155', textAlign: 'right' as const },
-    totRow:  { background: '#f1f5f9', fontWeight: 800 } as React.CSSProperties,
+    h1: { fontSize: 22, fontWeight: 900, color: '#0f172a', marginBottom: 2 } as React.CSSProperties,
+    h2: { fontSize: 14, fontWeight: 800, color: '#0f172a', marginBottom: 10, marginTop: 0 } as React.CSSProperties,
+    subtitle: { fontSize: 11, color: '#64748b', marginBottom: 10 } as React.CSSProperties,
+    badge: { display: 'inline-block', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 12px', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 20 } as React.CSSProperties,
+    lbl: { fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.05em', color: '#94a3b8', marginTop: 4 },
+    grid5: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 } as React.CSSProperties,
+    grid4: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 16 } as React.CSSProperties,
+    card: { border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px', background: '#f8fafc' } as React.CSSProperties,
+    table: { width: '100%', borderCollapse: 'collapse' as const, fontSize: 10 },
+    thead: { background: '#f1f5f9' },
+    th: (right = false) => ({ padding: '7px 10px', textAlign: (right ? 'right' : 'left') as 'right' | 'left', fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.06em', color: '#64748b', borderBottom: '2px solid #e2e8f0' }),
+    td: { padding: '6px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155' } as React.CSSProperties,
+    tdr: { padding: '6px 10px', borderBottom: '1px solid #f1f5f9', color: '#334155', textAlign: 'right' as const },
+    totRow: { background: '#f1f5f9', fontWeight: 800 } as React.CSSProperties,
     divider: { borderTop: '2px solid #e2e8f0', margin: '20px 0' } as React.CSSProperties,
-    footer:  { marginTop: 24, paddingTop: 12, borderTop: '1px solid #e2e8f0', fontSize: 9, color: '#94a3b8', display: 'flex', justifyContent: 'space-between' } as React.CSSProperties,
+    footer: { marginTop: 24, paddingTop: 12, borderTop: '1px solid #e2e8f0', fontSize: 9, color: '#94a3b8', display: 'flex', justifyContent: 'space-between' } as React.CSSProperties,
     section: { marginBottom: 28 } as React.CSSProperties,
   };
 
@@ -540,7 +540,7 @@ function PrintReportModal({
             {printMode === 'quarterly' && (<>
               <select value={printQuarter} onChange={e => setPrintQuarter(e.target.value as QuarterType)}
                 className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
-                {(['Q1','Q2','Q3','Q4'] as QuarterType[]).map(q => <option key={q}>{q}</option>)}
+                {(['Q1', 'Q2', 'Q3', 'Q4'] as QuarterType[]).map(q => <option key={q}>{q}</option>)}
               </select>
               <select value={printYear} onChange={e => setPrintYear(Number(e.target.value))}
                 className="px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
@@ -567,11 +567,11 @@ function PrintReportModal({
 
               <div style={S.grid5}>
                 {[
-                  { lbl: 'Total Medicines',    val: medicines.length.toLocaleString(),  cls: ''      },
-                  { lbl: 'Total Stock (now)',   val: totals.totalStock.toLocaleString(), cls: ''      },
-                  { lbl: 'Dispensed (period)', val: totals.dispensed.toLocaleString(),  cls: 'blue'  },
-                  { lbl: 'POS Sold (period)',   val: totals.sold.toLocaleString(),       cls: 'green' },
-                  { lbl: 'Total Out (period)',  val: totals.totalOut.toLocaleString(),   cls: 'red'   },
+                  { lbl: 'Total Medicines', val: medicines.length.toLocaleString(), cls: '' },
+                  { lbl: 'Total Stock (now)', val: totals.totalStock.toLocaleString(), cls: '' },
+                  { lbl: 'Dispensed (period)', val: totals.dispensed.toLocaleString(), cls: 'blue' },
+                  { lbl: 'POS Sold (period)', val: totals.sold.toLocaleString(), cls: 'green' },
+                  { lbl: 'Total Out (period)', val: totals.totalOut.toLocaleString(), cls: 'red' },
                 ].map(({ lbl, val, cls }) => (
                   <div key={lbl} style={S.card}>
                     <div style={{ fontSize: 20, fontWeight: 900, color: colVal(cls), lineHeight: 1 }}>{val}</div>
@@ -583,10 +583,10 @@ function PrintReportModal({
               <div style={S.grid5}>
                 {[
                   { lbl: 'Adjusted (period)', val: (totals.adjusted >= 0 ? '+' : '') + totals.adjusted.toLocaleString(), cls: 'violet' },
-                  { lbl: 'POS Orders',        val: totals.posOrders.toLocaleString(), cls: 'green' },
-                  { lbl: 'Total Events',      val: totals.events.toLocaleString(),    cls: ''      },
-                  { lbl: 'Low-Stock Items',   val: totals.lowStock.toLocaleString(),  cls: totals.lowStock > 0 ? 'amber' : '' },
-                  { lbl: 'Expired Items',     val: totals.expired.toLocaleString(),   cls: totals.expired > 0 ? 'red'   : '' },
+                  { lbl: 'POS Orders', val: totals.posOrders.toLocaleString(), cls: 'green' },
+                  { lbl: 'Total Events', val: totals.events.toLocaleString(), cls: '' },
+                  { lbl: 'Low-Stock Items', val: totals.lowStock.toLocaleString(), cls: totals.lowStock > 0 ? 'amber' : '' },
+                  { lbl: 'Expired Items', val: totals.expired.toLocaleString(), cls: totals.expired > 0 ? 'red' : '' },
                 ].map(({ lbl, val, cls }) => (
                   <div key={lbl} style={S.card}>
                     <div style={{ fontSize: 20, fontWeight: 900, color: colVal(cls), lineHeight: 1 }}>{val}</div>
@@ -608,18 +608,18 @@ function PrintReportModal({
                 <thead style={S.thead}>
                   <tr>
                     {([
-                      ['Medicine',      false],
-                      ['Category',      false],
-                      ['Unit',          false],
-                      ['Orig. Stock*',  true ],
-                      ['Current Stock', true ],
-                      ['Dispensed',     true ],
-                      ['POS Sold',      true ],
-                      ['Adjusted',      true ],
-                      ['Total Out',     true ],
-                      ['Events',        true ],
+                      ['Medicine', false],
+                      ['Category', false],
+                      ['Unit', false],
+                      ['Orig. Stock*', true],
+                      ['Current Stock', true],
+                      ['Dispensed', true],
+                      ['POS Sold', true],
+                      ['Adjusted', true],
+                      ['Total Out', true],
+                      ['Events', true],
                       ['Last Activity', false],
-                      ['Expires',       false],
+                      ['Expires', false],
                     ] as [string, boolean][]).map(([h, r]) => (
                       <th key={h} style={S.th(r)}>{h}</th>
                     ))}
@@ -747,9 +747,9 @@ function PrintReportModal({
               <div style={S.grid4}>
                 {[
                   { lbl: 'In Stock (healthy)', val: medicines.filter(m => { const s = getEffectiveStock(m); const min = m.minStock ?? 0; const exp = m.expirationDate ? new Date(m.expirationDate) < new Date() : false; return s > 0 && !exp && (min === 0 || s > min); }).length, cls: 'green' },
-                  { lbl: 'Low Stock',          val: totals.lowStock, cls: 'amber' },
-                  { lbl: 'Expired',            val: totals.expired,  cls: 'red'   },
-                  { lbl: 'Out of Stock',       val: medicines.filter(m => getEffectiveStock(m) === 0).length, cls: '' },
+                  { lbl: 'Low Stock', val: totals.lowStock, cls: 'amber' },
+                  { lbl: 'Expired', val: totals.expired, cls: 'red' },
+                  { lbl: 'Out of Stock', val: medicines.filter(m => getEffectiveStock(m) === 0).length, cls: '' },
                 ].map(({ lbl, val, cls }) => (
                   <div key={lbl} style={S.card}>
                     <div style={{ fontSize: 20, fontWeight: 900, color: colVal(cls), lineHeight: 1 }}>{val.toLocaleString()}</div>
@@ -828,22 +828,22 @@ export default function DashboardPage() {
   const { isCollapsed } = useSidebar();
   const router = useRouter();
 
-  const [medicines,    setMedicines]    = useState<Medicine[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [transactions, setTransactions] = useState<FirebaseTransaction[]>([]);
-  const [showStockModal,   setShowStockModal]   = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
   const [stockModalSearch, setStockModalSearch] = useState('');
-  const [showPrintModal,   setShowPrintModal]   = useState(false);
-  const [printMode,        setPrintMode]        = useState<'monthly' | 'quarterly' | 'annual' | 'all'>('monthly');
-  const [printMonth,       setPrintMonth]       = useState<string>(new Date().toISOString().slice(0, 7));
-  const [printQuarter,     setPrintQuarter]     = useState<QuarterType>('Q1');
-  const [printYear,        setPrintYear]        = useState<number>(new Date().getFullYear());
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printMode, setPrintMode] = useState<'monthly' | 'quarterly' | 'annual' | 'all'>('monthly');
+  const [printMonth, setPrintMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [printQuarter, setPrintQuarter] = useState<QuarterType>('Q1');
+  const [printYear, setPrintYear] = useState<number>(new Date().getFullYear());
 
-  const [filterRange,     setFilterRange]     = useState<'today' | 'last7' | 'last30' | 'monthly' | 'quarterly' | 'annual' | 'custom'>('last7');
+  const [filterRange, setFilterRange] = useState<'today' | 'last7' | 'last30' | 'monthly' | 'quarterly' | 'annual' | 'custom'>('last7');
   const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate,   setFilterEndDate]   = useState('');
-  const [selectedMonth,   setSelectedMonth]   = useState<string>(new Date().toISOString().slice(0, 7));
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterType>('Q1');
-  const [selectedYear,    setSelectedYear]    = useState<number>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   useEffect(() => { if (!loading && !user) router.push('/login'); }, [user, loading, router]);
 
@@ -861,31 +861,31 @@ export default function DashboardPage() {
       if (!data) { setMedicines([]); return; }
       const list = Object.entries(data as Record<string, MedicineRecord>).map(([id, v]) => ({
         id,
-        name:              v.name,
-        baseName:          v.baseName,
-        brandModel:        v.brandModel,
-        unit:              v.unit              || '',
-        category:          v.category          || '',
-        originalUnit:      v.originalUnit      || '',
-        brand:             v.brand             || '',
-        image:             v.image             || '',
-        description:       v.description       || '',
-        quantity:          v.quantity,
-        stockPerUnit:      v.stockPerUnit      ?? 0,
-        stockPerPieces:    v.stockPerPieces    ?? 0,
-        piecesPerUnit:     v.piecesPerUnit,
-        totalPieces:       v.totalPieces,
+        name: v.name,
+        baseName: v.baseName,
+        brandModel: v.brandModel,
+        unit: v.unit || '',
+        category: v.category || '',
+        originalUnit: v.originalUnit || '',
+        brand: v.brand || '',
+        image: v.image || '',
+        description: v.description || '',
+        quantity: v.quantity,
+        stockPerUnit: v.stockPerUnit ?? 0,
+        stockPerPieces: v.stockPerPieces ?? 0,
+        piecesPerUnit: v.piecesPerUnit,
+        totalPieces: v.totalPieces,
         containerQuantity: v.containerQuantity,
-        unitConversion:    v.unitConversion    ?? null,
-        pricePerUnit:      v.pricePerUnit   ?? v.unitCost      ?? 0,
-        pricePerPieces:    v.pricePerPieces ?? v.sellingPrice  ?? 0,
-        unitCost:          v.unitCost      ?? v.pricePerUnit  ?? 0,
-        sellingPrice:      v.sellingPrice  ?? v.pricePerPieces ?? 0,
-        minStock:          v.minStock          ?? 0,
-        expirationDate:    v.expirationDate    || '',
-        createdAt:         v.createdAt         || new Date().toISOString(),
-        strength:          v.strength,
-        strengths:         v.strengths,
+        unitConversion: v.unitConversion ?? null,
+        pricePerUnit: v.pricePerUnit ?? v.unitCost ?? 0,
+        pricePerPieces: v.pricePerPieces ?? v.sellingPrice ?? 0,
+        unitCost: v.unitCost ?? v.pricePerUnit ?? 0,
+        sellingPrice: v.sellingPrice ?? v.pricePerPieces ?? 0,
+        minStock: v.minStock ?? 0,
+        expirationDate: v.expirationDate || '',
+        createdAt: v.createdAt || new Date().toISOString(),
+        strength: v.strength,
+        strengths: v.strengths,
         prescriptionRequired: v.prescriptionRequired,
       }));
       setMedicines(list);
@@ -897,14 +897,18 @@ export default function DashboardPage() {
     const transactionsPath = getUserPath(user.uid, 'transactions');
     return onValue(ref(database, transactionsPath), snap => {
       const data = snap.val();
-      setTransactions(data ? (Object.values(data) as FirebaseTransaction[]) : []);
+      setTransactions(
+        data
+          ? (Object.values(data).filter(Boolean) as FirebaseTransaction[])
+          : []
+      );
     });
   }, [user]);
 
-  const today      = new Date();
-  const todayYear  = today.getFullYear();
+  const today = new Date();
+  const todayYear = today.getFullYear();
   const todayMonth = today.getMonth();
-  const todayDate  = today.getDate();
+  const todayDate = today.getDate();
   const { todayStart, todayEnd } = useMemo(() => ({
     todayStart: new Date(todayYear, todayMonth, todayDate),
     todayEnd: new Date(todayYear, todayMonth, todayDate + 1),
@@ -953,38 +957,30 @@ export default function DashboardPage() {
       const dt = new Date(t.date);
       return rangeStart && rangeEnd ? dt >= rangeStart && dt < rangeEnd : true;
     }),
-  [transactions, rangeStart, rangeEnd]);
+    [transactions, rangeStart, rangeEnd]);
 
   const prevTransactions = useMemo(() =>
     transactions.filter(t => {
       const dt = new Date(t.date);
       return prevStart && prevEnd ? dt >= prevStart && dt < prevEnd : false;
     }),
-  [transactions, prevStart, prevEnd]);
+    [transactions, prevStart, prevEnd]);
 
-  const totalDispensed        = useMemo(() => filteredTransactions.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [filteredTransactions]);
-  const prevDispensed         = useMemo(() => prevTransactions.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [prevTransactions]);
+  const totalDispensed = useMemo(() => filteredTransactions.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [filteredTransactions]);
+  const prevDispensed = useMemo(() => prevTransactions.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [prevTransactions]);
   const totalDispenseSessions = useMemo(() => new Set(filteredTransactions.filter(t => t.type === 'dispense').map(t => t.referenceId).filter(Boolean)).size, [filteredTransactions]);
-  const totalPosSales         = useMemo(() => new Set(filteredTransactions.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size, [filteredTransactions]);
-  const prevPosSales          = useMemo(() => new Set(prevTransactions.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size, [prevTransactions]);
-  const totalStockDeducted    = useMemo(() => filteredTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [filteredTransactions]);
-  const prevStockDeducted     = useMemo(() => prevTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [prevTransactions]);
+  const totalPosSales = useMemo(() => new Set(filteredTransactions.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size, [filteredTransactions]);
+  const prevPosSales = useMemo(() => new Set(prevTransactions.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size, [prevTransactions]);
+  const totalStockDeducted = useMemo(() => filteredTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [filteredTransactions]);
+  const prevStockDeducted = useMemo(() => prevTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0), [prevTransactions]);
 
-  const totalMedicines = useMemo(() => {
-    if (!rangeStart || !rangeEnd) return medicines.length;
-    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
-    return medicineIdsInRange.size > 0 ? medicineIdsInRange.size : 0;
-  }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
+  const totalMedicines = useMemo(() => medicines.length, [medicines]);
 
-  const totalCategories = useMemo(() => {
-    if (!rangeStart || !rangeEnd) return new Set(medicines.map(getCategory)).size;
-    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
-    return new Set(medicines.filter(m => medicineIdsInRange.has(m.id)).map(getCategory)).size;
-  }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
+  const totalCategories = useMemo(() => new Set(medicines.map(getCategory)).size, [medicines]);
 
   const inStockCount = useMemo(() => {
-    const checker = (m: Medicine) => {
-      const s   = getEffectiveStock(m);
+    return medicines.filter(m => {
+      const s = getEffectiveStock(m);
       const min = m.minStock ?? 0;
       const exp = m.expirationDate ? new Date(m.expirationDate) < new Date() : false;
       const dying = (() => {
@@ -993,41 +989,26 @@ export default function DashboardPage() {
         return days >= 0 && days <= 30;
       })();
       return s > 0 && !exp && !dying && (min === 0 || s > min);
-    };
-    if (!rangeStart || !rangeEnd) return medicines.filter(checker).length;
-    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
-    return medicines.filter(m => medicineIdsInRange.has(m.id)).filter(checker).length;
-  }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
+    }).length;
+  }, [medicines]);
 
-  const lowStockCount = useMemo(() => {
-    if (!rangeStart || !rangeEnd) return medicines.filter(isLowStock).length;
-    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
-    return medicines.filter(m => medicineIdsInRange.has(m.id)).filter(isLowStock).length;
-  }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
+  const lowStockCount = useMemo(() => medicines.filter(isLowStock).length, [medicines]);
 
-  const expiredCount = useMemo(() => {
-    if (!rangeStart || !rangeEnd) return medicines.filter(isExpired).length;
-    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
-    return medicines.filter(m => medicineIdsInRange.has(m.id)).filter(isExpired).length;
-  }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
+  const expiredCount = useMemo(() => medicines.filter(isExpired).length, [medicines]);
 
-  const remainingStock = useMemo(() => {
-    if (!rangeStart || !rangeEnd) return medicines.reduce((s, m) => s + getEffectiveStock(m), 0);
-    const medicineIdsInRange = new Set(filteredTransactions.map(t => t.medicineId).filter(Boolean));
-    return medicines.filter(m => medicineIdsInRange.has(m.id)).reduce((s, m) => s + getEffectiveStock(m), 0);
-  }, [medicines, rangeStart, rangeEnd, filteredTransactions]);
+  const remainingStock = useMemo(() => medicines.reduce((s, m) => s + getEffectiveStock(m), 0), [medicines]);
 
-  const todayTransactions   = transactions.filter(t => { const dt = new Date(t.date); return dt >= todayStart && dt < todayEnd; });
+  const todayTransactions = transactions.filter(t => { const dt = new Date(t.date); return dt >= todayStart && dt < todayEnd; });
   const todayItemsDispensed = todayTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
-  const todaySessionCount   = new Set(todayTransactions.map(t => t.referenceId).filter(Boolean)).size;
+  const todaySessionCount = new Set(todayTransactions.map(t => t.referenceId).filter(Boolean)).size;
 
   const brandMap = medicines.reduce<Record<string, string | undefined>>((acc, m) => {
     const brand = m.brand || m.brandModel || 'Unknown';
     if (!(brand in acc)) acc[brand] = m.image;
     return acc;
   }, {});
-  const uniqueBrands  = Object.entries(brandMap);
-  const marqueeSpeed  = Math.max(uniqueBrands.length * (isCollapsed ? 1 : 1.2), 8);
+  const uniqueBrands = Object.entries(brandMap);
+  const marqueeSpeed = Math.max(uniqueBrands.length * (isCollapsed ? 1 : 1.2), 8);
   const defaultStockParam = expiredCount > 0 ? 'expired' : lowStockCount > 0 ? 'low' : 'ok';
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
@@ -1217,8 +1198,8 @@ export default function DashboardPage() {
                       {image
                         ? <Image src={image} alt={brand} width={32} height={32} className="w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-lg" />
                         : <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-slate-200 flex items-center justify-center">
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.318A48.309 48.309 0 0112 21a48.309 48.309 0 01-8.135-1.587c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
-                          </div>
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.318A48.309 48.309 0 0112 21a48.309 48.309 0 01-8.135-1.587c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" /></svg>
+                        </div>
                       }
                       <p className="text-[10px] sm:text-[11px] font-semibold text-slate-700 text-center leading-tight" style={{ maxWidth: '70px', wordBreak: 'break-word' }}>{brand}</p>
                     </div>
@@ -1341,10 +1322,10 @@ export default function DashboardPage() {
         <PrintReportModal
           medicines={medicines}
           transactions={transactions}
-          printMode={printMode}       setPrintMode={setPrintMode}
-          printMonth={printMonth}     setPrintMonth={setPrintMonth}
+          printMode={printMode} setPrintMode={setPrintMode}
+          printMonth={printMonth} setPrintMonth={setPrintMonth}
           printQuarter={printQuarter} setPrintQuarter={setPrintQuarter}
-          printYear={printYear}       setPrintYear={setPrintYear}
+          printYear={printYear} setPrintYear={setPrintYear}
           years={years}
           onClose={() => setShowPrintModal(false)}
         />

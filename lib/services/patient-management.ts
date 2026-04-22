@@ -1,5 +1,5 @@
 import { database, getUserPath } from './firebase';
-import { ref, onValue, push, set, get } from 'firebase/database';
+import { ref, onValue, push, set, get, remove } from 'firebase/database';
 
 export interface PatientRecord {
   id?: string;
@@ -8,6 +8,7 @@ export interface PatientRecord {
   middleName: string;
   dateOfBirth: string;
   sex: 'Male' | 'Female' | '';
+
   patientContactNo: string;
   // Full patient object stored for quick retrieval
   fullPatientData: Record<string, unknown>;
@@ -21,7 +22,7 @@ export interface PatientRecord {
 export const savePatientRecord = async (userId: string, patientData: Record<string, unknown>): Promise<string> => {
   try {
     const patientsPath = getUserPath(userId, 'patients');
-    
+
     console.log('[savePatientRecord] Saving to path:', patientsPath);
     console.log('[savePatientRecord] Patient data:', {
       lastName: patientData.lastName,
@@ -29,7 +30,7 @@ export const savePatientRecord = async (userId: string, patientData: Record<stri
       middleName: patientData.middleName,
       dateOfBirth: patientData.dateOfBirth,
     });
-    
+
     // Extract and type-assert patient fields
     const lastName = String(patientData.lastName || '');
     const firstName = String(patientData.firstName || '');
@@ -37,7 +38,7 @@ export const savePatientRecord = async (userId: string, patientData: Record<stri
     const dateOfBirth = String(patientData.dateOfBirth);
     const sex = patientData.sex as 'Male' | 'Female' | '';
     const patientContactNo = String(patientData.patientContactNo || '');
-    
+
     // Create a searchable patient record
     const patientRecord: PatientRecord = {
       lastName,
@@ -52,7 +53,7 @@ export const savePatientRecord = async (userId: string, patientData: Record<stri
 
     // Check if patient already exists (by name + DOB + contact)
     const existingPatientId = await findExistingPatient(userId, patientData);
-    
+
     if (existingPatientId) {
       // Update existing patient
       console.log('[savePatientRecord] Updating existing patient:', existingPatientId);
@@ -101,6 +102,20 @@ const findExistingPatient = async (userId: string, patientData: Record<string, u
   }
 };
 
+
+/**
+ * Delete a patient record by ID
+ */
+export const deletePatientRecord = async (userId: string, patientId: string): Promise<void> => {
+  try {
+    const patientsPath = getUserPath(userId, 'patients');
+    await remove(ref(database, `${patientsPath}/${patientId}`));
+    console.log('[deletePatientRecord] Deleted patient:', patientId);
+  } catch (error) {
+    console.error('Error deleting patient record:', error);
+    throw error;
+  }
+};
 /**
  * Get all patients for a user
  */
@@ -115,9 +130,9 @@ export const getAllPatients = async (userId: string): Promise<PatientRecord[]> =
           const data = snapshot.val() as Record<string, Omit<PatientRecord, 'id'>> | null;
           const patients: PatientRecord[] = data
             ? Object.entries(data).map(([id, value]: [string, Omit<PatientRecord, 'id'>]) => ({
-                id,
-                ...value,
-              }))
+              id,
+              ...value,
+            }))
             : [];
           resolve(patients);
           if (unsub) unsub();
@@ -151,9 +166,9 @@ export const getPatientById = async (userId: string, patientId: string): Promise
           resolve(
             data
               ? {
-                  id: patientId,
-                  ...data,
-                }
+                id: patientId,
+                ...data,
+              }
               : null
           );
           if (unsub) unsub();
@@ -174,23 +189,23 @@ export const getPatientById = async (userId: string, patientId: string): Promise
 export const listenToPatients = (userId: string, callback: (patients: PatientRecord[]) => void) => {
   try {
     // REMOVED: migrateOldPatients(userId).catch(console.error);
-    
+
     const patientsPath = getUserPath(userId, 'patients');
     console.log('[listenToPatients] Listening to path:', patientsPath);
-    
+
     const unsub = onValue(
       ref(database, patientsPath),
       (snapshot) => {
         const data = snapshot.val() as Record<string, Omit<PatientRecord, 'id'>> | null;
         console.log('[listenToPatients] Retrieved data:', data);
-        
+
         const patients: PatientRecord[] = data
           ? Object.entries(data).map(([id, value]: [string, Omit<PatientRecord, 'id'>]) => ({
-              id,
-              ...value,
-            }))
+            id,
+            ...value,
+          }))
           : [];
-        
+
         console.log('[listenToPatients] Parsed patients:', patients);
         callback(patients);
       },
@@ -202,7 +217,7 @@ export const listenToPatients = (userId: string, callback: (patients: PatientRec
     return unsub;
   } catch (error) {
     console.error('Error setting up patient listener:', error);
-    return () => {};
+    return () => { };
   }
 };
 
@@ -214,7 +229,7 @@ export const getPatientDisplayName = (patient: PatientRecord): string => {
   const lastName = patient?.lastName?.trim() || '';
   const firstName = patient?.firstName?.trim() || '';
   const middleName = patient?.middleName?.trim() || '';
-  
+
   const parts = [lastName, firstName, middleName].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : 'Unknown Patient';
 };
@@ -227,7 +242,7 @@ export const searchPatients = async (userId: string, searchTerm: string): Promis
     const patients = await getAllPatients(userId);
     const term = searchTerm.toLowerCase().trim();
     if (!term) return patients;
-    
+
     return patients.filter((p) => {
       const displayName = getPatientDisplayName(p).toLowerCase();
       const contact = (p.patientContactNo || '').toLowerCase();

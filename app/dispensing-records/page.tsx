@@ -108,12 +108,12 @@ function checkMedicineStatus(expirationDate?: string): { isExpired: boolean; isE
 const Badge = ({ value, color = 'slate' }: { value?: string; color?: 'blue' | 'green' | 'red' | 'purple' | 'slate' | 'amber' }) => {
   if (!value) return <span className="text-slate-300 text-xs">—</span>;
   const colors: Record<string, string> = {
-    blue:   'bg-blue-50 text-blue-700 border-blue-200',
-    green:  'bg-emerald-50 text-emerald-700 border-emerald-200',
-    red:    'bg-red-50 text-red-600 border-red-200',
+    blue: 'bg-blue-50 text-blue-700 border-blue-200',
+    green: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    red: 'bg-red-50 text-red-600 border-red-200',
     purple: 'bg-purple-50 text-purple-700 border-purple-200',
-    amber:  'bg-amber-50 text-amber-700 border-amber-200',
-    slate:  'bg-slate-100 text-slate-600 border-slate-200',
+    amber: 'bg-amber-50 text-amber-700 border-amber-200',
+    slate: 'bg-slate-100 text-slate-600 border-slate-200',
   };
   return <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${colors[color]}`}>{value}</span>;
 };
@@ -234,11 +234,11 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                 <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4">
                   <p className="text-[9px] font-bold uppercase tracking-widest text-blue-400 mb-3">Member Details</p>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3">
-                    <Field label="Member Last Name"  value={pi?.memberLastName} />
+                    <Field label="Member Last Name" value={pi?.memberLastName} />
                     <Field label="Member First Name" value={pi?.memberFirstName} />
                     <Field label="Member Middle Name" value={pi?.memberMiddleName} />
-                    <Field label="Member Suffix"     value={pi?.memberSuffix} />
-                    <Field label="Member DOB"        value={pi?.memberDateOfBirth} />
+                    <Field label="Member Suffix" value={pi?.memberSuffix} />
+                    <Field label="Member DOB" value={pi?.memberDateOfBirth} />
                     <Field label="Member Gender"><Badge value={pi?.memberGender} color={pi?.memberGender === 'Male' ? 'blue' : 'purple'} /></Field>
                     <Field label="Member PhilHealth No." value={pi?.memberPhilhealthNo} />
                     <Field label="Independents PhilHealth No." value={pi?.independentsPhilhealthNo} />
@@ -820,19 +820,19 @@ export default function DispensingRecordsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  const [dispensings,          setDispensings]          = useState<Dispensing[]>([]);
+  const [dispensings, setDispensings] = useState<Dispensing[]>([]);
   const [isLoadingDispensings, setIsLoadingDispensings] = useState(true);
-  const [searchTerm,           setSearchTerm]           = useState('');
-  const [notification,         setNotification]         = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [showConfirmDelete,    setShowConfirmDelete]    = useState(false);
-  const [deleteTarget,         setDeleteTarget]         = useState<string | null>(null);
-  const [isProcessing,         setIsProcessing]         = useState(false);
-  const [sortBy,               setSortBy]               = useState<'date-desc' | 'date-asc' | 'patient'>('date-desc');
-  const [expandedId,           setExpandedId]           = useState<string | null>(null);
-  const [patientModalRecord,   setPatientModalRecord]   = useState<Dispensing | null>(null);
-  const [dateFrom,             setDateFrom]             = useState('');
-  const [dateTo,               setDateTo]               = useState('');
-  const [viewMode,             setViewMode]             = useState<ViewMode>('table');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'patient'>('date-desc');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [patientModalRecord, setPatientModalRecord] = useState<Dispensing | null>(null);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const currentUserLabel = user?.displayName || user?.email || user?.uid || 'Unknown';
 
@@ -843,7 +843,11 @@ export default function DispensingRecordsPage() {
     const unsub = onValue(ref(database, getUserPath(user.uid, 'dispensings')), (snap) => {
       const data = snap.val();
       setDispensings(data
-        ? dedupeById(Object.entries(data as Record<string, DispensingRecord>).map(([id, v]) => ({ id, ...v })))
+        ? dedupeById(
+          Object.entries(data as Record<string, DispensingRecord>)
+            .filter(([, v]) => v != null)          // ← guard against null tombstones
+            .map(([id, v]) => ({ id, ...v }))
+        )
         : []
       );
       setIsLoadingDispensings(false);
@@ -872,12 +876,12 @@ export default function DispensingRecordsPage() {
     const dt = new Date(d.date);
     return matchSearch
       && (dateFrom ? dt >= new Date(dateFrom) : true)
-      && (dateTo   ? dt <= new Date(dateTo + 'T23:59:59') : true);
+      && (dateTo ? dt <= new Date(dateTo + 'T23:59:59') : true);
   });
 
   const sortedDispensings = [...filteredDispensings].sort((a, b) => {
     if (sortBy === 'date-desc') return new Date(b.date).getTime() - new Date(a.date).getTime();
-    if (sortBy === 'date-asc')  return new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (sortBy === 'date-asc') return new Date(a.date).getTime() - new Date(b.date).getTime();
     return a.patientName.localeCompare(b.patientName);
   });
 
@@ -885,6 +889,40 @@ export default function DispensingRecordsPage() {
     if (!deleteTarget) return;
     setIsProcessing(true);
     try {
+      const handleDelete = async () => {
+        if (!deleteTarget || !user) return;
+        setIsProcessing(true);
+        try {
+          // 1. Delete the dispensing record itself
+          await remove(ref(database, `dispensings/${deleteTarget}`));
+
+          // 2. Find and delete all matching transactions with the same referenceId
+          //    These are what the dashboard stats read from
+          const transactionsRef = ref(database, getUserPath(user.uid, 'transactions'));
+          const snapshot = await new Promise<Record<string, { referenceId?: string }>>((resolve) => {
+            onValue(transactionsRef, (snap) => resolve(snap.val() || {}), { onlyOnce: true });
+          });
+
+          const deletePromises = Object.entries(snapshot)
+            .filter(([, tx]) => tx.referenceId === deleteTarget)
+            .map(([key]) =>
+              remove(ref(database, `${getUserPath(user.uid, 'transactions')}/${key}`))
+            );
+
+          await Promise.all(deletePromises);
+
+          setNotification({ message: 'Record deleted successfully', type: 'success' });
+          setShowConfirmDelete(false);
+          if (expandedId === deleteTarget) setExpandedId(null);
+          if (patientModalRecord?.id === deleteTarget) setPatientModalRecord(null);
+          setDeleteTarget(null);
+        } catch (err) {
+          console.error(err);
+          setNotification({ message: 'Failed to delete record', type: 'error' });
+        } finally {
+          setIsProcessing(false);
+        }
+      };
       await remove(ref(database, `dispensings/${deleteTarget}`));
       setNotification({ message: 'Record deleted successfully', type: 'success' });
       setShowConfirmDelete(false);
@@ -898,6 +936,7 @@ export default function DispensingRecordsPage() {
       setIsProcessing(false);
     }
   };
+
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1037,9 +1076,8 @@ export default function DispensingRecordsPage() {
       )}
 
       {notification && (
-        <div className={`fixed top-5 right-5 z-[100] toast-in flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium ${
-          notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
-        }`}>
+        <div className={`fixed top-5 right-5 z-[100] toast-in flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium ${notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
+          }`}>
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ animation: 'pulse-dot 1.5s ease infinite' }} />
           {notification.message}
         </div>
@@ -1134,178 +1172,178 @@ export default function DispensingRecordsPage() {
           {/* ── TABLE VIEW ── */}
           {viewMode === 'table' && (
             isLoadingDispensings ? <TableSkeleton /> :
-            sortedDispensings.length === 0 ? <EmptyState searchTerm={searchTerm} onClear={() => setSearchTerm('')} /> : (
-              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden slide-up">
-                {/* No horizontal scroll wrapper — table uses fixed layout */}
-                <table className="records-table">
-                  <thead>
-                    <tr>
-                      <th className="col-patient">Patient</th>
-                      <th className="col-date">Date</th>
-                      <th className="col-meds">Medicines</th>
-                      <th className="col-actions" style={{ textAlign: 'right' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedDispensings.map((record, idx) => {
-                      const isExpanded = expandedId === record.id;
-                      const pi = record.patientInfo;
-                      return (
-                        <Fragment key={record.id}>
-                          <tr className="row-in" style={{ animationDelay: `${idx * 0.025}s` }}>
-                            {/* Patient */}
-                            <td className="col-patient">
-                              <div className="flex items-center gap-2.5">
-                                <div className="patient-avatar w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs">
-                                  {record.patientName.charAt(0).toUpperCase()}
-                                </div>
-                                <div className="min-w-0">
-                                  <p className="text-sm font-semibold text-slate-900 truncate">{record.patientName}</p>
-                                  <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                                    {record.patientId && (
-                                      <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{record.patientId}</span>
-                                    )}
-                                    {pi?.sex && <span className="text-[10px] text-slate-400 hidden sm:inline">{pi.sex}</span>}
+              sortedDispensings.length === 0 ? <EmptyState searchTerm={searchTerm} onClear={() => setSearchTerm('')} /> : (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden slide-up">
+                  {/* No horizontal scroll wrapper — table uses fixed layout */}
+                  <table className="records-table">
+                    <thead>
+                      <tr>
+                        <th className="col-patient">Patient</th>
+                        <th className="col-date">Date</th>
+                        <th className="col-meds">Medicines</th>
+                        <th className="col-actions" style={{ textAlign: 'right' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedDispensings.map((record, idx) => {
+                        const isExpanded = expandedId === record.id;
+                        const pi = record.patientInfo;
+                        return (
+                          <Fragment key={record.id}>
+                            <tr className="row-in" style={{ animationDelay: `${idx * 0.025}s` }}>
+                              {/* Patient */}
+                              <td className="col-patient">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="patient-avatar w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs">
+                                    {record.patientName.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 truncate">{record.patientName}</p>
+                                    <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                                      {record.patientId && (
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{record.patientId}</span>
+                                      )}
+                                      {pi?.sex && <span className="text-[10px] text-slate-400 hidden sm:inline">{pi.sex}</span>}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </td>
+                              </td>
 
-                            {/* Date — hidden on mobile via CSS */}
-                            <td className="col-date">
-                              <p className="text-xs font-medium text-slate-700">{formatDateShort(record.date)}</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">
-                                {new Date(record.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                              </p>
-                            </td>
+                              {/* Date — hidden on mobile via CSS */}
+                              <td className="col-date">
+                                <p className="text-xs font-medium text-slate-700">{formatDateShort(record.date)}</p>
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  {new Date(record.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                </p>
+                              </td>
 
-                            {/* Medicines */}
-                            <td className="col-meds">
-                              <div className="flex flex-wrap gap-1">
-                                {record.items.slice(0, 2).map((item, i) => (
-                                  <span key={i} className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100 truncate max-w-[80px]">
-                                    {item.medicineName}
-                                  </span>
-                                ))}
-                                {record.items.length > 2 && (
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">+{record.items.length - 2}</span>
-                                )}
-                              </div>
-                            </td>
+                              {/* Medicines */}
+                              <td className="col-meds">
+                                <div className="flex flex-wrap gap-1">
+                                  {record.items.slice(0, 2).map((item, i) => (
+                                    <span key={i} className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100 truncate max-w-[80px]">
+                                      {item.medicineName}
+                                    </span>
+                                  ))}
+                                  {record.items.length > 2 && (
+                                    <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">+{record.items.length - 2}</span>
+                                  )}
+                                </div>
+                              </td>
 
-                            {/* Actions */}
-                            <td className="col-actions">
-                              <div className="flex items-center justify-end gap-1 flex-wrap">
-                                <ViewPatientBtn record={record} />
-                                <button
-                                  onClick={() => setExpandedId(isExpanded ? null : record.id)}
-                                  title={isExpanded ? 'Collapse' : 'Expand medicines'}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shrink-0"
-                                >
-                                  <svg className={`w-3.5 h-3.5 chevron-icon ${isExpanded ? 'open' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                                </button>
-                                <button
-                                  onClick={() => { setDeleteTarget(record.id); setShowConfirmDelete(true); }}
-                                  title="Delete"
-                                  className="delete-btn w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-all shrink-0"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-
-                          {isExpanded && (
-                            <tr className="table-expand-row">
-                              <td colSpan={4}><MedicinesPanel record={record} /></td>
+                              {/* Actions */}
+                              <td className="col-actions">
+                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                  <ViewPatientBtn record={record} />
+                                  <button
+                                    onClick={() => setExpandedId(isExpanded ? null : record.id)}
+                                    title={isExpanded ? 'Collapse' : 'Expand medicines'}
+                                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-all shrink-0"
+                                  >
+                                    <svg className={`w-3.5 h-3.5 chevron-icon ${isExpanded ? 'open' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeleteTarget(record.id); setShowConfirmDelete(true); }}
+                                    title="Delete"
+                                    className="delete-btn w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-400 transition-all shrink-0"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )
+
+                            {isExpanded && (
+                              <tr className="table-expand-row">
+                                <td colSpan={4}><MedicinesPanel record={record} /></td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
           )}
 
           {/* ── GRID VIEW ── */}
           {viewMode === 'grid' && (
             isLoadingDispensings ? <GridSkeleton /> :
-            sortedDispensings.length === 0 ? <EmptyState searchTerm={searchTerm} onClear={() => setSearchTerm('')} /> : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {sortedDispensings.map((record, idx) => {
-                  const isExpanded = expandedId === record.id;
-                  const pi = record.patientInfo;
-                  return (
-                    <div key={record.id}
-                      className={`grid-card bg-white rounded-2xl border border-slate-200 overflow-hidden card-in ${isExpanded ? 'is-expanded' : ''}`}
-                      style={{ animationDelay: `${idx * 0.04}s` }}>
+              sortedDispensings.length === 0 ? <EmptyState searchTerm={searchTerm} onClear={() => setSearchTerm('')} /> : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {sortedDispensings.map((record, idx) => {
+                    const isExpanded = expandedId === record.id;
+                    const pi = record.patientInfo;
+                    return (
+                      <div key={record.id}
+                        className={`grid-card bg-white rounded-2xl border border-slate-200 overflow-hidden card-in ${isExpanded ? 'is-expanded' : ''}`}
+                        style={{ animationDelay: `${idx * 0.04}s` }}>
 
-                      <button className="w-full text-left px-4 pt-4 pb-3" onClick={() => setExpandedId(isExpanded ? null : record.id)}>
-                        <div className="flex items-start gap-3">
-                          <div className="patient-avatar w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm mt-0.5">
-                            {record.patientName.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-bold text-slate-900 truncate">{record.patientName}</p>
-                              <svg className={`chevron-icon w-3.5 h-3.5 shrink-0 ${isExpanded ? 'open' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        <button className="w-full text-left px-4 pt-4 pb-3" onClick={() => setExpandedId(isExpanded ? null : record.id)}>
+                          <div className="flex items-start gap-3">
+                            <div className="patient-avatar w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-sm mt-0.5">
+                              {record.patientName.charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              {record.patientId && <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{record.patientId}</span>}
-                              {pi?.sex && <span className="text-[10px] text-slate-400">{pi.sex}</span>}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-bold text-slate-900 truncate">{record.patientName}</p>
+                                <svg className={`chevron-icon w-3.5 h-3.5 shrink-0 ${isExpanded ? 'open' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                {record.patientId && <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md">{record.patientId}</span>}
+                                {pi?.sex && <span className="text-[10px] text-slate-400">{pi.sex}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </button>
+                        </button>
 
-                      <div className="px-4 pb-3 grid grid-cols-3 gap-2">
-                        {[
-                          { val: record.items.length, lbl: 'Meds' },
-                          { val: record.items.reduce((s, i) => s + i.quantity, 0), lbl: [...new Set(record.items.map(resolveQtyType))].slice(0, 2).join(' & ') },
-                          { val: new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), lbl: 'Date' },
-                        ].map((s, i) => (
-                          <div key={i} className="bg-slate-50 rounded-xl px-2 py-2 text-center border border-slate-100">
-                            <p className="text-sm font-black text-slate-800 leading-tight truncate">{s.val}</p>
-                            <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mt-0.5 truncate">{s.lbl}</p>
+                        <div className="px-4 pb-3 grid grid-cols-3 gap-2">
+                          {[
+                            { val: record.items.length, lbl: 'Meds' },
+                            { val: record.items.reduce((s, i) => s + i.quantity, 0), lbl: [...new Set(record.items.map(resolveQtyType))].slice(0, 2).join(' & ') },
+                            { val: new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), lbl: 'Date' },
+                          ].map((s, i) => (
+                            <div key={i} className="bg-slate-50 rounded-xl px-2 py-2 text-center border border-slate-100">
+                              <p className="text-sm font-black text-slate-800 leading-tight truncate">{s.val}</p>
+                              <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 mt-0.5 truncate">{s.lbl}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="px-4 pb-3 flex flex-wrap gap-1">
+                          {record.items.slice(0, 3).map((item, i) => (
+                            <span key={i} className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100 truncate max-w-[90px]">{item.medicineName}</span>
+                          ))}
+                          {record.items.length > 3 && <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">+{record.items.length - 3}</span>}
+                        </div>
+
+                        <div className="px-4 pb-3 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                            <span className="text-[10px] font-mono text-slate-500 truncate">{record.dispensedBy}</span>
+                            {record.dispensedBy === currentUserLabel && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md shrink-0">You</span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-
-                      <div className="px-4 pb-3 flex flex-wrap gap-1">
-                        {record.items.slice(0, 3).map((item, i) => (
-                          <span key={i} className="text-[10px] font-medium px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md border border-blue-100 truncate max-w-[90px]">{item.medicineName}</span>
-                        ))}
-                        {record.items.length > 3 && <span className="text-[10px] font-semibold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md">+{record.items.length - 3}</span>}
-                      </div>
-
-                      <div className="px-4 pb-3 flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <svg className="w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                          <span className="text-[10px] font-mono text-slate-500 truncate">{record.dispensedBy}</span>
-                          {record.dispensedBy === currentUserLabel && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-blue-50 text-blue-600 border border-blue-100 rounded-md shrink-0">You</span>
-                          )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <ViewPatientBtn record={record} />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(record.id); setShowConfirmDelete(true); }}
+                              className="delete-btn flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-slate-400 border border-slate-200 bg-white rounded-lg transition-all"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <ViewPatientBtn record={record} />
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeleteTarget(record.id); setShowConfirmDelete(true); }}
-                            className="delete-btn flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-semibold text-slate-400 border border-slate-200 bg-white rounded-lg transition-all"
-                          >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            Delete
-                          </button>
-                        </div>
-                      </div>
 
-                      {isExpanded && <MedicinesPanel record={record} />}
-                    </div>
-                  );
-                })}
-              </div>
-            )
+                        {isExpanded && <MedicinesPanel record={record} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
           )}
         </div>
       </div>

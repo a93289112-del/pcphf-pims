@@ -108,21 +108,21 @@ const emptyPatient = (): PatientInfo => ({
 });
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
-function getRawUnit(m: Medicine): string        { return m.unit ?? m.category ?? ''; }
+function getRawUnit(m: Medicine): string { return m.unit ?? m.category ?? ''; }
 function getDispensableUnit(m: Medicine): DispensableUnit | null { const r = getRawUnit(m).trim(); return r || null; }
 function getEffectiveStock(m: Medicine): number { if (m.quantity !== undefined) return m.quantity; return Math.max(m.stockPerUnit ?? 0, m.stockPerPieces ?? 0); }
-function getMinStock(m: Medicine): number       { return m.minStock ?? 0; }
-function getDisplayName(m: Medicine): string    { return m.baseName || m.name || '—'; }
+function getMinStock(m: Medicine): number { return m.minStock ?? 0; }
+function getDisplayName(m: Medicine): string { return m.baseName || m.name || '—'; }
 function getDisplayDescription(m: Medicine): string { return m.description || ''; }
-function getDisplayBrand(m: Medicine): string   { return m.brandModel || m.brand || ''; }
+function getDisplayBrand(m: Medicine): string { return m.brandModel || m.brand || ''; }
 
 function getMedicineStatus(medicine: Medicine) {
   const stock = getEffectiveStock(medicine);
   const minStock = getMinStock(medicine);
   const exp = medicine.expirationDate ? new Date(medicine.expirationDate) : null;
   const now = new Date();
-  if (stock === 0)      return { label: 'Out of Stock', variant: 'out'      as const };
-  if (exp && exp < now) return { label: 'Expired',      variant: 'expired'  as const };
+  if (stock === 0) return { label: 'Out of Stock', variant: 'out' as const };
+  if (exp && exp < now) return { label: 'Expired', variant: 'expired' as const };
   if (exp) { const days = Math.floor((exp.getTime() - now.getTime()) / 86400000); if (days <= 30) return { label: `Exp. ${days}d`, variant: 'expiring' as const }; }
   if (minStock > 0 && stock <= minStock) return { label: 'Low Stock', variant: 'low' as const };
   return { label: 'In Stock', variant: 'in' as const };
@@ -148,29 +148,29 @@ function getExpirationDisplay(expirationDate?: string): string | null {
 }
 
 const statusStyles: Record<string, string> = {
-  out:      'bg-slate-100 text-slate-500 border-slate-200',
-  expired:  'bg-red-50 text-red-600 border-red-200',
+  out: 'bg-slate-100 text-slate-500 border-slate-200',
+  expired: 'bg-red-50 text-red-600 border-red-200',
   expiring: 'bg-amber-50 text-amber-600 border-amber-200',
-  low:      'bg-yellow-50 text-yellow-700 border-yellow-200',
-  in:       'bg-emerald-50 text-emerald-700 border-emerald-200',
+  low: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  in: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 
 const statusConfig: Record<string, { dot: string; text: string; bg: string }> = {
-  out:      { dot: 'bg-slate-400',   text: 'text-slate-500',  bg: 'bg-slate-100' },
-  expired:  { dot: 'bg-red-500',     text: 'text-red-600',    bg: 'bg-red-50' },
-  expiring: { dot: 'bg-amber-500',   text: 'text-amber-600',  bg: 'bg-amber-50' },
-  low:      { dot: 'bg-yellow-500',  text: 'text-yellow-700', bg: 'bg-yellow-50' },
-  in:       { dot: 'bg-emerald-500', text: 'text-emerald-700',bg: 'bg-emerald-50' },
+  out: { dot: 'bg-slate-400', text: 'text-slate-500', bg: 'bg-slate-100' },
+  expired: { dot: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50' },
+  expiring: { dot: 'bg-amber-500', text: 'text-amber-600', bg: 'bg-amber-50' },
+  low: { dot: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50' },
+  in: { dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
 };
 
 const unitColorPalettes = [
-  { badge: 'bg-blue-50 text-blue-700 border-blue-200',       btn: 'bg-blue-600 hover:bg-blue-700 text-white' },
+  { badge: 'bg-blue-50 text-blue-700 border-blue-200', btn: 'bg-blue-600 hover:bg-blue-700 text-white' },
   { badge: 'bg-violet-50 text-violet-700 border-violet-200', btn: 'bg-violet-600 hover:bg-violet-700 text-white' },
-  { badge: 'bg-teal-50 text-teal-700 border-teal-200',       btn: 'bg-teal-600 hover:bg-teal-700 text-white' },
-  { badge: 'bg-amber-50 text-amber-700 border-amber-200',    btn: 'bg-amber-500 hover:bg-amber-600 text-white' },
+  { badge: 'bg-teal-50 text-teal-700 border-teal-200', btn: 'bg-teal-600 hover:bg-teal-700 text-white' },
+  { badge: 'bg-amber-50 text-amber-700 border-amber-200', btn: 'bg-amber-500 hover:bg-amber-600 text-white' },
   { badge: 'bg-indigo-50 text-indigo-700 border-indigo-200', btn: 'bg-indigo-600 hover:bg-indigo-700 text-white' },
-  { badge: 'bg-cyan-50 text-cyan-700 border-cyan-200',       btn: 'bg-cyan-600 hover:bg-cyan-700 text-white' },
-  { badge: 'bg-pink-50 text-pink-700 border-pink-200',       btn: 'bg-pink-600 hover:bg-pink-700 text-white' },
+  { badge: 'bg-cyan-50 text-cyan-700 border-cyan-200', btn: 'bg-cyan-600 hover:bg-cyan-700 text-white' },
+  { badge: 'bg-pink-50 text-pink-700 border-pink-200', btn: 'bg-pink-600 hover:bg-pink-700 text-white' },
   { badge: 'bg-emerald-50 text-emerald-700 border-emerald-200', btn: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
 ];
 const getUnitStyles = (unit: string) => {
@@ -191,9 +191,8 @@ const FInput = ({ value, onChange, placeholder, type = 'text', className = '', x
   <input
     type={type} placeholder={placeholder} value={value}
     onChange={(e) => onChange(e.target.value)}
-    className={`w-full bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-slate-800 placeholder:text-slate-400 ${
-      xl ? 'px-4 py-3 text-sm' : 'px-2.5 py-2 text-xs'
-    } ${className}`}
+    className={`w-full bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-slate-800 placeholder:text-slate-400 ${xl ? 'px-4 py-3 text-sm' : 'px-2.5 py-2 text-xs'
+      } ${className}`}
   />
 );
 
@@ -202,9 +201,8 @@ const FSelect = ({ value, onChange, options, placeholder, className = '', xl }: 
   options: { label: string; value: string }[]; placeholder?: string; className?: string; xl?: boolean;
 }) => (
   <select value={value} onChange={(e) => onChange(e.target.value)}
-    className={`w-full bg-white border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${
-      xl ? 'px-4 py-3 text-sm' : 'px-2.5 py-2 text-xs'
-    } ${className}`}>
+    className={`w-full bg-white border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition ${xl ? 'px-4 py-3 text-sm' : 'px-2.5 py-2 text-xs'
+      } ${className}`}>
     <option value="">{placeholder ?? 'Select…'}</option>
     {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
   </select>
@@ -219,13 +217,11 @@ const FPills = ({ value, onChange, options, xl }: {
     {options.map((o) => (
       <button key={o.value} type="button"
         onClick={() => onChange(value === o.value ? '' : o.value)}
-        className={`font-semibold rounded-full border transition-all ${
-          xl ? 'px-4 py-1.5 text-xs' : 'px-2.5 py-1 text-[10px]'
-        } ${
-          value === o.value
+        className={`font-semibold rounded-full border transition-all ${xl ? 'px-4 py-1.5 text-xs' : 'px-2.5 py-1 text-[10px]'
+          } ${value === o.value
             ? 'bg-blue-600 text-white border-blue-600'
             : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600'
-        }`}>
+          }`}>
         {o.label}
       </button>
     ))}
@@ -283,9 +279,8 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           disabled={isLoadingPatients}
-          className={`w-full bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-slate-800 placeholder:text-slate-400 text-left flex items-center justify-between ${
-            xl ? 'px-4 py-3 text-sm' : 'px-2.5 py-2 text-xs'
-          } disabled:opacity-50 ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}>
+          className={`w-full bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-slate-800 placeholder:text-slate-400 text-left flex items-center justify-between ${xl ? 'px-4 py-3 text-sm' : 'px-2.5 py-2 text-xs'
+            } disabled:opacity-50 ${isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}>
           <span className={selectedName ? 'text-slate-800' : 'text-slate-400'}>
             {isLoadingPatients ? 'Loading patients...' : selectedName || '+ Add New Patient'}
           </span>
@@ -295,9 +290,8 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
         </button>
 
         {isOpen && (
-          <div className={`absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 ${
-            filteredPatients.length > 10 ? 'max-h-64 overflow-y-auto' : ''
-          }`}>
+          <div className={`absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 ${filteredPatients.length > 10 ? 'max-h-64 overflow-y-auto' : ''
+            }`}>
             {/* Search input */}
             {patients.length > 0 && (
               <div className="sticky top-0 px-3 py-2 border-b border-slate-100 bg-white rounded-t-xl">
@@ -306,9 +300,8 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
                   placeholder="Search patients..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={`w-full bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 placeholder:text-slate-400 ${
-                    xl ? 'px-3 py-2 text-sm' : 'px-2 py-1.5 text-xs'
-                  }`}
+                  className={`w-full bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-slate-800 placeholder:text-slate-400 ${xl ? 'px-3 py-2 text-sm' : 'px-2 py-1.5 text-xs'
+                    }`}
                 />
               </div>
             )}
@@ -331,9 +324,8 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
                       setIsOpen(false);
                       setSearchTerm('');
                     }}
-                    className={`w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${
-                      selectedPatientId === patient.id ? 'bg-blue-100 font-semibold text-blue-900' : 'text-slate-700'
-                    } ${xl ? 'text-sm' : 'text-xs'}`}>
+                    className={`w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 ${selectedPatientId === patient.id ? 'bg-blue-100 font-semibold text-blue-900' : 'text-slate-700'
+                      } ${xl ? 'text-sm' : 'text-xs'}`}>
                     <span className="font-medium">{getPatientDisplayName(patient)}</span>
                   </button>
                 ))}
@@ -349,9 +341,8 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
                 setIsOpen(false);
                 setSearchTerm('');
               }}
-              className={`w-full text-left px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors border-t border-slate-100 text-blue-600 font-semibold ${
-                !selectedPatientId ? 'bg-blue-50' : ''
-              } ${xl ? 'text-sm' : 'text-xs'}`}>
+              className={`w-full text-left px-3 py-2 bg-slate-50 hover:bg-slate-100 transition-colors border-t border-slate-100 text-blue-600 font-semibold ${!selectedPatientId ? 'bg-blue-50' : ''
+                } ${xl ? 'text-sm' : 'text-xs'}`}>
               + Add New Patient
             </button>
           </div>
@@ -388,7 +379,7 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
   return (
     <div className={`space-y-1 ${xl ? 'text-sm' : 'text-xs'}`}>
       {/* Patient Selector Dropdown */}
-      <PatientSelector 
+      <PatientSelector
         patients={patients}
         selectedPatientId={selectedPatientId}
         onSelectPatient={onSelectPatient}
@@ -435,7 +426,7 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
         <div><FLabel xl={xl}>Place of Birth</FLabel><FInput xl={xl} value={patientInfo.placeOfBirth} onChange={(v) => onChange('placeOfBirth', v)} placeholder="City/Municipality" /></div>
       </div>
       <div className={`grid ${col2} gap-3 ${xl ? 'mt-4' : 'mt-2'}`}>
-        <div><FLabel xl={xl}>Blood Type (Rh+/-)</FLabel><FSelect xl={xl} value={patientInfo.bloodType} onChange={(v) => onChange('bloodType', v)} options={['A+','A-','B+','B-','O+','O-','AB+','AB-'].map((b) => ({ label: b, value: b }))} placeholder="Select…" /></div>
+        <div><FLabel xl={xl}>Blood Type (Rh+/-)</FLabel><FSelect xl={xl} value={patientInfo.bloodType} onChange={(v) => onChange('bloodType', v)} options={['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((b) => ({ label: b, value: b }))} placeholder="Select…" /></div>
         <div><FLabel xl={xl}>Religion</FLabel><FInput xl={xl} value={patientInfo.religion} onChange={(v) => onChange('religion', v)} placeholder="Relihiyon" /></div>
       </div>
       <div className={xl ? 'mt-4' : 'mt-2'}><FLabel xl={xl}>Residential Address</FLabel><FInput xl={xl} value={patientInfo.residentialAddress} onChange={(v) => onChange('residentialAddress', v)} placeholder="Complete address" /></div>
@@ -479,7 +470,7 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
           </div>
           <div className={`grid ${col2} gap-3 ${xl ? 'mt-4' : 'mt-2'}`}>
             <div><FLabel xl={xl}>Member&apos;s Middle Name</FLabel><FInput xl={xl} value={patientInfo.memberMiddleName} onChange={(v) => onChange('memberMiddleName', v)} placeholder="Middle name" /></div>
-            <div><FLabel xl={xl}>Member&apos;s Suffix</FLabel><FSelect xl={xl} value={patientInfo.memberSuffix} onChange={(v) => onChange('memberSuffix', v)} options={['Jr.','Sr.','II','III','IV'].map((s) => ({ label: s, value: s }))} placeholder="e.g. Jr." /></div>
+            <div><FLabel xl={xl}>Member&apos;s Suffix</FLabel><FSelect xl={xl} value={patientInfo.memberSuffix} onChange={(v) => onChange('memberSuffix', v)} options={['Jr.', 'Sr.', 'II', 'III', 'IV'].map((s) => ({ label: s, value: s }))} placeholder="e.g. Jr." /></div>
           </div>
           <div className={`grid ${col2} gap-3 ${xl ? 'mt-4' : 'mt-2'}`}>
             <div><FLabel xl={xl}>Member&apos;s Date of Birth</FLabel><FInput xl={xl} value={patientInfo.memberDateOfBirth} onChange={(v) => onChange('memberDateOfBirth', v)} placeholder="mm/dd/yyyy" /></div>
@@ -522,32 +513,32 @@ export default function DispensePage() {
   const { isCollapsed } = useSidebar();
   const router = useRouter();
 
-  const [medicines,          setMedicines]         = useState<Medicine[]>([]);
-  const [isLoadingMedicines, setIsLoadingMedicines]= useState(true);
-  const [searchTerm,         setSearchTerm]        = useState('');
-  const [dispensList,        setDispenseList]      = useState<DispenseItem[]>([]);
-  const [notification,       setNotification]      = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [showConfirmModal,   setShowConfirmModal]  = useState(false);
-  const [isProcessing,       setIsProcessing]      = useState(false);
-  const [filterUnit,         setFilterUnit]        = useState<'all' | DispensableUnit>('all');
-  const [filterStock,        setFilterStock]       = useState<'all' | 'in' | 'low' | 'expiring' | 'expired' | 'out'>('all');
-  const [filterAgeGroup,     setFilterAgeGroup]    = useState<'all' | string>('all');
-  const [availableAgeGroups, setAvailableAgeGroups]= useState<string[]>([]);
-  const [patientInfo,        setPatientInfo]       = useState<PatientInfo>(emptyPatient());
-  const [activeStep,         setActiveStep]        = useState<1 | 2>(1);
-  const [isPanelMinimized,   setIsPanelMinimized]  = useState(false);
-  const [isPatientExpanded,  setIsPatientExpanded] = useState(false);
-  const [viewMode,           setViewMode]          = useState<'grid' | 'table'>('grid');
-  const [availableUnits,     setAvailableUnits]    = useState<DispensableUnit[]>([]);
-  const [medicineModalOpen,  setMedicineModalOpen] = useState(false);
-  const [selectedBaseName,   setSelectedBaseName]  = useState<string>('');
-  const [availableStrengths, setAvailableStrengths]= useState<Array<{ strength: string | undefined; medicine: Medicine }>>([]);
-  const [quickSelectBaseName,setQuickSelectBaseName]=useState<string>('');
-  const [quickSelectStrength,setQuickSelectStrength]=useState<string>('');
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [isLoadingMedicines, setIsLoadingMedicines] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dispensList, setDispenseList] = useState<DispenseItem[]>([]);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [filterUnit, setFilterUnit] = useState<'all' | DispensableUnit>('all');
+  const [filterStock, setFilterStock] = useState<'all' | 'in' | 'low' | 'expiring' | 'expired' | 'out'>('all');
+  const [filterAgeGroup, setFilterAgeGroup] = useState<'all' | string>('all');
+  const [availableAgeGroups, setAvailableAgeGroups] = useState<string[]>([]);
+  const [patientInfo, setPatientInfo] = useState<PatientInfo>(emptyPatient());
+  const [activeStep, setActiveStep] = useState<1 | 2>(1);
+  const [isPanelMinimized, setIsPanelMinimized] = useState(false);
+  const [isPatientExpanded, setIsPatientExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [availableUnits, setAvailableUnits] = useState<DispensableUnit[]>([]);
+  const [medicineModalOpen, setMedicineModalOpen] = useState(false);
+  const [selectedBaseName, setSelectedBaseName] = useState<string>('');
+  const [availableStrengths, setAvailableStrengths] = useState<Array<{ strength: string | undefined; medicine: Medicine }>>([]);
+  const [quickSelectBaseName, setQuickSelectBaseName] = useState<string>('');
+  const [quickSelectStrength, setQuickSelectStrength] = useState<string>('');
   const [qtyInputs, setQtyInputs] = useState<Record<number, string>>({});
-  const [patients,           setPatients]          = useState<PatientRecord[]>([]);
-  const [isLoadingPatients,  setIsLoadingPatients] = useState(true);
-  const [selectedPatientId,  setSelectedPatientId] = useState<string>('');
+  const [patients, setPatients] = useState<PatientRecord[]>([]);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
 
   // Suppress unused warning — isCollapsed is intentionally kept for potential future layout use
   void isCollapsed;
@@ -596,11 +587,17 @@ export default function DispensePage() {
     return () => unsub();
   }, [user]);
 
+  // Listen to dispensing records to filter patients who have active dispensings
+
   useEffect(() => {
     if (!notification) return;
     const t = setTimeout(() => setNotification(null), 4000);
     return () => clearTimeout(t);
   }, [notification]);
+
+  // Filter patients to only show those with dispensing records
+  // Show all saved patients in the dropdown for pre-filling the form
+  const filteredPatients = useMemo(() => patients, [patients]);
 
   const dispensableMedicines = useMemo(() => medicines.filter((m) => getDispensableUnit(m) !== null), [medicines]);
 
@@ -745,7 +742,7 @@ export default function DispensePage() {
         patientId,
         age: patientInfo.dateOfBirth || '',
         notes: patientInfo.notes || '',
-        patientInfo: {...patientInfo},
+        patientInfo: { ...patientInfo },
         items: dispensList.map((item) => ({
           medicineId: item.medicine.id,
           medicineName: getDisplayName(item.medicine),
@@ -766,7 +763,7 @@ export default function DispensePage() {
       });
 
       // Save patient record for future reference
-      await savePatientRecord(user.uid, {...patientInfo});
+      await savePatientRecord(user.uid, { ...patientInfo });
 
       const deductResult = await deductStockBatch(
         dispensList.map((item) => ({
@@ -963,9 +960,8 @@ export default function DispensePage() {
       {isProcessing && <Processing message="Dispensing medicines..." className="z-200" />}
 
       {notification && (
-        <div className={`fixed top-5 right-5 z-100 toast-in flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium ${
-          notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
-        }`}>
+        <div className={`fixed top-5 right-5 z-100 toast-in flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium ${notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
+          }`}>
           <span className={`w-2 h-2 rounded-full ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ animation: 'pulse-dot 1.5s ease infinite' }} />
           {notification.message}
         </div>
@@ -1205,11 +1201,10 @@ export default function DispensePage() {
                               )}
                             </div>
                             {getExpirationDisplay(getTrueEarliestExpiration(medicine)) && (
-                              <p className={`text-[9px] font-medium ${
-                                getTrueEarliestExpiration(medicine) && new Date(getTrueEarliestExpiration(medicine)!) < new Date() ? 'text-red-600' :
+                              <p className={`text-[9px] font-medium ${getTrueEarliestExpiration(medicine) && new Date(getTrueEarliestExpiration(medicine)!) < new Date() ? 'text-red-600' :
                                 getTrueEarliestExpiration(medicine) && Math.floor((new Date(getTrueEarliestExpiration(medicine)!).getTime() - new Date().getTime()) / 86400000) <= 30 ? 'text-amber-600' :
-                                'text-slate-500'
-                              }`}>Exp: {getExpirationDisplay(getTrueEarliestExpiration(medicine))}</p>
+                                  'text-slate-500'
+                                }`}>Exp: {getExpirationDisplay(getTrueEarliestExpiration(medicine))}</p>
                             )}
                           </div>
                         </div>
@@ -1324,7 +1319,7 @@ export default function DispensePage() {
                       )}
                       {activeStep === 1 && (
                         <div className="scroll-area max-h-[calc(100vh-220px)] overflow-y-auto pr-1 -mr-1">
-                          <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={false} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={() => setShowConfirmModal(true)} onBack={() => setActiveStep(2)} patients={patients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
+                          <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={false} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={() => setShowConfirmModal(true)} onBack={() => setActiveStep(2)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
                         </div>
                       )}
                     </div>
@@ -1461,7 +1456,7 @@ export default function DispensePage() {
             </div>
             <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">
               <div className="flex-1 overflow-y-auto scroll-area px-5 sm:px-8 py-6">
-                <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={true} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={() => { setIsPatientExpanded(false); setShowConfirmModal(true); }} onBack={() => setIsPatientExpanded(false)} patients={patients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
+                <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={true} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={() => { setIsPatientExpanded(false); setShowConfirmModal(true); }} onBack={() => setIsPatientExpanded(false)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
               </div>
               <div className="lg:w-80 xl:w-96 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 bg-slate-50/60 flex flex-col overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 shrink-0">

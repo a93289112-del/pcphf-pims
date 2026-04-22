@@ -109,13 +109,13 @@ interface TopMedicineItem {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const CHART_COLORS = {
-  dispensed:     '#3b82f6',
-  dispensedLight:'rgba(59,130,246,0.15)',
-  sales:         '#10b981',
-  salesLight:    'rgba(16,185,129,0.15)',
-  total:         '#f59e0b',
-  totalLight:    'rgba(245,158,11,0.15)',
-  pie: ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#f97316','#84cc16'],
+  dispensed: '#3b82f6',
+  dispensedLight: 'rgba(59,130,246,0.15)',
+  sales: '#10b981',
+  salesLight: 'rgba(16,185,129,0.15)',
+  total: '#f59e0b',
+  totalLight: 'rgba(245,158,11,0.15)',
+  pie: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#f97316', '#84cc16'],
 };
 
 // ─── Helper: get effective stock from a medicine record ───────────────────────
@@ -128,15 +128,15 @@ function getEffectiveStock(m: Medicine): number {
 const SharedChartDefs = () => (
   <defs>
     <linearGradient id="barDispensed" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stopColor={CHART_COLORS.dispensed} stopOpacity={1}   />
+      <stop offset="0%" stopColor={CHART_COLORS.dispensed} stopOpacity={1} />
       <stop offset="100%" stopColor={CHART_COLORS.dispensed} stopOpacity={0.8} />
     </linearGradient>
     <linearGradient id="barSales" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stopColor={CHART_COLORS.sales} stopOpacity={1}   />
+      <stop offset="0%" stopColor={CHART_COLORS.sales} stopOpacity={1} />
       <stop offset="100%" stopColor={CHART_COLORS.sales} stopOpacity={0.8} />
     </linearGradient>
     <linearGradient id="areaTotal" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="5%"  stopColor={CHART_COLORS.total} stopOpacity={0.4}  />
+      <stop offset="5%" stopColor={CHART_COLORS.total} stopOpacity={0.4} />
       <stop offset="95%" stopColor={CHART_COLORS.total} stopOpacity={0.05} />
     </linearGradient>
   </defs>
@@ -144,22 +144,22 @@ const SharedChartDefs = () => (
 
 interface LegendPayload { value: string; type: string; id: string; color: string; }
 const SHARED_LEGEND_PAYLOAD: LegendPayload[] = [
-  { value: 'Total Used', type: 'circle', id: 'totalUsed',    color: CHART_COLORS.total     },
-  { value: 'Dispensed',  type: 'circle', id: 'dispensedQty', color: CHART_COLORS.dispensed },
-  { value: 'POS Sales',  type: 'circle', id: 'posSalesQty',  color: CHART_COLORS.sales     },
+  { value: 'Total Used', type: 'circle', id: 'totalUsed', color: CHART_COLORS.total },
+  { value: 'Dispensed', type: 'circle', id: 'dispensedQty', color: CHART_COLORS.dispensed },
+  { value: 'POS Sales', type: 'circle', id: 'posSalesQty', color: CHART_COLORS.sales },
 ];
 
 const SHARED_CHART_PROPS = {
   margin: { top: 10, right: 15, left: 0, bottom: 10 },
-  xAxis:  { tick: { fill: '#94a3b8', fontSize: 10, fontWeight: 500 }, axisLine: false, tickLine: false, dy: 10 },
-  yAxis:  { tick: { fill: '#94a3b8', fontSize: 10, fontWeight: 500 }, axisLine: false, tickLine: false, dx: -5 },
+  xAxis: { tick: { fill: '#94a3b8', fontSize: 10, fontWeight: 500 }, axisLine: false, tickLine: false, dy: 10 },
+  yAxis: { tick: { fill: '#94a3b8', fontSize: 10, fontWeight: 500 }, axisLine: false, tickLine: false, dx: -5 },
   legend: {
-    verticalAlign: 'bottom'  as const,
-    align:         'center'  as const,
-    height:        36,
-    iconType:      'circle'  as const,
-    iconSize:      10,
-    wrapperStyle:  {
+    verticalAlign: 'bottom' as const,
+    align: 'center' as const,
+    height: 36,
+    iconType: 'circle' as const,
+    iconSize: 10,
+    wrapperStyle: {
       fontSize: '11px', fontWeight: 'bold', color: '#64748b',
       paddingTop: '16px', paddingBottom: '4px',
       display: 'flex', justifyContent: 'center', gap: '24px',
@@ -212,11 +212,10 @@ const MetricCard = ({
     <p className="text-slate-500 text-xs font-medium mb-2 uppercase tracking-wide">{label}</p>
     <p className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">{value.toLocaleString()}</p>
     {change !== undefined && (
-      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${
-        isPositive === undefined ? 'bg-slate-100 text-slate-600'
-        : isPositive             ? 'bg-green-100 text-green-700'
-                                 : 'bg-red-100 text-red-700'
-      }`}>
+      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${isPositive === undefined ? 'bg-slate-100 text-slate-600'
+          : isPositive ? 'bg-green-100 text-green-700'
+            : 'bg-red-100 text-red-700'
+        }`}>
         {isPositive !== undefined && <span>{isPositive ? '↑' : '↓'}</span>}
         <span>{Math.abs(change).toLocaleString()}</span>
         {changeLabel && <span className="text-slate-500 ml-0.5">{changeLabel}</span>}
@@ -284,9 +283,9 @@ function buildDetailedTransactions(
       data.push({
         medicineId,
         medicineName: medicine.baseName || medicine.name || '—',
-        category:     medicine.category || 'Uncategorized',
+        category: medicine.category || 'Uncategorized',
         dispensedQty: 0, posSalesQty: 0, totalUsed: 0,
-        stockBefore:  currentStock, stockDeducted: 0, stockAfter: currentStock,
+        stockBefore: currentStock, stockDeducted: 0, stockAfter: currentStock,
       });
       return;
     }
@@ -294,14 +293,14 @@ function buildDetailedTransactions(
     const totalOutflow = agg.dispensedQty + agg.posSalesQty;
     data.push({
       medicineId,
-      medicineName:  medicine.baseName || medicine.name || '—',
-      category:      medicine.category || 'Uncategorized',
-      dispensedQty:  agg.dispensedQty,
-      posSalesQty:   agg.posSalesQty,
-      totalUsed:     totalOutflow,
-      stockBefore:   agg.originalStock,
+      medicineName: medicine.baseName || medicine.name || '—',
+      category: medicine.category || 'Uncategorized',
+      dispensedQty: agg.dispensedQty,
+      posSalesQty: agg.posSalesQty,
+      totalUsed: totalOutflow,
+      stockBefore: agg.originalStock,
       stockDeducted: totalOutflow,
-      stockAfter:    agg.latestNewStock,
+      stockAfter: agg.latestNewStock,
     });
   });
 
@@ -311,14 +310,14 @@ function buildDetailedTransactions(
       const totalOutflow = agg.dispensedQty + agg.posSalesQty;
       data.push({
         medicineId,
-        medicineName:  'Unknown Medicine',
-        category:      'Uncategorized',
-        dispensedQty:  agg.dispensedQty,
-        posSalesQty:   agg.posSalesQty,
-        totalUsed:     totalOutflow,
-        stockBefore:   agg.originalStock,
+        medicineName: 'Unknown Medicine',
+        category: 'Uncategorized',
+        dispensedQty: agg.dispensedQty,
+        posSalesQty: agg.posSalesQty,
+        totalUsed: totalOutflow,
+        stockBefore: agg.originalStock,
         stockDeducted: totalOutflow,
-        stockAfter:    agg.latestNewStock,
+        stockAfter: agg.latestNewStock,
       });
     }
   });
@@ -350,15 +349,15 @@ function MonthlyChartPanel({
 
   const weeklyData = useMemo(() => {
     const weeks = [
-      { period: 'Week 1',  dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
-      { period: 'Week 2',  dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
-      { period: 'Week 3',  dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
+      { period: 'Week 1', dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
+      { period: 'Week 2', dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
+      { period: 'Week 3', dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
       { period: 'Week 4+', dispensedQty: 0, posSalesQty: 0, totalUsed: 0 },
     ];
     dailyData.forEach((d, i) => {
       const wk = Math.min(Math.floor(i / 7), 3);
       weeks[wk].dispensedQty += d.dispensedQty;
-      weeks[wk].posSalesQty  += d.posSalesQty;
+      weeks[wk].posSalesQty += d.posSalesQty;
     });
     return weeks.map(w => ({ ...w, totalUsed: w.dispensedQty + w.posSalesQty }));
   }, [dailyData]);
@@ -373,11 +372,10 @@ function MonthlyChartPanel({
           <div className="flex gap-2">
             {(['daily', 'weekly'] as const).map(v => (
               <button key={v} onClick={() => setSubView(v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                  subView === v
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${subView === v
                     ? 'bg-slate-900 text-white border-slate-900'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}>
+                  }`}>
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
             ))}
@@ -400,8 +398,8 @@ function MonthlyChartPanel({
             <Legend {...SHARED_CHART_PROPS.legend} />
             <Area type="monotone" dataKey="totalUsed" stroke={CHART_COLORS.total} fill="url(#areaTotal)"
               name="Total Used" strokeWidth={3} dot={false} activeDot={{ r: 6, strokeWidth: 0 }} />
-            <Bar dataKey="dispensedQty" fill={CHART_COLORS.dispensed} name="Dispensed" radius={[4,4,0,0]} maxBarSize={24} />
-            <Bar dataKey="posSalesQty"  fill={CHART_COLORS.sales}     name="POS Sales" radius={[4,4,0,0]} maxBarSize={24} />
+            <Bar dataKey="dispensedQty" fill={CHART_COLORS.dispensed} name="Dispensed" radius={[4, 4, 0, 0]} maxBarSize={24} />
+            <Bar dataKey="posSalesQty" fill={CHART_COLORS.sales} name="POS Sales" radius={[4, 4, 0, 0]} maxBarSize={24} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -436,7 +434,7 @@ function QuarterlyChartPanel({
 
   const categoryData = useMemo(() => {
     const dispenseTotal = filteredByDate.filter(t => t.type === 'dispense').reduce((s, t) => s + Math.abs(t.quantity), 0);
-    const saleTotal     = filteredByDate.filter(t => t.type === 'sale').reduce((s, t) => s + Math.abs(t.quantity), 0);
+    const saleTotal = filteredByDate.filter(t => t.type === 'sale').reduce((s, t) => s + Math.abs(t.quantity), 0);
     return [
       { name: 'Dispensed', value: dispenseTotal },
       { name: 'POS Sales', value: saleTotal },
@@ -466,8 +464,8 @@ function QuarterlyChartPanel({
                 <Legend {...SHARED_CHART_PROPS.legend} />
                 <Area type="monotone" dataKey="totalUsed" stroke={CHART_COLORS.total} fill="url(#areaTotal)"
                   name="Total Used" strokeWidth={3} dot={{ r: 4, fill: CHART_COLORS.total, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} />
-                <Bar dataKey="dispensedQty" fill={CHART_COLORS.dispensed} name="Dispensed" radius={[4,4,0,0]} maxBarSize={40} />
-                <Bar dataKey="posSalesQty"  fill={CHART_COLORS.sales}     name="POS Sales" radius={[4,4,0,0]} maxBarSize={40} />
+                <Bar dataKey="dispensedQty" fill={CHART_COLORS.dispensed} name="Dispensed" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="posSalesQty" fill={CHART_COLORS.sales} name="POS Sales" radius={[4, 4, 0, 0]} maxBarSize={40} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -494,7 +492,7 @@ function QuarterlyChartPanel({
                 <div className="space-y-2 w-full mt-4">
                   {categoryData.map((d, i) => {
                     const total = categoryData.reduce((s, x) => s + x.value, 0);
-                    const pct   = total > 0 ? ((d.value / total) * 100).toFixed(0) : 0;
+                    const pct = total > 0 ? ((d.value / total) * 100).toFixed(0) : 0;
                     return (
                       <div key={d.name} className="flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-slate-100 shadow-sm">
                         <div className="flex items-center gap-2">
@@ -531,19 +529,19 @@ function AnnualChartPanel({
     filteredByDate.forEach(tx => {
       const m = new Date(tx.date).getMonth();
       if (tx.type === 'dispense') arr[m].dispensedQty += Math.abs(tx.quantity);
-      else if (tx.type === 'sale') arr[m].posSalesQty  += Math.abs(tx.quantity);
+      else if (tx.type === 'sale') arr[m].posSalesQty += Math.abs(tx.quantity);
     });
     return arr.map(d => ({ ...d, totalUsed: d.dispensedQty + d.posSalesQty }));
   }, [filteredByDate, selectedYear]);
 
   const quarterlyData = useMemo(() => {
-    const qArr = ['Q1','Q2','Q3','Q4'].map(p => ({
+    const qArr = ['Q1', 'Q2', 'Q3', 'Q4'].map(p => ({
       period: p, dispensedQty: 0, posSalesQty: 0, totalUsed: 0,
     }));
     monthlyData.forEach((m, i) => {
       const q = Math.floor(i / 3);
       qArr[q].dispensedQty += m.dispensedQty;
-      qArr[q].posSalesQty  += m.posSalesQty;
+      qArr[q].posSalesQty += m.posSalesQty;
     });
     return qArr.map(q => ({ ...q, totalUsed: q.dispensedQty + q.posSalesQty }));
   }, [monthlyData]);
@@ -568,11 +566,10 @@ function AnnualChartPanel({
           <div className="flex gap-2">
             {(['monthly', 'quarterly'] as const).map(v => (
               <button key={v} onClick={() => setSubView(v)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-                  subView === v
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${subView === v
                     ? 'bg-violet-600 text-white border-violet-600'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}>
+                  }`}>
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
             ))}
@@ -595,8 +592,8 @@ function AnnualChartPanel({
             <Legend {...SHARED_CHART_PROPS.legend} />
             <Area type="monotone" dataKey="totalUsed" stroke={CHART_COLORS.total} fill="url(#areaTotal)"
               name="Total Used" strokeWidth={3} dot={{ r: 4, fill: CHART_COLORS.total, strokeWidth: 0 }} activeDot={{ r: 6, strokeWidth: 0 }} />
-            <Bar dataKey="dispensedQty" fill={CHART_COLORS.dispensed} name="Dispensed" radius={[4,4,0,0]} maxBarSize={32} />
-            <Bar dataKey="posSalesQty"  fill={CHART_COLORS.sales}     name="POS Sales" radius={[4,4,0,0]} maxBarSize={32} />
+            <Bar dataKey="dispensedQty" fill={CHART_COLORS.dispensed} name="Dispensed" radius={[4, 4, 0, 0]} maxBarSize={32} />
+            <Bar dataKey="posSalesQty" fill={CHART_COLORS.sales} name="POS Sales" radius={[4, 4, 0, 0]} maxBarSize={32} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -610,7 +607,7 @@ function AnnualChartPanel({
             <AreaChart data={cumulativeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="gradCumulA" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#8b5cf6" stopOpacity={0.3}  />
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
@@ -638,10 +635,10 @@ function TopMedicinesChart({ data }: { data: TopMedicineItem[] }) {
   const maxUsage = Math.max(...data.map(d => d.usage), 1);
 
   const getStatusInfo = (med: TopMedicineItem) => {
-    const stock    = med.stockAfter;
+    const stock = med.stockAfter;
     const minStock = med.minStock;
-    const exp      = med.expirationDate ? new Date(med.expirationDate) : null;
-    const now      = new Date();
+    const exp = med.expirationDate ? new Date(med.expirationDate) : null;
+    const now = new Date();
     if (stock === 0) return { label: 'Out of Stock', badgeClass: 'bg-red-50 text-red-700 border-red-100' };
     if (exp && exp < now) return { label: 'Expired', badgeClass: 'bg-red-50 text-red-700 border-red-100' };
     if (exp) {
@@ -709,33 +706,33 @@ function TopMedicinesChart({ data }: { data: TopMedicineItem[] }) {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-type TabType    = 'monthly' | 'quarterly' | 'annual';
-type SortField  = 'medicineName' | 'category' | 'dispensedQty' | 'posSalesQty' | 'totalUsed' | 'stockDeducted';
+type TabType = 'monthly' | 'quarterly' | 'annual';
+type SortField = 'medicineName' | 'category' | 'dispensedQty' | 'posSalesQty' | 'totalUsed' | 'stockDeducted';
 
 interface MedicineDispensingMonitorProps {
-  hideHeader?:              boolean;
-  hideMetricCards?:         boolean;
-  dashboardFilterRange?:    'today' | 'last7' | 'last30' | 'monthly' | 'quarterly' | 'annual' | 'custom';
+  hideHeader?: boolean;
+  hideMetricCards?: boolean;
+  dashboardFilterRange?: 'today' | 'last7' | 'last30' | 'monthly' | 'quarterly' | 'annual' | 'custom';
   dashboardFilterStartDate?: string;
-  dashboardFilterEndDate?:   string;
-  dashboardSelectedMonth?:   string;
+  dashboardFilterEndDate?: string;
+  dashboardSelectedMonth?: string;
   dashboardSelectedQuarter?: QuarterType;
-  dashboardSelectedYear?:    number;
-  onFilterRangeChange?:      (range: 'today' | 'last7' | 'last30' | 'monthly' | 'quarterly' | 'annual' | 'custom') => void;
-  onSelectedMonthChange?:    (month: string) => void;
-  onSelectedQuarterChange?:  (quarter: QuarterType) => void;
-  onSelectedYearChange?:     (year: number) => void;
-  onFilterStartDateChange?:  (date: string) => void;
-  onFilterEndDateChange?:    (date: string) => void;
-  userId?:              string;
+  dashboardSelectedYear?: number;
+  onFilterRangeChange?: (range: 'today' | 'last7' | 'last30' | 'monthly' | 'quarterly' | 'annual' | 'custom') => void;
+  onSelectedMonthChange?: (month: string) => void;
+  onSelectedQuarterChange?: (quarter: QuarterType) => void;
+  onSelectedYearChange?: (year: number) => void;
+  onFilterStartDateChange?: (date: string) => void;
+  onFilterEndDateChange?: (date: string) => void;
+  userId?: string;
   // ↓ These can still be passed to skip the internal fetch entirely
-  initialMedicines?:    Medicine[];
+  initialMedicines?: Medicine[];
   initialTransactions?: FirebaseTransaction[];
 }
 
 export default function MedicineDispensingMonitor({
-  hideHeader        = false,
-  hideMetricCards   = false,
+  hideHeader = false,
+  hideMetricCards = false,
   dashboardFilterRange,
   dashboardFilterStartDate,
   dashboardFilterEndDate,
@@ -754,34 +751,34 @@ export default function MedicineDispensingMonitor({
 }: MedicineDispensingMonitorProps = {}) {
 
   // ── Internal state (used when not driven by dashboard props) ──
-  const [activeTab,       setActiveTab]       = useState<TabType>('monthly');
-  const [selectedMonth,   setSelectedMonth]   = useState<string>(new Date().toISOString().slice(0, 7));
+  const [activeTab, setActiveTab] = useState<TabType>('monthly');
+  const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterType>('Q1');
-  const [selectedYear,    setSelectedYear]    = useState<number>(new Date().getFullYear());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
-  const handleMonthChange   = useCallback((m: string) => {
+  const handleMonthChange = useCallback((m: string) => {
     if (onSelectedMonthChange) onSelectedMonthChange(m); else setSelectedMonth(m);
   }, [onSelectedMonthChange]);
   const handleQuarterChange = useCallback((q: QuarterType) => {
     if (onSelectedQuarterChange) onSelectedQuarterChange(q); else setSelectedQuarter(q);
   }, [onSelectedQuarterChange]);
-  const handleYearChange    = useCallback((y: number) => {
+  const handleYearChange = useCallback((y: number) => {
     if (onSelectedYearChange) onSelectedYearChange(y); else setSelectedYear(y);
   }, [onSelectedYearChange]);
 
-  const [sortField,  setSortField]  = useState<SortField>('dispensedQty');
-  const [sortOrder,  setSortOrder]  = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<SortField>('dispensedQty');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showStockModal,  setShowStockModal]  = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
   const [stockModalSearch, setStockModalSearch] = useState('');
 
   // ── Internal Firebase data (only used when initialMedicines/Transactions not provided) ──
-  const [internalMedicines,    setInternalMedicines]    = useState<Medicine[]>([]);
+  const [internalMedicines, setInternalMedicines] = useState<Medicine[]>([]);
   const [internalTransactions, setInternalTransactions] = useState<FirebaseTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
   const currentYear = new Date().getFullYear();
-  const years       = useMemo(() => Array.from({ length: 5 }, (_, i) => currentYear - i), [currentYear]);
+  const years = useMemo(() => Array.from({ length: 5 }, (_, i) => currentYear - i), [currentYear]);
 
   // ── Firebase listener — uses getUserPath so paths always match the rest of the app ──
   useEffect(() => {
@@ -794,10 +791,10 @@ export default function MedicineDispensingMonitor({
     }
 
     // getUserPath is the same helper used everywhere else in the app
-    const medsPath  = getUserPath(userId, 'medicines');
+    const medsPath = getUserPath(userId, 'medicines');
     const transPath = getUserPath(userId, 'transactions');
 
-    let medsReady  = false;
+    let medsReady = false;
     let transReady = false;
     const checkDone = () => {
       if (medsReady && transReady) {
@@ -836,9 +833,9 @@ export default function MedicineDispensingMonitor({
   }, [userId, initialMedicines, initialTransactions]);
 
   // ── Resolved data: prefer props, fall back to internal state ──
-  const effectiveMedicines    = initialMedicines    ?? internalMedicines;
+  const effectiveMedicines = initialMedicines ?? internalMedicines;
   const effectiveTransactions = initialTransactions ?? internalTransactions;
-  const isActuallyLoading     = loading && !initialMedicines && !initialTransactions;
+  const isActuallyLoading = loading && !initialMedicines && !initialTransactions;
 
   const medicinesMap = useMemo(() => {
     const map = new Map<string, Medicine>();
@@ -847,18 +844,18 @@ export default function MedicineDispensingMonitor({
   }, [effectiveMedicines]);
 
   // ── Resolved period selectors ──
-  const effectiveMonth   = dashboardSelectedMonth   ?? selectedMonth;
+  const effectiveMonth = dashboardSelectedMonth ?? selectedMonth;
   const effectiveQuarter = dashboardSelectedQuarter ?? selectedQuarter;
-  const effectiveYear    = dashboardSelectedYear    ?? selectedYear;
+  const effectiveYear = dashboardSelectedYear ?? selectedYear;
 
   // ── Date range — mirrors dashboard logic exactly ──────────────────────────
   // Handles all 7 filter range values: today / last7 / last30 / monthly /
   // quarterly / annual / custom.  Uses the same arithmetic the dashboard uses
   // so the chart always shows data for the same window.
   const dateRange = useMemo(() => {
-    const today     = new Date();
+    const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const todayEnd   = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
     if (dashboardFilterRange === 'today') {
       return { start: todayStart, end: todayEnd };
@@ -904,36 +901,36 @@ export default function MedicineDispensingMonitor({
     [effectiveTransactions, dateRange],
   );
 
-  const aggregated     = useMemo(() => aggregateByMedicine(filteredByDate),             [filteredByDate]);
+  const aggregated = useMemo(() => aggregateByMedicine(filteredByDate), [filteredByDate]);
   const aggregatedData = useMemo(() => buildDetailedTransactions(aggregated, medicinesMap), [aggregated, medicinesMap]);
 
   // ── Metrics ──────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
-    const totalDispensed     = aggregatedData.reduce((s, d) => s + d.dispensedQty,  0);
-    const totalPosSalesQty   = aggregatedData.reduce((s, d) => s + d.posSalesQty,   0);
+    const totalDispensed = aggregatedData.reduce((s, d) => s + d.dispensedQty, 0);
+    const totalPosSalesQty = aggregatedData.reduce((s, d) => s + d.posSalesQty, 0);
     const totalStockDeducted = aggregatedData.reduce((s, d) => s + d.stockDeducted, 0);
-    const remainingStock     = aggregatedData.reduce((s, d) => s + d.stockAfter,    0);
+    const remainingStock = aggregatedData.reduce((s, d) => s + d.stockAfter, 0);
     const medicinesWithActivity = aggregatedData.filter(d => d.totalUsed > 0).length;
-    const posSalesTransactions  = new Set(
+    const posSalesTransactions = new Set(
       filteredByDate.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean),
     ).size;
 
     // Previous period for comparison — only meaningful for periodic ranges
-    let prevTotalDispensed    = 0;
+    let prevTotalDispensed = 0;
     let prevTotalStockDeducted = 0;
-    let prevPosSales          = 0;
+    let prevPosSales = 0;
     const isPeriodic = !dashboardFilterRange ||
-      ['monthly','quarterly','annual'].includes(dashboardFilterRange);
+      ['monthly', 'quarterly', 'annual'].includes(dashboardFilterRange);
 
     if (isPeriodic) {
       const prevTab = (dashboardFilterRange as TabType) ?? activeTab;
-      const prev       = getPreviousDateRange(prevTab, effectiveMonth, effectiveQuarter, effectiveYear);
+      const prev = getPreviousDateRange(prevTab, effectiveMonth, effectiveQuarter, effectiveYear);
       const prevFiltered = filterTransactions(effectiveTransactions, prev.start, prev.end);
-      const prevAgg    = aggregateByMedicine(prevFiltered);
-      const prevData   = buildDetailedTransactions(prevAgg, medicinesMap);
-      prevTotalDispensed     = prevData.reduce((s, d) => s + d.dispensedQty,  0);
+      const prevAgg = aggregateByMedicine(prevFiltered);
+      const prevData = buildDetailedTransactions(prevAgg, medicinesMap);
+      prevTotalDispensed = prevData.reduce((s, d) => s + d.dispensedQty, 0);
       prevTotalStockDeducted = prevData.reduce((s, d) => s + d.stockDeducted, 0);
-      prevPosSales           = new Set(prevFiltered.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size;
+      prevPosSales = new Set(prevFiltered.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size;
     }
 
     return {
@@ -943,9 +940,9 @@ export default function MedicineDispensingMonitor({
       totalPosSalesQty,
       totalStockDeducted,
       remainingStock,
-      previousPeriodDispensed:      prevTotalDispensed,
-      previousPeriodSales:          prevPosSales,
-      previousPeriodStockDeducted:  prevTotalStockDeducted,
+      previousPeriodDispensed: prevTotalDispensed,
+      previousPeriodSales: prevPosSales,
+      previousPeriodStockDeducted: prevTotalStockDeducted,
     };
   }, [
     aggregatedData, filteredByDate, effectiveTransactions, medicinesMap,
@@ -955,18 +952,18 @@ export default function MedicineDispensingMonitor({
   // ── Top medicines ──
   const topMedicinesData = useMemo<TopMedicineItem[]>(() => {
     const sorted = [...aggregatedData].sort((a, b) => b.totalUsed - a.totalUsed);
-    const total  = sorted.reduce((s, d) => s + d.totalUsed, 0);
+    const total = sorted.reduce((s, d) => s + d.totalUsed, 0);
     return sorted.slice(0, 7).map(d => {
       const med = medicinesMap.get(d.medicineId);
       return {
-        name:       d.medicineName,
-        strength:   med?.strength,
-        usage:      d.totalUsed,
-        dispensed:  d.dispensedQty,
-        sales:      d.posSalesQty,
+        name: d.medicineName,
+        strength: med?.strength,
+        usage: d.totalUsed,
+        dispensed: d.dispensedQty,
+        sales: d.posSalesQty,
         percentage: total > 0 ? (d.totalUsed / total) * 100 : 0,
         stockAfter: d.stockAfter,
-        minStock:   med?.minStock ?? 0,
+        minStock: med?.minStock ?? 0,
         expirationDate: med?.expirationDate,
       };
     });
@@ -983,12 +980,12 @@ export default function MedicineDispensingMonitor({
         let aVal: string | number = 0;
         let bVal: string | number = 0;
         switch (sortField) {
-          case 'medicineName':  aVal = a.medicineName.toLowerCase();  bVal = b.medicineName.toLowerCase(); break;
-          case 'category':      aVal = a.category.toLowerCase();      bVal = b.category.toLowerCase();     break;
-          case 'dispensedQty':  aVal = a.dispensedQty;                bVal = b.dispensedQty;               break;
-          case 'posSalesQty':   aVal = a.posSalesQty;                 bVal = b.posSalesQty;                break;
-          case 'totalUsed':     aVal = a.totalUsed;                   bVal = b.totalUsed;                  break;
-          case 'stockDeducted': aVal = a.stockDeducted;               bVal = b.stockDeducted;              break;
+          case 'medicineName': aVal = a.medicineName.toLowerCase(); bVal = b.medicineName.toLowerCase(); break;
+          case 'category': aVal = a.category.toLowerCase(); bVal = b.category.toLowerCase(); break;
+          case 'dispensedQty': aVal = a.dispensedQty; bVal = b.dispensedQty; break;
+          case 'posSalesQty': aVal = a.posSalesQty; bVal = b.posSalesQty; break;
+          case 'totalUsed': aVal = a.totalUsed; bVal = b.totalUsed; break;
+          case 'stockDeducted': aVal = a.stockDeducted; bVal = b.stockDeducted; break;
         }
         if (typeof aVal === 'string')
           return sortOrder === 'asc' ? aVal.localeCompare(bVal as string) : (bVal as string).localeCompare(aVal);
@@ -1007,15 +1004,15 @@ export default function MedicineDispensingMonitor({
   // covers the selected window, or simply the current month as fallback.
   const effectiveTab: TabType =
     dashboardFilterRange === 'quarterly' ? 'quarterly' :
-    dashboardFilterRange === 'annual'    ? 'annual'    :
-    dashboardFilterRange                 ? 'monthly'   :
-    activeTab;
+      dashboardFilterRange === 'annual' ? 'annual' :
+        dashboardFilterRange ? 'monthly' :
+          activeTab;
 
   // For today/last7/last30/custom the MonthlyChartPanel needs a selectedMonth.
   // We use the current month so the daily axis is correct.
   const chartMonth =
     (dashboardFilterRange === 'today' || dashboardFilterRange === 'last7' ||
-     dashboardFilterRange === 'last30' || dashboardFilterRange === 'custom')
+      dashboardFilterRange === 'last30' || dashboardFilterRange === 'custom')
       ? new Date().toISOString().slice(0, 7)
       : effectiveMonth;
 
@@ -1046,19 +1043,18 @@ export default function MedicineDispensingMonitor({
       {onFilterRangeChange && dashboardFilterRange && (
         <div className="flex items-center gap-2 flex-wrap p-4 bg-slate-50 rounded-xl border border-slate-200">
           {([
-            { key: 'today',     label: 'Today'     },
-            { key: 'last7',     label: 'Last 7d'   },
-            { key: 'last30',    label: 'Last 30d'  },
-            { key: 'monthly',   label: 'Monthly'   },
+            { key: 'today', label: 'Today' },
+            { key: 'last7', label: 'Last 7d' },
+            { key: 'last30', label: 'Last 30d' },
+            { key: 'monthly', label: 'Monthly' },
             { key: 'quarterly', label: 'Quarterly' },
-            { key: 'annual',    label: 'Annual'    },
+            { key: 'annual', label: 'Annual' },
           ] as const).map(opt => (
             <button key={opt.key} type="button" onClick={() => onFilterRangeChange(opt.key)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap ${
-                dashboardFilterRange === opt.key
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap ${dashboardFilterRange === opt.key
                   ? 'bg-slate-900 text-white border-slate-900'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}>
+                }`}>
               {opt.label}
             </button>
           ))}
@@ -1074,7 +1070,7 @@ export default function MedicineDispensingMonitor({
               <select value={dashboardSelectedQuarter || 'Q1'}
                 onChange={e => onSelectedQuarterChange(e.target.value as QuarterType)}
                 className="px-2.5 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white">
-                {['Q1','Q2','Q3','Q4'].map(q => <option key={q}>{q}</option>)}
+                {['Q1', 'Q2', 'Q3', 'Q4'].map(q => <option key={q}>{q}</option>)}
               </select>
               <select value={dashboardSelectedYear || currentYear}
                 onChange={e => onSelectedYearChange(Number(e.target.value))}
@@ -1109,7 +1105,7 @@ export default function MedicineDispensingMonitor({
       {/* ── METRIC CARDS ── */}
       {!hideMetricCards && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <MetricCard label="Total Dispensed"       value={metrics.totalDispensed}
+          <MetricCard label="Total Dispensed" value={metrics.totalDispensed}
             change={Math.abs(metrics.totalDispensed - metrics.previousPeriodDispensed)}
             changeLabel="vs prev" isPositive={metrics.totalDispensed >= metrics.previousPeriodDispensed}
             accent={CHART_COLORS.dispensed} />
@@ -1117,7 +1113,7 @@ export default function MedicineDispensingMonitor({
             change={Math.abs(metrics.totalPosSales - metrics.previousPeriodSales)}
             changeLabel="vs prev" isPositive={metrics.totalPosSales >= metrics.previousPeriodSales}
             accent={CHART_COLORS.sales} />
-          <MetricCard label="Total Stock Deducted"  value={metrics.totalStockDeducted}
+          <MetricCard label="Total Stock Deducted" value={metrics.totalStockDeducted}
             change={Math.abs(metrics.totalStockDeducted - metrics.previousPeriodStockDeducted)}
             changeLabel="vs prev" isPositive={metrics.totalStockDeducted >= metrics.previousPeriodStockDeducted}
             onClick={() => setShowStockModal(true)} accent={CHART_COLORS.total} />
@@ -1132,15 +1128,14 @@ export default function MedicineDispensingMonitor({
         {!dashboardFilterRange && (
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6 border-b border-slate-200 pb-4">
             <div className="flex gap-2">
-              {(['monthly','quarterly','annual'] as const).map(tab => (
+              {(['monthly', 'quarterly', 'annual'] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
-                  className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${
-                    activeTab === tab
+                  className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${activeTab === tab
                       ? tab === 'monthly' ? 'bg-blue-600 text-white shadow-sm'
                         : tab === 'quarterly' ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-violet-600 text-white shadow-sm'
+                          : 'bg-violet-600 text-white shadow-sm'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}>
+                    }`}>
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
               ))}
@@ -1154,7 +1149,7 @@ export default function MedicineDispensingMonitor({
                 <div className="flex gap-2">
                   <select value={selectedQuarter} onChange={e => handleQuarterChange(e.target.value as QuarterType)}
                     className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {['Q1','Q2','Q3','Q4'].map(q => <option key={q}>{q}</option>)}
+                    {['Q1', 'Q2', 'Q3', 'Q4'].map(q => <option key={q}>{q}</option>)}
                   </select>
                   <select value={selectedYear} onChange={e => handleYearChange(Number(e.target.value))}
                     className="px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -1209,11 +1204,13 @@ export default function MedicineDispensingMonitor({
           <h3 className="text-base font-bold text-slate-900 mb-4">Period Summary</h3>
           <div className="space-y-3">
             {[
-              { label: 'Medicines with activity', value: metrics.medicinesWithActivity, color: 'text-slate-900'   },
-              { label: 'Total stock outflow',     value: metrics.totalStockDeducted,    color: 'text-red-600'     },
-              { label: 'Avg units per medicine',  value: metrics.medicinesWithActivity > 0
-                  ? Math.round(metrics.totalStockDeducted / metrics.medicinesWithActivity) : 0, color: 'text-slate-900' },
-              { label: 'Period closing stock',    value: metrics.remainingStock,         color: 'text-emerald-600' },
+              { label: 'Medicines with activity', value: metrics.medicinesWithActivity, color: 'text-slate-900' },
+              { label: 'Total stock outflow', value: metrics.totalStockDeducted, color: 'text-red-600' },
+              {
+                label: 'Avg units per medicine', value: metrics.medicinesWithActivity > 0
+                  ? Math.round(metrics.totalStockDeducted / metrics.medicinesWithActivity) : 0, color: 'text-slate-900'
+              },
+              { label: 'Period closing stock', value: metrics.remainingStock, color: 'text-emerald-600' },
             ].map(item => (
               <div key={item.label} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
                 <span className="text-xs text-slate-500">{item.label}</span>
@@ -1263,14 +1260,14 @@ export default function MedicineDispensingMonitor({
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
                 {([
-                  { field: 'medicineName',  label: 'Medicine Name',  align: 'left'  },
-                  { field: 'category',      label: 'Category',       align: 'left'  },
-                  { field: 'dispensedQty',  label: 'Dispensed',      align: 'right' },
-                  { field: 'posSalesQty',   label: 'POS Sales',      align: 'right' },
-                  { field: 'totalUsed',     label: 'Total Used',     align: 'right' },
-                  { field: null,            label: 'Opening Stock',  align: 'right' },
-                  { field: 'stockDeducted', label: 'Deducted',       align: 'right' },
-                  { field: null,            label: 'Closing Stock',  align: 'right' },
+                  { field: 'medicineName', label: 'Medicine Name', align: 'left' },
+                  { field: 'category', label: 'Category', align: 'left' },
+                  { field: 'dispensedQty', label: 'Dispensed', align: 'right' },
+                  { field: 'posSalesQty', label: 'POS Sales', align: 'right' },
+                  { field: 'totalUsed', label: 'Total Used', align: 'right' },
+                  { field: null, label: 'Opening Stock', align: 'right' },
+                  { field: 'stockDeducted', label: 'Deducted', align: 'right' },
+                  { field: null, label: 'Closing Stock', align: 'right' },
                 ] as const).map(col => (
                   <th key={col.label}
                     className={`px-4 py-3 text-${col.align} text-[10px] font-black uppercase tracking-widest text-slate-400`}>
@@ -1289,9 +1286,9 @@ export default function MedicineDispensingMonitor({
             </thead>
             <tbody>
               {filteredData.map(row => {
-                const med        = medicinesMap.get(row.medicineId);
+                const med = medicinesMap.get(row.medicineId);
                 const isLowStock = med?.minStock !== undefined && row.stockAfter > 0 && row.stockAfter <= med.minStock;
-                const isOut      = row.stockAfter === 0;
+                const isOut = row.stockAfter === 0;
                 return (
                   <tr key={row.medicineId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
                     <td className="px-4 py-3">
@@ -1391,19 +1388,18 @@ export default function MedicineDispensingMonitor({
                     )
                     .sort((a, b) => (a.baseName || a.name || '').localeCompare(b.baseName || b.name || ''))
                     .map(med => {
-                      const stock      = getEffectiveStock(med);
-                      const min        = med.minStock ?? 0;
+                      const stock = getEffectiveStock(med);
+                      const min = med.minStock ?? 0;
                       const isCritical = min > 0 && stock < min * 0.5;
-                      const isLow      = min > 0 && stock < min && !isCritical;
+                      const isLow = min > 0 && stock < min && !isCritical;
                       return (
                         <tr key={med.id} className="border-b border-slate-100 hover:bg-slate-50">
                           <td className="px-6 py-3 font-medium text-slate-900">{med.baseName || med.name || '—'}</td>
                           <td className="px-6 py-3 text-slate-500 text-xs">{med.category || 'Uncategorized'}</td>
                           <td className="px-6 py-3 text-right font-bold text-slate-900">{stock.toLocaleString()}</td>
                           <td className="px-6 py-3 text-right">
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                              isCritical ? 'bg-red-100 text-red-700' : isLow ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${isCritical ? 'bg-red-100 text-red-700' : isLow ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'
+                              }`}>
                               {isCritical ? 'Critical' : isLow ? 'Low' : 'OK'}
                             </span>
                           </td>
