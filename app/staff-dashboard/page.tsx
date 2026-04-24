@@ -10,6 +10,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import MedicineDispensingMonitor from '@/lib/services/medicine-dispensing-sales-monitor';
 import { type QuarterType } from '@/lib/services/filter-utils';
+import { subscribeToActivityLogs } from '@/lib/services/activity-logs';
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 interface MedicineBatch {
@@ -824,7 +825,7 @@ function PrintReportModal({
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const { user, loading, pharmacyName, pharmacistInChargeName, staffName, role } = useAuth();
+  const { user, loading, pharmacyName, staffName, role } = useAuth();
   const { isCollapsed } = useSidebar();
   const router = useRouter();
 
@@ -845,6 +846,9 @@ export default function DashboardPage() {
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterType>('Q1');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
+  const [sessionState, setSessionState] = useState<'active' | 'ended'>('ended');
+  const [currentSessionStartTime, setCurrentSessionStartTime] = useState<Date | null>(null);
+
   useEffect(() => { if (!loading && !user) router.push('/login'); }, [user, loading, router]);
 
   useEffect(() => {
@@ -852,6 +856,44 @@ export default function DashboardPage() {
       router.push('/admin-dashboard');
     }
   }, [user, loading, role, router]);
+
+  // ── Session state subscription ─────────────────────────────────────────────
+  const todayStart = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToActivityLogs((logs) => {
+      const todayEvents = logs
+        .filter((log) => {
+          const isThisUser = log.staffId === user.uid || log.staffEmail === user.email;
+          const isToday = new Date(log.timestamp) >= todayStart;
+          const isSession = log.type === 'session_ended' || log.type === 'session_started';
+          return isThisUser && isToday && isSession;
+        })
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      const lastEvent = todayEvents[todayEvents.length - 1];
+
+      if (!lastEvent) {
+        setSessionState('ended');
+        setCurrentSessionStartTime(null);
+        return;
+      }
+
+      if (lastEvent.type === 'session_ended') {
+        setSessionState('ended');
+        setCurrentSessionStartTime(null);
+      } else if (lastEvent.type === 'session_started') {
+        setSessionState('active');
+        setCurrentSessionStartTime(new Date(lastEvent.timestamp));
+      }
+    });
+    return () => unsubscribe();
+  }, [user, todayStart]);
 
   useEffect(() => {
     if (!user) return;
@@ -905,11 +947,20 @@ export default function DashboardPage() {
     });
   }, [user]);
 
+  // ─── Compute default custom date range (30 days ago to today) ──────────────
+  const getDefaultCustomDates = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+    return { start: formatDate(thirtyDaysAgo), end: formatDate(today) };
+  };
+
   const today = new Date();
   const todayYear = today.getFullYear();
   const todayMonth = today.getMonth();
   const todayDate = today.getDate();
-  const { todayStart, todayEnd } = useMemo(() => ({
+  const { todayStart: dateRangeStart, todayEnd: dateRangeEnd } = useMemo(() => ({
     todayStart: new Date(todayYear, todayMonth, todayDate),
     todayEnd: new Date(todayYear, todayMonth, todayDate + 1),
   }), [todayYear, todayMonth, todayDate]);
@@ -921,13 +972,13 @@ export default function DashboardPage() {
     let pe: Date | null = null;
 
     if (filterRange === 'today') {
-      rs = todayStart; re = todayEnd;
+      rs = dateRangeStart; re = dateRangeEnd;
       ps = new Date(rs); ps.setDate(ps.getDate() - 1); pe = rs;
     } else if (filterRange === 'last7') {
-      rs = new Date(todayStart); rs.setDate(rs.getDate() - 6); re = todayEnd;
+      rs = new Date(dateRangeStart); rs.setDate(rs.getDate() - 6); re = dateRangeEnd;
       ps = new Date(rs); ps.setDate(ps.getDate() - 7); pe = rs;
     } else if (filterRange === 'last30') {
-      rs = new Date(todayStart); rs.setDate(rs.getDate() - 29); re = todayEnd;
+      rs = new Date(dateRangeStart); rs.setDate(rs.getDate() - 29); re = dateRangeEnd;
       ps = new Date(rs); ps.setDate(ps.getDate() - 30); pe = rs;
     } else if (filterRange === 'monthly') {
       const [y, m] = selectedMonth.split('-').map(Number);
@@ -941,16 +992,19 @@ export default function DashboardPage() {
     } else if (filterRange === 'annual') {
       rs = new Date(selectedYear, 0, 1); re = new Date(selectedYear + 1, 0, 1);
       ps = new Date(selectedYear - 1, 0, 1); pe = rs;
-    } else if (filterRange === 'custom' && filterStartDate && filterEndDate) {
-      rs = new Date(filterStartDate);
-      const e = new Date(filterEndDate);
+    } else if (filterRange === 'custom') {
+      const defaults = getDefaultCustomDates();
+      const startStr = filterStartDate || defaults.start;
+      const endStr = filterEndDate || defaults.end;
+      rs = new Date(startStr);
+      const e = new Date(endStr);
       re = new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1);
       const span = re.getTime() - rs.getTime();
       ps = new Date(rs.getTime() - span); pe = rs;
     }
 
     return { rangeStart: rs, rangeEnd: re, prevStart: ps, prevEnd: pe };
-  }, [filterRange, filterStartDate, filterEndDate, selectedMonth, selectedQuarter, selectedYear, todayStart, todayEnd]);
+  }, [filterRange, filterStartDate, filterEndDate, selectedMonth, selectedQuarter, selectedYear, dateRangeStart, dateRangeEnd]);
 
   const filteredTransactions = useMemo(() =>
     transactions.filter(t => {
@@ -998,9 +1052,9 @@ export default function DashboardPage() {
 
   const remainingStock = useMemo(() => medicines.reduce((s, m) => s + getEffectiveStock(m), 0), [medicines]);
 
-  const todayTransactions = transactions.filter(t => { const dt = new Date(t.date); return dt >= todayStart && dt < todayEnd; });
-  const todayItemsDispensed = todayTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
-  const todaySessionCount = new Set(todayTransactions.map(t => t.referenceId).filter(Boolean)).size;
+  const todayTransactions = transactions.filter(t => { const dt = new Date(t.date); return dt >= dateRangeStart && dt < dateRangeEnd; });
+  const todayItemsDispensed = sessionState === 'ended' || !currentSessionStartTime ? 0 : todayTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').filter(t => new Date(t.date) >= currentSessionStartTime).reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
+  const todaySessionCount = sessionState === 'ended' || !currentSessionStartTime ? 0 : new Set(todayTransactions.filter(t => new Date(t.date) >= currentSessionStartTime).map(t => t.referenceId).filter(Boolean)).size;
 
   const brandMap = medicines.reduce<Record<string, string | undefined>>((acc, m) => {
     const brand = m.brand || m.brandModel || 'Unknown';
@@ -1069,18 +1123,20 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 mb-1 sm:mb-2">Dashboard</h1>
               <p className="text-xs sm:text-sm lg:text-base text-slate-500 truncate max-w-[220px] sm:max-w-none">
-                Welcome back, {staffName || pharmacistInChargeName || user?.email}
+                Welcome back, {staffName || user?.email}
               </p>
             </div>
-            <button
-              onClick={() => setShowPrintModal(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-900 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-md"
-            >
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
-              </svg>
-              <span className="hidden xs:inline">Print </span>Report
-            </button>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
+                onClick={() => setShowPrintModal(true)}
+                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-slate-900 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-md"
+              >
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+                </svg>
+                <span className="hidden xs:inline">Print </span>Report
+              </button>
+            </div>
           </div>
 
           {/* ── Today strip ── */}
@@ -1333,3 +1389,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+

@@ -18,7 +18,6 @@ interface AuthContextType {
   role: 'admin' | 'staff' | null;
   status: 'pending' | 'approved' | 'disabled' | null;
   pharmacyName: string | null;
-  pharmacistInChargeName: string | null;
   staffName: string | null;
   adminName: string | null;
   loading: boolean;
@@ -35,7 +34,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<'admin' | 'staff' | null>(null);
   const [status, setStatus] = useState<'pending' | 'approved' | 'disabled' | null>(null);
   const [pharmacyName, setPharmacyName] = useState<string | null>(null);
-  const [pharmacistInChargeName, setPharmacistInChargeName] = useState<string | null>(null);
   const [staffName, setStaffName] = useState<string | null>(null);
   const [adminName, setAdminName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,16 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setAdminName(null);
               }
               
-              // Handle both staff name types
-              if (profile.role === 'staff' && profile.staffName) {
-                setStaffName(profile.staffName);
-                setPharmacistInChargeName(profile.staffName);
-              } else {
-                setStaffName(profile.staffName || null);
-                setPharmacistInChargeName(
-                  profile.pharmacistInCharge?.fullName || profile.staffName || currentUser.email || 'User'
-                );
-              }
+              // Handle staff name
+              setStaffName(profile.staffName || null);
             } else {
               // Profile doesn't exist yet (e.g. during registration)
               setRole(null);
@@ -91,7 +81,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setPharmacyName(null);
               setStaffName(null);
               setAdminName(null);
-              setPharmacistInChargeName(null);
             }
             // Always resolve loading regardless of whether profile data exists
             setLoading(false);
@@ -107,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setStatus(null);
         setPharmacyName(null);
         setStaffName(null);
-        setPharmacistInChargeName(null);
         setLoading(false);
       }
     });
@@ -232,7 +220,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     pharmacyName,
     staffName,
     adminName,
-    pharmacistInChargeName,
     loading,
     error,
     signIn,

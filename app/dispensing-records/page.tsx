@@ -10,6 +10,7 @@ import { ref, onValue, remove } from 'firebase/database';
 import Image from 'next/image';
 import logoSrc from '@/app/assets/Logo/pharmacylogo.jpeg.png';
 import Processing from '@/lib/components/processing';
+import { deletePatientRecord, PatientRecord } from '@/lib/services/patient-management';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface DispensingItem {
@@ -52,6 +53,7 @@ interface Dispensing {
   date: string;
   patientName: string;
   patientId: string;
+  patientRecordId?: string; // Database-level patient record ID (distinct from patientId)
   age?: string;
   notes?: string;
   patientInfo?: PatientInfo;
@@ -815,6 +817,11 @@ function MedicinesPanel({ record }: { record: Dispensing }) {
   );
 }
 
+// ─── Transaction snapshot type (used in handleDelete) ─────────────────────────
+interface TransactionSnapshot {
+  referenceId?: string;
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 export default function DispensingRecordsPage() {
   const { user, loading } = useAuth();
@@ -845,7 +852,7 @@ export default function DispensingRecordsPage() {
       setDispensings(data
         ? dedupeById(
           Object.entries(data as Record<string, DispensingRecord>)
-            .filter(([, v]) => v != null)          // ← guard against null tombstones
+            .filter(([, v]) => v != null)
             .map(([id, v]) => ({ id, ...v }))
         )
         : []
@@ -886,51 +893,79 @@ export default function DispensingRecordsPage() {
   });
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !user) return;
     setIsProcessing(true);
     try {
-      const handleDelete = async () => {
-        if (!deleteTarget || !user) return;
-        setIsProcessing(true);
-        try {
-          // 1. Delete the dispensing record itself
-          await remove(ref(database, `dispensings/${deleteTarget}`));
+      const dispensingToDelete = dispensings.find((d) => d.id === deleteTarget);
+      // patientRecordId is now a typed field on Dispensing — no cast needed
+      let patientRecordId = dispensingToDelete?.patientRecordId;
 
-          // 2. Find and delete all matching transactions with the same referenceId
-          //    These are what the dashboard stats read from
-          const transactionsRef = ref(database, getUserPath(user.uid, 'transactions'));
-          const snapshot = await new Promise<Record<string, { referenceId?: string }>>((resolve) => {
-            onValue(transactionsRef, (snap) => resolve(snap.val() || {}), { onlyOnce: true });
+      // 1. Delete the dispensing record itself
+      await remove(ref(database, `dispensings/${deleteTarget}`));
+
+      // 2. Find and delete all matching transactions with the same referenceId
+      const transactionsRef = ref(database, getUserPath(user.uid, 'transactions'));
+      const snapshot = await new Promise<Record<string, TransactionSnapshot>>((resolve) => {
+        onValue(
+          transactionsRef,
+          (snap) => resolve((snap.val() as Record<string, TransactionSnapshot>) ?? {}),
+          { onlyOnce: true },
+        );
+      });
+
+      const deletePromises = Object.entries(snapshot)
+        .filter(([, tx]) => tx.referenceId === deleteTarget)
+        .map(([key]) =>
+          remove(ref(database, `${getUserPath(user.uid, 'transactions')}/${key}`))
+        );
+
+      await Promise.all(deletePromises);
+
+      // 3. Delete the associated patient record from the patients node
+      // If we don't have patientRecordId (older records), search by name + DOB
+      if (!patientRecordId && dispensingToDelete?.patientInfo) {
+        try {
+          const allPatients = await new Promise<Record<string, PatientRecord>>((resolve) => {
+            const patientsRef = ref(database, getUserPath(user.uid, 'patients'));
+            onValue(
+              patientsRef,
+              (snap) => resolve((snap.val() as Record<string, PatientRecord>) ?? {}),
+              { onlyOnce: true },
+            );
           });
 
-          const deletePromises = Object.entries(snapshot)
-            .filter(([, tx]) => tx.referenceId === deleteTarget)
-            .map(([key]) =>
-              remove(ref(database, `${getUserPath(user.uid, 'transactions')}/${key}`))
-            );
+          const pi = dispensingToDelete.patientInfo;
+          const matchingPatientId = Object.entries(allPatients).find(
+            ([, patient]: [string, PatientRecord]) =>
+              patient.firstName?.toLowerCase() === pi?.firstName?.toLowerCase() &&
+              patient.lastName?.toLowerCase() === pi?.lastName?.toLowerCase() &&
+              patient.dateOfBirth === pi?.dateOfBirth
+          )?.[0];
 
-          await Promise.all(deletePromises);
-
-          setNotification({ message: 'Record deleted successfully', type: 'success' });
-          setShowConfirmDelete(false);
-          if (expandedId === deleteTarget) setExpandedId(null);
-          if (patientModalRecord?.id === deleteTarget) setPatientModalRecord(null);
-          setDeleteTarget(null);
+          if (matchingPatientId) {
+            patientRecordId = matchingPatientId;
+          }
         } catch (err) {
-          console.error(err);
-          setNotification({ message: 'Failed to delete record', type: 'error' });
-        } finally {
-          setIsProcessing(false);
+          console.warn('[handleDelete] Failed to find patient record by name/DOB:', err);
         }
-      };
-      await remove(ref(database, `dispensings/${deleteTarget}`));
+      }
+
+      if (patientRecordId) {
+        try {
+          await deletePatientRecord(user.uid, patientRecordId);
+          console.log('[handleDelete] Deleted patient record:', patientRecordId);
+        } catch (err) {
+          console.warn('[handleDelete] Failed to delete patient record:', err);
+        }
+      }
+
       setNotification({ message: 'Record deleted successfully', type: 'success' });
       setShowConfirmDelete(false);
       if (expandedId === deleteTarget) setExpandedId(null);
       if (patientModalRecord?.id === deleteTarget) setPatientModalRecord(null);
       setDeleteTarget(null);
     } catch (err) {
-      console.error(err);
+      console.error('[handleDelete] Error:', err);
       setNotification({ message: 'Failed to delete record', type: 'error' });
     } finally {
       setIsProcessing(false);
@@ -1174,7 +1209,6 @@ export default function DispensingRecordsPage() {
             isLoadingDispensings ? <TableSkeleton /> :
               sortedDispensings.length === 0 ? <EmptyState searchTerm={searchTerm} onClear={() => setSearchTerm('')} /> : (
                 <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden slide-up">
-                  {/* No horizontal scroll wrapper — table uses fixed layout */}
                   <table className="records-table">
                     <thead>
                       <tr>

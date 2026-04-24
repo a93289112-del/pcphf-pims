@@ -1049,6 +1049,7 @@ export default function MedicineDispensingMonitor({
             { key: 'monthly', label: 'Monthly' },
             { key: 'quarterly', label: 'Quarterly' },
             { key: 'annual', label: 'Annual' },
+            { key: 'custom', label: 'Custom' },
           ] as const).map(opt => (
             <button key={opt.key} type="button" onClick={() => onFilterRangeChange(opt.key)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap ${dashboardFilterRange === opt.key
@@ -1088,17 +1089,25 @@ export default function MedicineDispensingMonitor({
             </select>
           )}
 
-          {dashboardFilterRange === 'custom' && onFilterStartDateChange && onFilterEndDateChange && (
-            <div className="flex items-center gap-2">
-              <input type="date" value={dashboardFilterStartDate || ''}
-                onChange={e => onFilterStartDateChange(e.target.value)}
-                className="px-2.5 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white" />
-              <span className="text-slate-300 text-xs">→</span>
-              <input type="date" value={dashboardFilterEndDate || ''}
-                onChange={e => onFilterEndDateChange(e.target.value)}
-                className="px-2.5 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white" />
-            </div>
-          )}
+          {dashboardFilterRange === 'custom' && onFilterStartDateChange && onFilterEndDateChange && (() => {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today);
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+            const defaultStart = formatDate(thirtyDaysAgo);
+            const defaultEnd = formatDate(today);
+            return (
+              <div className="flex items-center gap-2">
+                <input type="date" value={dashboardFilterStartDate || defaultStart}
+                  onChange={e => onFilterStartDateChange(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white" />
+                <span className="text-slate-300 text-xs">→</span>
+                <input type="date" value={dashboardFilterEndDate || defaultEnd}
+                  onChange={e => onFilterEndDateChange(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs text-slate-900 border border-slate-200 rounded-lg bg-white" />
+              </div>
+            );
+          })()}
         </div>
       )}
 

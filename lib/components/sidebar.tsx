@@ -462,7 +462,7 @@ function NavContent({
 
 // ─── Main Sidebar ──────────────────────────────────────────────────────────────
 export default function Sidebar() {
-  const { user, role, logOut, pharmacistInChargeName, staffName, adminName } = useAuth();
+  const { user, role, logOut, staffName, adminName } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar } = useSidebar();
@@ -487,6 +487,8 @@ export default function Sidebar() {
     d.setHours(0, 0, 0, 0);
     return d;
   });
+
+  const [currentSessionEndTime, setCurrentSessionEndTime] = useState<Date | null>(null);
 
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ urgent: 0, expired: 0, expiring: 0, out: 0, low: 0 });
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -542,6 +544,7 @@ export default function Sidebar() {
 
       if (lastEvent.type === 'session_ended') {
         setSessionState('ended');
+        setCurrentSessionEndTime(new Date(lastEvent.timestamp));
         const lastStarted = [...todayEvents].reverse().find((e) => e.type === 'session_started');
         if (lastStarted) {
           const t = new Date(lastStarted.timestamp);
@@ -550,6 +553,7 @@ export default function Sidebar() {
         }
       } else if (lastEvent.type === 'session_started') {
         setSessionState('active');
+        setCurrentSessionEndTime(null);
         const t = new Date(lastEvent.timestamp);
         setCurrentSessionStartTime(t);
         localStorage.setItem(SESSION_START_KEY(user.uid), t.toISOString());
@@ -593,9 +597,31 @@ export default function Sidebar() {
 
   // ── Session summary ────────────────────────────────────────────────────────
   const sessionSummaryData = useMemo(() => {
+    // If session has ended, don't count any transactions (show 0)
+    if (sessionState === 'ended') {
+      return {
+        dispensed: 0,
+        transactions: 0,
+        sold: 0,
+        totalUnits: 0,
+        lowStock: 0,
+        expired: medicines.filter((m) => m.expirationDate && new Date(m.expirationDate) < new Date()).length,
+        outOfStock: medicines.filter((m) => (m.quantity ?? 0) === 0).length,
+        expiring: medicines.filter((m) => { if (!m.expirationDate) return false; const days = Math.floor((new Date(m.expirationDate).getTime() - Date.now()) / 86_400_000); return days >= 0 && days <= 30; }).length,
+        totalAlerts: 0,
+        dispenseCount: 0,
+        saleCount: 0,
+        durationMinutes: 0,
+        sessionStart: currentSessionStartTime.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
+        sessionEnd: currentSessionEndTime?.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }) || new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
+        sessionStartTime: currentSessionStartTime,
+      };
+    }
+
     const sessionTxns = transactions.filter((t: FirebaseTransaction) => {
       const dt = new Date(t.date);
-      return dt >= currentSessionStartTime && dt <= new Date();
+      const endTime = currentSessionEndTime || new Date();
+      return dt >= currentSessionStartTime && dt <= endTime;
     });
     const dispenseTxns = sessionTxns.filter((t) => t.type === 'dispense');
     const saleTxns = sessionTxns.filter((t) => t.type === 'sale');
@@ -625,7 +651,7 @@ export default function Sidebar() {
       sessionEnd: now.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
       sessionStartTime: currentSessionStartTime,
     };
-  }, [medicines, transactions, currentSessionStartTime]);
+  }, [medicines, transactions, currentSessionStartTime, currentSessionEndTime, sessionState]);
 
   // ── End Session ────────────────────────────────────────────────────────────
   const handleEndSession = useCallback(async () => {
@@ -712,7 +738,7 @@ export default function Sidebar() {
       {showUserInfo && (
         <div className="px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Staff Session</p>
-          <p className="text-xs font-bold text-slate-900 truncate">{pharmacistInChargeName || staffName || user?.email}</p>
+          <p className="text-xs font-bold text-slate-900 truncate">{staffName || user?.email}</p>
           {role === 'staff' && (
             <span className={`inline-flex items-center gap-1 mt-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${sessionState === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${sessionState === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />

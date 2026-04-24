@@ -13,6 +13,8 @@ import { deductStockBatch, getTrueEarliestExpiration } from '@/lib/services/stoc
 import { logActivity } from '@/lib/services/activity-logs';
 import { Plus, Minus, X, CheckCircle2 } from 'lucide-react';
 import { listenToPatients, savePatientRecord, getPatientDisplayName, type PatientRecord } from '@/lib/services/patient-management';
+import { useSession } from '@/lib/hooks/useSession';
+import { startSession } from '@/lib/services/session-management';
 
 type DispensableUnit = string;
 
@@ -45,7 +47,7 @@ interface Medicine {
   stockPerPieces?: number;
   minStock?: number;
   expirationDate?: string;
-  batches?: Record<string, MedicineBatch>; // FIFO batches with individual expirations
+  batches?: Record<string, MedicineBatch>;
   prescriptionRequired?: boolean;
   createdAt: string;
   piecesPerUnit?: number;
@@ -292,7 +294,6 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
         {isOpen && (
           <div className={`absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-lg z-50 ${filteredPatients.length > 10 ? 'max-h-64 overflow-y-auto' : ''
             }`}>
-            {/* Search input */}
             {patients.length > 0 && (
               <div className="sticky top-0 px-3 py-2 border-b border-slate-100 bg-white rounded-t-xl">
                 <input
@@ -306,7 +307,6 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
               </div>
             )}
 
-            {/* Options */}
             {filteredPatients.length === 0 && searchTerm && (
               <div className={`px-3 py-2 text-slate-400 text-center ${xl ? 'text-sm' : 'text-xs'}`}>
                 No patients found
@@ -332,7 +332,6 @@ function PatientSelector({ patients, selectedPatientId, onSelectPatient, isLoadi
               </>
             )}
 
-            {/* New patient option */}
             <button
               type="button"
               onClick={() => {
@@ -378,7 +377,6 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
 
   return (
     <div className={`space-y-1 ${xl ? 'text-sm' : 'text-xs'}`}>
-      {/* Patient Selector Dropdown */}
       <PatientSelector
         patients={patients}
         selectedPatientId={selectedPatientId}
@@ -388,7 +386,6 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
         onClearForm={onClearForm}
       />
 
-      {/* Clear Form Button */}
       {selectedPatientId && (
         <button
           type="button"
@@ -497,7 +494,7 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
         <div className="pt-3 space-y-2">
           <button onClick={onConfirm} disabled={!canDispense}
             className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${canDispense ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-            {canDispense ? `Dispense ${dispensCount} Item${dispensCount !== 1 ? 's' : ''}` : 'Fill required fields (First & Last Name)'}
+            {canDispense ? `Dispense ${dispensCount} Item${dispensCount !== 1 ? 's' : ''}` : 'Fill required fields'}
           </button>
           <button onClick={onBack} className="w-full py-2 text-xs text-slate-400 hover:text-slate-600 font-medium transition-colors">← Back to medicines</button>
         </div>
@@ -509,9 +506,9 @@ function PatientForm({ patientInfo, onChange, expanded = false, canDispense, dis
 // ─── Main Page Component ───────────────────────────────────────────────────────
 export default function DispensePage() {
   const { user, role, loading, staffName, adminName } = useAuth();
-  // isCollapsed is used for layout awareness but not directly referenced in JSX classes here
   const { isCollapsed } = useSidebar();
   const router = useRouter();
+  const { recordDispense: recordSessionDispense, hasActiveSession } = useSession({ userId: user?.uid });
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isLoadingMedicines, setIsLoadingMedicines] = useState(true);
@@ -539,9 +536,63 @@ export default function DispensePage() {
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-
-  // Suppress unused warning — isCollapsed is intentionally kept for potential future layout use
+  const [showNoSessionModal, setShowNoSessionModal] = useState(false);
+  const [isStartingSession, setIsStartingSession] = useState(false);
+  const patientScrollRef = useRef<HTMLDivElement>(null);
   void isCollapsed;
+
+  // ── Start session from the "no session" modal ─────────────────────────────
+  // FIX: must write BOTH to sessions/{userId} (for TX recording) AND to
+  // activityLogs (session_started), because useSession.hasActiveSession and
+  // the sidebar both derive state from activityLogs. Previously only
+  // startSession() was called, so the log-based check never saw the new
+  // session and hasActiveSession stayed false.
+  const handleStartSessionFromModal = async () => {
+    if (!user) return;
+    try {
+      setIsStartingSession(true);
+      const sessionStarterName = staffName || adminName || undefined;
+
+      // Write to sessions/{userId} so TX recording still works
+      await startSession(user.uid, sessionStarterName);
+
+      // Write session_started activity log — this is what useSession and the
+      // sidebar both read to decide whether a session is active.
+      await logActivity(
+        'session_started',
+        user.uid,
+        user.email || '',
+        `Session started at ${new Date().toLocaleTimeString('en-PH')}`,
+        { sessionStartTime: new Date().toISOString() },
+        sessionStarterName,
+        role || undefined,
+      );
+
+      setShowNoSessionModal(false);
+      setNotification({ message: 'Session started successfully', type: 'success' });
+    } catch (error) {
+      console.error('Failed to start session:', error);
+      setNotification({ message: 'Failed to start session', type: 'error' });
+    } finally {
+      setIsStartingSession(false);
+    }
+  };
+
+  // ── Gate dispense on session — single authoritative check ─────────────────
+  // FIX: removed the redundant getActiveSession() database round-trip.
+  // hasActiveSession now reads from activityLogs (same as sidebar), so it is
+  // always accurate without an extra network call.
+  const handleDispenseClick = async () => {
+    if (!user) {
+      setNotification({ message: 'Authentication required. Please login again.', type: 'error' });
+      return;
+    }
+    if (!hasActiveSession) {
+      setShowNoSessionModal(true);
+      return;
+    }
+    setShowConfirmModal(true);
+  };
 
   const handlePatientChange = useCallback(<K extends keyof PatientInfo>(key: K, value: PatientInfo[K]) => {
     setPatientInfo((prev) => ({ ...prev, [key]: value }));
@@ -587,16 +638,12 @@ export default function DispensePage() {
     return () => unsub();
   }, [user]);
 
-  // Listen to dispensing records to filter patients who have active dispensings
-
   useEffect(() => {
     if (!notification) return;
     const t = setTimeout(() => setNotification(null), 4000);
     return () => clearTimeout(t);
   }, [notification]);
 
-  // Filter patients to only show those with dispensing records
-  // Show all saved patients in the dropdown for pre-filling the form
   const filteredPatients = useMemo(() => patients, [patients]);
 
   const dispensableMedicines = useMemo(() => medicines.filter((m) => getDispensableUnit(m) !== null), [medicines]);
@@ -709,7 +756,29 @@ export default function DispensePage() {
     setDispenseList(next); syncQtyInput(next);
   };
 
+  // ── Actual dispense execution ─────────────────────────────────────────────
+  // FIX: removed the redundant getActiveSession() round-trip at the top.
+  // hasActiveSession (from activityLogs via useSession) is the single source
+  // of truth and is always accurate.
   const handleDispense = async () => {
+    if (!user) {
+      setNotification({ message: 'Authentication error. Please re-login.', type: 'error' });
+      setShowConfirmModal(false);
+      setIsProcessing(false);
+      return;
+    }
+
+    if (!hasActiveSession) {
+      setShowConfirmModal(false);
+      setIsProcessing(false);
+      setShowNoSessionModal(true);
+      setNotification({
+        message: 'Session ended. Please start a new session to continue dispensing.',
+        type: 'error',
+      });
+      return;
+    }
+
     if (!patientInfo.firstName || !patientInfo.lastName) {
       setNotification({ message: 'Please enter patient first and last name', type: 'error' }); return;
     }
@@ -724,22 +793,19 @@ export default function DispensePage() {
     const patientId = patientInfo.independentsPhilhealthNo || patientInfo.memberPhilhealthNo || patientInfo.patientContactNo || '';
     const dispensedBy = staffName || adminName || user?.email || user?.displayName || user?.uid || 'unknown';
 
-    if (!user) {
-      setNotification({ message: 'Authentication error. Please re-login.', type: 'error' });
-      setIsProcessing(false);
-      return;
-    }
-
     try {
       const dispensingsPath = getUserPath(user.uid, 'dispensings');
       const dispensRef = push(ref(database, dispensingsPath));
       const dispensId = dispensRef.key;
       if (!dispensId) throw new Error('Failed to generate dispense ID');
 
+      const patientRecordId = await savePatientRecord(user.uid, { ...patientInfo });
+
       await set(dispensRef, {
         date: new Date().toISOString(),
         patientName: fullName,
         patientId,
+        patientRecordId,
         age: patientInfo.dateOfBirth || '',
         notes: patientInfo.notes || '',
         patientInfo: { ...patientInfo },
@@ -762,9 +828,6 @@ export default function DispensePage() {
         userId: user.uid,
       });
 
-      // Save patient record for future reference
-      await savePatientRecord(user.uid, { ...patientInfo });
-
       const deductResult = await deductStockBatch(
         dispensList.map((item) => ({
           medicineId: item.medicine.id,
@@ -778,14 +841,24 @@ export default function DispensePage() {
 
       if (!deductResult.success) throw new Error(deductResult.error || 'Failed to deduct stock');
 
-      // Log activity for each medicine dispensed
+      if (hasActiveSession) {
+        for (const item of dispensList) {
+          await recordSessionDispense(
+            getDisplayName(item.medicine),
+            item.medicine.id,
+            item.quantity,
+            item.unitType,
+            fullName,
+          );
+        }
+      }
+
       for (let i = 0; i < dispensList.length; i++) {
         const item = dispensList[i];
         const stockResult = deductResult.results[i];
         const stockBefore = getEffectiveStock(item.medicine);
         const stockAfter = stockResult.newStock;
 
-        // Log medicine dispensed activity
         await logActivity(
           'medicine_dispensed',
           user.uid,
@@ -804,7 +877,6 @@ export default function DispensePage() {
           role || undefined,
         );
 
-        // Log stock deduction activity
         await logActivity(
           'stock_deducted',
           user.uid,
@@ -1318,8 +1390,40 @@ export default function DispensePage() {
                         </div>
                       )}
                       {activeStep === 1 && (
-                        <div className="scroll-area max-h-[calc(100vh-220px)] overflow-y-auto pr-1 -mr-1">
-                          <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={false} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={() => setShowConfirmModal(true)} onBack={() => setActiveStep(2)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
+                        <div className="relative" style={{ paddingTop: '16px', paddingBottom: '16px' }}>
+                          <div className="sticky top-0 z-10 flex justify-center pointer-events-none mb-1">
+                            <button
+                              type="button"
+                              aria-label="Scroll up"
+                              onClick={() => patientScrollRef.current?.scrollBy({ top: -200, behavior: 'smooth' })}
+                              className="pointer-events-auto flex items-center justify-center gap-1 h-7 px-3 rounded-full bg-white border border-slate-200 shadow-sm text-[10px] font-semibold text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:shadow-md hover:shadow-blue-50 active:scale-95 transition-all duration-150"
+                            >
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                              </svg>
+                              <span>Scroll up</span>
+                            </button>
+                          </div>
+                          <div
+                            ref={patientScrollRef}
+                            className="scroll-area overflow-y-auto pr-1 -mr-1"
+                            style={{ maxHeight: 'calc(100vh - 310px)' }}
+                          >
+                          <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={false} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={handleDispenseClick} onBack={() => setActiveStep(2)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
+                        </div>
+                          <div className="sticky bottom-0 z-10 flex justify-center pointer-events-none mt-1">
+                            <button
+                              type="button"
+                              aria-label="Scroll down"
+                              onClick={() => patientScrollRef.current?.scrollBy({ top: 200, behavior: 'smooth' })}
+                              className="pointer-events-auto flex items-center justify-center gap-1 h-7 px-3 rounded-full bg-white border border-slate-200 shadow-sm text-[10px] font-semibold text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:shadow-md hover:shadow-blue-50 active:scale-95 transition-all duration-150"
+                            >
+                              <span>Scroll down</span>
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1349,7 +1453,7 @@ export default function DispensePage() {
         </div>
       </div>
 
-      {/* Confirm Modal */}
+      {/* ── Confirm Modal ── */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in" style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.5)' }}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl slide-up">
@@ -1392,7 +1496,35 @@ export default function DispensePage() {
         </div>
       )}
 
-      {/* Medicine Selector Modal */}
+      {/* ── No Active Session Modal ── */}
+      {showNoSessionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in" style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.5)' }}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl slide-up">
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                <div><h3 className="text-lg font-bold text-slate-900">Session Required</h3><p className="text-xs text-slate-400">Start a session before dispensing</p></div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-amber-900 font-medium mb-2">⚠️ No Active Session</p>
+                <p className="text-sm text-amber-800">You must start a session before dispensing medicines. This ensures accurate inventory tracking for your session.</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-blue-900 mb-2">💡 TIP:</p>
+                <p className="text-xs text-blue-800">Click &quot;Start Session&quot; below to begin, then you can dispense medicines.</p>
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={() => setShowNoSessionModal(false)} className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">Dismiss</button>
+              <button onClick={handleStartSessionFromModal} disabled={isStartingSession} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition text-sm shadow-lg shadow-emerald-200">{isStartingSession ? 'Starting...' : 'Start Session'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Medicine Selector Modal ── */}
       {medicineModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in" style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.5)' }}>
           <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl slide-up max-h-[90vh] overflow-y-auto">
@@ -1439,7 +1571,7 @@ export default function DispensePage() {
         </div>
       )}
 
-      {/* Expanded Patient Form Modal */}
+      {/* ── Expanded Patient Form Modal ── */}
       {isPatientExpanded && (
         <div className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center sm:p-4 fade-in" style={{ backdropFilter: 'blur(10px)', background: 'rgba(15,23,42,0.6)' }}>
           <div className="expand-in bg-white flex flex-col w-full sm:rounded-2xl shadow-2xl sm:max-w-5xl lg:max-w-6xl xl:max-w-7xl h-full sm:h-auto sm:max-h-[95vh] overflow-hidden">
@@ -1456,7 +1588,7 @@ export default function DispensePage() {
             </div>
             <div className="flex flex-col lg:flex-row flex-1 overflow-hidden min-h-0">
               <div className="flex-1 overflow-y-auto scroll-area px-5 sm:px-8 py-6">
-                <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={true} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={() => { setIsPatientExpanded(false); setShowConfirmModal(true); }} onBack={() => setIsPatientExpanded(false)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
+                <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={true} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={async () => { setIsPatientExpanded(false); await handleDispenseClick(); }} onBack={() => setIsPatientExpanded(false)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
               </div>
               <div className="lg:w-80 xl:w-96 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 bg-slate-50/60 flex flex-col overflow-hidden">
                 <div className="px-5 py-4 border-b border-slate-100 shrink-0">
@@ -1472,9 +1604,9 @@ export default function DispensePage() {
                     <div className="flex justify-between text-sm font-semibold text-slate-600 mb-3">
                       <span>Total items</span><span>{dispensList.reduce((s, ii) => s + ii.quantity, 0)}</span>
                     </div>
-                    <button onClick={() => { setIsPatientExpanded(false); setShowConfirmModal(true); }} disabled={!canDispense}
+                    <button onClick={async () => { setIsPatientExpanded(false); await handleDispenseClick(); }} disabled={!canDispense}
                       className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${canDispense ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                      {canDispense ? `Dispense ${dispensList.length} Item${dispensList.length !== 1 ? 's' : ''}` : 'Fill required fields'}
+                     {canDispense ? `Dispense ${dispensList.length} Item${dispensList.length !== 1 ? 's' : ''}` : 'Fill required fields'}
                     </button>
                   </div>
                 )}
