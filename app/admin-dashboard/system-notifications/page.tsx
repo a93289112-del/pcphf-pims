@@ -14,12 +14,10 @@ export default function SystemNotificationsPage() {
   const [filterStaff, setFilterStaff] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Auth guard
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  // Subscribe to activity logs
   useEffect(() => {
     const unsubscribe = subscribeToActivityLogs((logs) => {
       setActivityLogs(logs);
@@ -29,9 +27,7 @@ export default function SystemNotificationsPage() {
   }, []);
 
   const filteredLogs = useMemo(() => {
-    // Staff-related notification types + admin login/logout
     const staffNotificationTypes = ['admin_login', 'admin_logout', 'staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
-    
     return activityLogs
       .filter(log => staffNotificationTypes.includes(log.type))
       .filter(log => {
@@ -45,23 +41,22 @@ export default function SystemNotificationsPage() {
       });
   }, [activityLogs, filterType, filterStaff, searchTerm]);
 
-      const uniqueStaff = useMemo(() => {
-      const staffOnlyTypes = ['staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
-      const staff = new Map<string, { id: string; email: string; name?: string }>();
-      activityLogs
-        .filter(log => staffOnlyTypes.includes(log.type))
-        .filter(log => log.userRole !== 'admin')
-        .filter(log => log.staffId !== user?.uid)       // exclude by UID
-        .filter(log => log.staffEmail !== user?.email)  // exclude by email (catches old logs)
-        .forEach(log => {
-          if (!staff.has(log.staffId)) {
-            staff.set(log.staffId, { id: log.staffId, email: log.staffEmail, name: log.staffName });
-          }
-        });
-      return Array.from(staff.values());
-    }, [activityLogs, user]);
+  const uniqueStaff = useMemo(() => {
+    const staffOnlyTypes = ['staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
+    const staff = new Map<string, { id: string; email: string; name?: string }>();
+    activityLogs
+      .filter(log => staffOnlyTypes.includes(log.type))
+      .filter(log => log.userRole !== 'admin')
+      .filter(log => log.staffId !== user?.uid)
+      .filter(log => log.staffEmail !== user?.email)
+      .forEach(log => {
+        if (!staff.has(log.staffId)) {
+          staff.set(log.staffId, { id: log.staffId, email: log.staffEmail, name: log.staffName });
+        }
+      });
+    return Array.from(staff.values());
+  }, [activityLogs, user]);
 
-  // ── Label map ─────────────────────────────────────────────────────────────
   const getActivityTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
       'admin_login':        'Admin Login',
@@ -81,7 +76,6 @@ export default function SystemNotificationsPage() {
     return labels[type] || type;
   };
 
-  // ── Color map ─────────────────────────────────────────────────────────────
   const getActivityTypeColor = (type: string): string => {
     const colors: Record<string, string> = {
       'admin_login':        'bg-green-50 text-green-700 border-green-200',
@@ -101,7 +95,6 @@ export default function SystemNotificationsPage() {
     return colors[type] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
 
-  // ── Icon map ──────────────────────────────────────────────────────────────
   const getActivityIcon = (type: string) => {
     const iconProps = {
       className: 'w-4 h-4',
@@ -112,7 +105,6 @@ export default function SystemNotificationsPage() {
       strokeLinejoin: 'round' as const,
       viewBox: '0 0 24 24',
     };
-
     switch (type) {
       case 'admin_login':
         return <svg {...iconProps}><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>;
@@ -145,15 +137,13 @@ export default function SystemNotificationsPage() {
     }
   };
 
-  // ── Time formatter ────────────────────────────────────────────────────────
   const formatTime = (timestamp: string): string => {
-    const date    = new Date(timestamp);
-    const now     = new Date();
-    const diffMs  = now.getTime() - date.getTime();
+    const date      = new Date(timestamp);
+    const now       = new Date();
+    const diffMs    = now.getTime() - date.getTime();
     const diffMins  = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays  = Math.floor(diffMs / 86400000);
-
     if (diffMins  < 1)  return 'Just now';
     if (diffMins  < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
@@ -185,8 +175,6 @@ export default function SystemNotificationsPage() {
         {/* Filters */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-
-            {/* Search */}
             <div className="lg:col-span-2">
               <label className="block text-sm font-semibold text-slate-700 mb-2">Search</label>
               <input
@@ -197,8 +185,6 @@ export default function SystemNotificationsPage() {
                 className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-slate-300 text-sm"
               />
             </div>
-
-            {/* Filter by Type */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Notification Type</label>
               <select
@@ -216,8 +202,6 @@ export default function SystemNotificationsPage() {
                 <option value="password_changed">Password Changed</option>
               </select>
             </div>
-
-            {/* Filter by Staff */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">Staff Member</label>
               <select
@@ -236,8 +220,13 @@ export default function SystemNotificationsPage() {
           </div>
         </div>
 
-        {/* Activity Logs */}
-        <div className="space-y-3">
+        {/* ── Scrollable logs container ── */}
+        <div
+          className="overflow-y-auto space-y-3 pr-1
+                     scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent
+                     hover:scrollbar-thumb-slate-400"
+          style={{ height: '65vh' }}
+        >
           {filteredLogs.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-12 text-center">
               <p className="text-slate-500">No activity logs found</p>
@@ -276,11 +265,8 @@ export default function SystemNotificationsPage() {
                     {/* Details */}
                     {log.details && Object.keys(log.details).length > 0 && (
                       <>
-                        {/* ── session_ended rich card ── */}
                         {log.type === 'session_ended' ? (
                           <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 text-xs">
-
-                            {/* Duration */}
                             {log.details.sessionDurationMinutes !== undefined && (
                               <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                                 <p className="text-slate-600 font-medium mb-1">Session Duration</p>
@@ -289,8 +275,6 @@ export default function SystemNotificationsPage() {
                                 </p>
                               </div>
                             )}
-
-                            {/* Transaction Metrics */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                               {log.details.totalUnitsDispensed !== undefined && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
@@ -317,39 +301,27 @@ export default function SystemNotificationsPage() {
                                 </div>
                               )}
                             </div>
-
-                            {/* Inventory Alerts */}
                             {((log.details.lowStockCount ?? 0) > 0 ||
                               (log.details.expiredCount ?? 0) > 0 ||
                               (log.details.outOfStockCount ?? 0) > 0) && (
                               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                                 <p className="text-red-700 font-medium mb-2 text-[10px] uppercase tracking-wide">⚠️ Inventory Alerts</p>
                                 <div className="space-y-1 text-red-800">
-                                  {(log.details.outOfStockCount ?? 0) > 0 && (
-                                    <p className="text-[11px]">• {log.details.outOfStockCount} out of stock</p>
-                                  )}
-                                  {(log.details.expiredCount ?? 0) > 0 && (
-                                    <p className="text-[11px]">• {log.details.expiredCount} expired</p>
-                                  )}
-                                  {(log.details.lowStockCount ?? 0) > 0 && (
-                                    <p className="text-[11px]">• {log.details.lowStockCount} low stock</p>
-                                  )}
+                                  {(log.details.outOfStockCount ?? 0) > 0 && <p className="text-[11px]">• {log.details.outOfStockCount} out of stock</p>}
+                                  {(log.details.expiredCount ?? 0) > 0 && <p className="text-[11px]">• {log.details.expiredCount} expired</p>}
+                                  {(log.details.lowStockCount ?? 0) > 0 && <p className="text-[11px]">• {log.details.lowStockCount} low stock</p>}
                                   {log.details.totalCriticalAlerts !== undefined && (
                                     <p className="text-[11px] font-semibold mt-1">Total Critical: {log.details.totalCriticalAlerts}</p>
                                   )}
                                 </div>
                               </div>
                             )}
-
-                            {/* Session Summary */}
                             {log.details.sessionSummary && (
                               <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                                 <p className="text-slate-600 font-medium mb-1 text-[10px] uppercase tracking-wide">Summary</p>
                                 <p className="text-slate-700 text-[11px] leading-relaxed">{log.details.sessionSummary}</p>
                               </div>
                             )}
-
-                            {/* Detailed Breakdown */}
                             {log.details.detailedBreakdown && (
                               <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                                 <p className="text-slate-600 font-medium mb-1 text-[10px] uppercase tracking-wide">Details</p>
@@ -359,7 +331,6 @@ export default function SystemNotificationsPage() {
                           </div>
 
                         ) : log.type === 'session_started' ? (
-                          /* ── session_started simple card ── */
                           <div className="mt-3 pt-3 border-t border-slate-100 text-xs">
                             <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
                               <p className="text-teal-700 font-medium mb-1 text-[10px] uppercase tracking-wide">Session Started</p>
@@ -375,7 +346,6 @@ export default function SystemNotificationsPage() {
                           </div>
 
                         ) : (
-                          /* ── generic detail grid ── */
                           <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                             {log.details.medicineName && (
                               <div>

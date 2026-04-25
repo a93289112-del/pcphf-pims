@@ -213,6 +213,7 @@ function StatusOverviewCards({ summary }: { summary: InventorySummary }) {
 }
 
 // Medicine Details Table
+// Medicine Details Table — add overflow-y-auto wrapper
 function MedicineDetailsTable({
   medicines,
   criticalOnly = false,
@@ -234,9 +235,14 @@ function MedicineDetailsTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+    <div
+      className="overflow-y-auto overflow-x-auto rounded-xl border border-slate-200 shadow-sm
+                 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent
+                 hover:scrollbar-thumb-slate-400"
+      style={{ maxHeight: '420px' }}
+    >
       <table className="w-full text-sm">
-        <thead>
+        <thead className="sticky top-0 z-10">
           <tr className="bg-slate-50 border-b border-slate-200">
             <th className="px-4 py-3 text-left font-bold text-slate-700">Medicine</th>
             <th className="px-4 py-3 text-left font-bold text-slate-700">Category</th>
@@ -294,7 +300,7 @@ function MedicineDetailsTable({
             </tr>
           ))}
         </tbody>
-        <tfoot>
+        <tfoot className="sticky bottom-0">
           <tr className="bg-slate-50 border-t-2 border-slate-300">
             <td className="px-4 py-3 font-bold text-slate-900" colSpan={2}>
               Total
@@ -317,11 +323,16 @@ function CategoryBreakdownTable({ medicines }: { medicines: MedicineInventorySta
   if (categories.length === 0) return null;
 
   return (
-    <div className="mt-6">
-      <h3 className="text-lg font-bold text-slate-900 mb-4">Stock by Category</h3>
-      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
+    <div className="mt-1">
+      <h3 className="text-lg font-bold text-slate-900 mb-6">Stock by Category</h3>
+      <div
+        className="overflow-y-auto overflow-x-auto rounded-xl border border-slate-200 shadow-sm
+                   scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent
+                   hover:scrollbar-thumb-slate-400"
+        style={{ maxHeight: '300px' }}
+      >
         <table className="w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10">
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="px-4 py-3 text-left font-bold text-slate-700">Category</th>
               <th className="px-4 py-3 text-center font-bold text-slate-700">Medicines</th>
@@ -383,7 +394,7 @@ export default function InventorySummaryComponent({
       {showDetailedTable && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-slate-200">
-            <h3 className="text-lg font-bold text-slate-900">
+            <h3 className="text-lg font-bold text-slate-900 mt-4">
               {criticalOnly ? 'Critical Items' : 'All Medicines Inventory'}
             </h3>
             <p className="text-sm text-slate-500 mt-1">

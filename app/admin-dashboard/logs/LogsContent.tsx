@@ -128,7 +128,6 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
   const r = 36, cx = 44, cy = 44, stroke = 14;
   const circ = 2 * Math.PI * r;
 
-  // Pre-compute offsets before render
   const arcs = segments.map((seg, i) => {
     const dash = (seg.value / total) * circ;
     const offset = segments.slice(0, i).reduce((sum, s) => sum + (s.value / total) * circ, 0);
@@ -323,7 +322,6 @@ export default function LogsContent() {
   useEffect(() => {
     if (!user) return;
     
-    // Subscribe to activity logs
     const unsubscribe = subscribeToActivityLogs((logs) => {
       setActivityLogs(logs);
       setLoading(false);
@@ -349,7 +347,6 @@ export default function LogsContent() {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   const analytics = useMemo(() => {
-    // Get data from UNFILTERED logs for overall stats (dispenses/sales from session_ended)
     const sessionLogs = activityLogs.filter(l => l.type === 'session_ended');
     
     let totalDispensedUnits = 0;
@@ -361,15 +358,12 @@ export default function LogsContent() {
       totalSoldUnits += sold;
     });
 
-    // For filtered logs (based on user selections)
     const staffCreated = filteredLogs.filter(l => l.type === 'staff_created');
     const staffDisabled = filteredLogs.filter(l => l.type === 'staff_disabled');
     const adjustments = filteredLogs.filter(l => l.type === 'stock_deducted' || l.type === 'stock_adjusted');
 
-    // Per-staff breakdown (from session_ended logs, exclude admins)
     const staffStats: Record<string, { dispense: number; sale: number; adjustment: number; total: number; email: string; name: string }> = {};
     
-    // Process session_ended logs to get accurate dispense/sale counts
     sessionLogs.forEach(l => {
       const logRole = l.userRole || 'staff';
       if (logRole === 'admin') return;
@@ -380,7 +374,6 @@ export default function LogsContent() {
       const staffName = l.staffName || l.staffEmail || uid;
       if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: staffName };
       
-      // Extract accurate counts from session details
       const dispenseCount = l.details?.totalDispenseTransactions || 0;
       const saleCount = l.details?.totalSalesTransactions || 0;
       staffStats[uid].dispense += dispenseCount;
@@ -388,7 +381,6 @@ export default function LogsContent() {
       staffStats[uid].total += dispenseCount + saleCount;
     });
 
-    // Add adjustment counts from filtered logs
     filteredLogs.forEach(l => {
       if (l.type === 'stock_deducted' || l.type === 'stock_adjusted') {
         const logRole = l.userRole || 'staff';
@@ -404,7 +396,6 @@ export default function LogsContent() {
       }
     });
 
-    // Daily volume last 14 days (based on filtered logs)
     const last14 = Array.from({ length: 14 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (13 - i));
       return d.toISOString().slice(0, 10);
@@ -414,7 +405,6 @@ export default function LogsContent() {
       value: filteredLogs.filter(l => l.timestamp?.slice(0, 10) === day).length,
     }));
 
-    // Sparkline (last 7 days)
     const spark = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (6 - i));
       return filteredLogs.filter(l => l.timestamp?.slice(0, 10) === d.toISOString().slice(0, 10)).length;
@@ -430,7 +420,6 @@ export default function LogsContent() {
       spark,
       totalDispensedUnits,
       totalSoldUnits
-      
     };
   }, [filteredLogs, activityLogs, user]);
 
@@ -473,7 +462,7 @@ export default function LogsContent() {
     <div className="min-h-screen bg-[#f8f8f7] w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-        {/* ── Header (untouched) ── */}
+        {/* ── Header ── */}
         <div className="mb-8">
           <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2">System Activity Logs</h1>
           <p className="text-slate-500">Full audit trail of all inventory and sales transactions</p>
@@ -524,10 +513,9 @@ export default function LogsContent() {
               const staffRecord = activityLogs.find(l => l.staffId === uid);
               return uid !== user.uid && 
                     staffRecord?.staffEmail !== user.email &&
-                    staffRecord?.userRole !== 'admin';  // ← also exclude by role
+                    staffRecord?.userRole !== 'admin';
             }).map(uid => {
               const staffRecord = activityLogs.find(l => l.staffId === uid);
-              // Use staffName, but if it looks like an email, fall back to the part before @
               const rawName = staffRecord?.staffName || '';
               const staffName = rawName.includes('@') 
                 ? rawName.split('@')[0] 
@@ -648,8 +636,6 @@ export default function LogsContent() {
 
             {/* Charts row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-              {/* Daily volume bar */}
               <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
                   <div>
@@ -661,7 +647,6 @@ export default function LogsContent() {
                 <MiniBarChart data={analytics.dailyVolume} color="#3b82f6" />
               </div>
 
-              {/* Type donut */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <p className="text-sm font-bold text-slate-900 mb-1">Event Breakdown</p>
                 <p className="text-xs text-slate-400 mb-4">By transaction type</p>
@@ -688,10 +673,8 @@ export default function LogsContent() {
               </div>
             </div>
 
-            {/* Staff comparison + Top meds */}
+            {/* Staff comparison + Recent activities */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-              {/* Staff comparison bar chart */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
                   <div>
@@ -703,7 +686,6 @@ export default function LogsContent() {
                 <StaffComparisonChart staffStats={analytics.staffStats} />
               </div>
 
-              {/* Top medicines */}
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -729,7 +711,6 @@ export default function LogsContent() {
                 )}
               </div>
             </div>
-
 
             {/* Staff breakdown table */}
             {Object.keys(analytics.staffStats).length > 0 && (
@@ -790,8 +771,9 @@ export default function LogsContent() {
         {/* ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'logs' && (
           <>
-            {/* Desktop table */}
+            {/* Desktop table — fixed height with its own scrollbar */}
             <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              {/* Sticky header sits outside the scroll container */}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse table-fixed">
                   <thead>
@@ -801,6 +783,18 @@ export default function LogsContent() {
                       ))}
                     </tr>
                   </thead>
+                </table>
+              </div>
+              {/* Scrollable body */}
+              <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+                <table className="w-full text-sm border-collapse table-fixed">
+                  <colgroup>
+                    <col className="w-[13%]" />
+                    <col className="w-[14%]" />
+                    <col className="w-[20%]" />
+                    <col className="w-[40%]" />
+                    <col className="w-[13%]" />
+                  </colgroup>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLogs.map((log, i) => {
                       const rawName = log.staffName || '';
@@ -811,14 +805,14 @@ export default function LogsContent() {
                       
                       return (
                         <tr key={i} className="hover:bg-slate-50 transition-colors group">
-                          <td className="px-5 py-3.5 whitespace-nowrap w-[13%]">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             <p className="text-sm font-semibold text-slate-900">{new Date(log.timestamp).toLocaleDateString()}</p>
                             <p className="text-[10px] text-slate-400 font-medium mt-0.5">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                           </td>
-                          <td className="px-5 py-3.5 w-[14%]">
+                          <td className="px-5 py-3.5">
                             {typeBadge(log.type)}
                           </td>
-                          <td className="px-5 py-3.5 w-[20%]">
+                          <td className="px-5 py-3.5">
                             <div className="flex items-center gap-2.5">
                               <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
                                 <Icon.User />
@@ -828,10 +822,10 @@ export default function LogsContent() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 w-[40%]">
+                          <td className="px-5 py-3.5">
                             <p className="text-sm text-slate-800 truncate">{log.action}</p>
                           </td>
-                          <td className="px-5 py-3.5 w-[13%] text-right">
+                          <td className="px-5 py-3.5 text-right">
                             {isSessionEnded && log.details && (
                               <button
                                 onClick={() => {
