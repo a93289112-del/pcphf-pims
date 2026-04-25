@@ -11,6 +11,7 @@ import { subscribeToActivityLogs, type ActivityLog } from '@/lib/services/activi
 interface UserProfile {
   uid: string;
   email: string;
+  staffName?: string;
   role: 'admin' | 'staff';
   status: 'pending' | 'approved' | 'disabled';
   createdAt: string;
@@ -36,7 +37,6 @@ export default function AdminDashboard() {
     loadingStates.transactions ||
     loadingStates.activityLogs;
 
-  // ── Data listeners ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
 
@@ -103,7 +103,11 @@ export default function AdminDashboard() {
     };
   }, [user]);
 
-  // ── Session stats ──────────────────────────────────────────────────────────
+  const getDisplayName = (uid: string, fallbackEmail?: string) => {
+    const found = (Array.isArray(users) ? users : []).find((u) => u.uid === uid);
+    return found?.staffName || fallbackEmail || uid;
+  };
+
   const sessionStats = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -155,7 +159,6 @@ export default function AdminDashboard() {
     };
   }, [activityLogs]);
 
-  // ── Staff activity ─────────────────────────────────────────────────────────
   const staffActivity = useMemo(() => {
     const activity: Record<string, { count: number; recent: FirebaseTransaction[] }> = {};
     const validTx  = transactions.filter((t) => t && t.date && t.userId);
@@ -175,12 +178,16 @@ export default function AdminDashboard() {
     });
 
     return Object.entries(activity)
-      .map(([uid, data]) => ({
-        uid,
-        email: (Array.isArray(users) ? users : []).find((u) => u.uid === uid)?.email || uid,
-        count: data.count,
-        recent: data.recent,
-      }))
+      .map(([uid, data]) => {
+        const found = (Array.isArray(users) ? users : []).find((u) => u.uid === uid);
+        return {
+          uid,
+          displayName: found?.staffName || found?.email || uid,
+          email: found?.email || uid,
+          count: data.count,
+          recent: data.recent,
+        };
+      })
       .sort((a, b) => b.count - a.count)
       .slice(0, 6);
   }, [transactions, users]);
@@ -193,7 +200,6 @@ export default function AdminDashboard() {
     }).length,
   [medicines]);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#f8f7f4]">
@@ -216,7 +222,6 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#f8f7f4] w-full">
 
-      {/* ── Top hero header ─────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-100 px-4 sm:px-8 py-8 mb-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
           <div>
@@ -229,7 +234,6 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          {/* Live active sessions pill */}
           {sessionStats.activeNow > 0 && (
             <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-200 self-start sm:self-auto">
               <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
@@ -243,7 +247,6 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-12 space-y-8">
 
-        {/* ── Section: Overview ───────────────────────────────────────────── */}
         <Section label="Overview">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <StatCard
@@ -278,7 +281,6 @@ export default function AdminDashboard() {
           </div>
         </Section>
 
-        {/* ── Section: Session metrics ─────────────────────────────────────── */}
         <Section label="Session Metrics">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricTile label="Started Today"  value={sessionStats.startedToday} color="teal" />
@@ -287,7 +289,6 @@ export default function AdminDashboard() {
           </div>
         </Section>
 
-        {/* ── Section: Per-staff session breakdown ─────────────────────────── */}
         {sessionStats.perStaff.length > 0 && (
           <Section label="Session Breakdown by Staff">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -314,13 +315,14 @@ export default function AdminDashboard() {
                       const avgH     = Math.floor(avgM / 60);
                       const avgMr    = avgM % 60;
                       const avgStr   = avgM > 0 ? (avgH > 0 ? `${avgH}h ${avgMr}m` : `${avgMr}m`) : '—';
+                      const displayName = getDisplayName(s.uid, s.email);
 
                       return (
                         <tr key={s.uid} className="hover:bg-slate-50/70 transition-colors group">
                           <td className="py-3.5 px-5">
                             <div className="flex items-center gap-3">
-                              <Avatar email={s.email} index={i} />
-                              <span className="font-semibold text-slate-800 text-xs truncate max-w-[160px]">{s.email}</span>
+                              <Avatar name={displayName} index={i} />
+                              <span className="font-semibold text-slate-800 text-xs truncate max-w-[160px]">{displayName}</span>
                             </div>
                           </td>
                           <td className="py-3.5 px-5 text-right">
@@ -341,7 +343,6 @@ export default function AdminDashboard() {
           </Section>
         )}
 
-        {/* ── Section: Staff Activity Monitor ──────────────────────────────── */}
         <Section label="Staff Activity Monitor">
           {staffActivity.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm flex items-center justify-center py-16">
@@ -361,7 +362,6 @@ export default function AdminDashboard() {
   );
 }
 
-// ── Section wrapper ────────────────────────────────────────────────────────────
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -374,7 +374,6 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-// ── StatCard ───────────────────────────────────────────────────────────────────
 const accentMap: Record<string, { bg: string; text: string; ring: string; icon: string }> = {
   indigo: { bg: 'bg-indigo-50',  text: 'text-indigo-700',  ring: 'ring-indigo-100',  icon: 'bg-indigo-600 text-white' },
   amber:  { bg: 'bg-amber-50',   text: 'text-amber-700',   ring: 'ring-amber-100',   icon: 'bg-amber-500 text-white' },
@@ -397,10 +396,8 @@ function StatCard({
   const a = accentMap[accent] || accentMap.indigo;
 
   const content = (
-    <div className={`group relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden`}>
-      {/* Subtle tint blob */}
+    <div className="group relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden">
       <div className={`absolute -top-4 -right-4 w-20 h-20 rounded-full ${a.bg} opacity-60 blur-xl pointer-events-none`} />
-
       <div className="relative flex items-start justify-between mb-5">
         <div className={`p-2.5 rounded-xl ${a.icon} shadow-sm`}>{icon}</div>
         {link && (
@@ -409,7 +406,6 @@ function StatCard({
           </div>
         )}
       </div>
-
       <p className="text-3xl font-black text-slate-900 leading-none mb-1.5">{value}</p>
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{title}</p>
       {sub && <p className="text-[10px] text-slate-400 mt-1">{sub}</p>}
@@ -419,7 +415,6 @@ function StatCard({
   return link ? <Link href={link}>{content}</Link> : content;
 }
 
-// ── MetricTile ─────────────────────────────────────────────────────────────────
 function MetricTile({ label, value, color, isText }: { label: string; value: string | number; color: string; isText?: boolean }) {
   const a = accentMap[color] || accentMap.indigo;
   return (
@@ -430,8 +425,13 @@ function MetricTile({ label, value, color, isText }: { label: string; value: str
   );
 }
 
-// ── StaffCard ──────────────────────────────────────────────────────────────────
-function StaffCard({ staff, rank }: { staff: { uid: string; email: string; count: number; recent: FirebaseTransaction[] }; rank: number }) {
+function StaffCard({
+  staff,
+  rank,
+}: {
+  staff: { uid: string; displayName: string; email: string; count: number; recent: FirebaseTransaction[] };
+  rank: number;
+}) {
   const txTypeStyle: Record<string, string> = {
     adjustment: 'bg-amber-100 text-amber-700',
     sale:       'bg-emerald-100 text-emerald-700',
@@ -440,19 +440,17 @@ function StaffCard({ staff, rank }: { staff: { uid: string; email: string; count
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4 hover:shadow-md transition-shadow">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Avatar email={staff.email} index={rank - 1} size="lg" />
+          <Avatar name={staff.displayName} index={rank - 1} size="lg" />
           <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900 truncate">{staff.email}</p>
+            <p className="text-sm font-bold text-slate-900 truncate">{staff.displayName}</p>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{staff.count} total actions</p>
           </div>
         </div>
         <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2.5 py-1.5 rounded-lg">#{rank}</span>
       </div>
 
-      {/* Recent activity */}
       <div>
         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Recent Activity</p>
         <div className="space-y-1.5">
@@ -476,22 +474,21 @@ function StaffCard({ staff, rank }: { staff: { uid: string; email: string; count
   );
 }
 
-// ── Avatar ─────────────────────────────────────────────────────────────────────
 const avatarColors = [
   'bg-indigo-600', 'bg-violet-600', 'bg-rose-500',
   'bg-teal-600',   'bg-amber-500',  'bg-emerald-600',
 ];
-function Avatar({ email, index, size = 'sm' }: { email: string; index: number; size?: 'sm' | 'lg' }) {
+
+function Avatar({ name, index, size = 'sm' }: { name: string; index: number; size?: 'sm' | 'lg' }) {
   const color = avatarColors[index % avatarColors.length];
   const dim   = size === 'lg' ? 'w-10 h-10 text-sm' : 'w-8 h-8 text-xs';
   return (
     <div className={`${dim} ${color} rounded-xl text-white flex items-center justify-center font-black shadow-sm shrink-0`}>
-      {email[0].toUpperCase()}
+      {name[0].toUpperCase()}
     </div>
   );
 }
 
-// ── Pill ───────────────────────────────────────────────────────────────────────
 function Pill({ value, color }: { value: number; color: string }) {
   const a = accentMap[color] || accentMap.indigo;
   return (
@@ -501,7 +498,6 @@ function Pill({ value, color }: { value: number; color: string }) {
   );
 }
 
-// ── Icons ──────────────────────────────────────────────────────────────────────
 const i = (d: string) => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" d={d} />

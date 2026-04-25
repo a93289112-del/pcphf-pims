@@ -13,6 +13,7 @@ import Processing from './processing';
 import { database, getUserPath } from '../services/firebase';
 import { ref, onValue } from 'firebase/database';
 import { logActivity, subscribeToActivityLogs } from '../services/activity-logs';
+import { calculateAccurateSessionSummary, formatCurrency, formatNumber } from '../services/session-summary';
 import { type FirebaseTransaction } from '@/lib/types';
 
 // ─── Storage key for session start time ────────────────────────────────────────
@@ -664,8 +665,15 @@ export default function Sidebar() {
       const durationMins = sessionDurationMinutes % 60;
       const durationStr = `${durationHours}h ${durationMins}m`;
 
-      const sessionSummary = `Daily session ended with ${sessionSummaryData.totalUnits} total units (${sessionSummaryData.dispensed} dispensed, ${sessionSummaryData.sold} sales) through ${sessionSummaryData.transactions} transactions. Duration: ${durationStr}. Critical alerts: ${sessionSummaryData.totalAlerts}.`;
-      const detailedBreakdown = `Dispense: ${sessionSummaryData.dispenseCount} | Sales: ${sessionSummaryData.saleCount} | Low Stock: ${sessionSummaryData.lowStock} | Expiring: ${sessionSummaryData.expiring}`;
+      // Calculate accurate session summary from actual POS sales and dispense records
+      const accurateSummary = await calculateAccurateSessionSummary(
+        user.uid,
+        currentSessionStartTime,
+        now
+      );
+
+      const sessionSummary = `Daily session ended with ${formatNumber(accurateSummary.totalUnitsMovement)} total units moved (${formatNumber(accurateSummary.totalUnitsSold)} sold, ${formatNumber(accurateSummary.totalUnitsDispensed)} dispensed) through ${formatNumber(accurateSummary.totalTransactions)} transactions. Revenue: ${formatCurrency(accurateSummary.totalRevenue)}. Duration: ${durationStr}.`;
+      const detailedBreakdown = `Sales: ${accurateSummary.totalSalesTransactions} txns (${formatNumber(accurateSummary.totalUnitsSold)} units) | Dispenses: ${accurateSummary.totalDispenseTransactions} txns (${formatNumber(accurateSummary.totalUnitsDispensed)} units) | Total Revenue: ${formatCurrency(accurateSummary.totalRevenue)} | Average per transaction: ${formatCurrency(accurateSummary.averageTransactionValue)}`;
 
       await logActivity(
         'session_ended',
@@ -676,14 +684,20 @@ export default function Sidebar() {
           sessionStartTime: currentSessionStartTime.toISOString(),
           sessionEndTime: now.toISOString(),
           sessionDurationMinutes,
-          totalUnitsDispensed: sessionSummaryData.dispensed,
-          totalSalesTransactions: sessionSummaryData.saleCount,
-          totalDispenseTransactions: sessionSummaryData.dispenseCount,
-          totalTransactions: sessionSummaryData.transactions,
-          lowStockCount: sessionSummaryData.lowStock,
-          expiredCount: sessionSummaryData.expired,
-          outOfStockCount: sessionSummaryData.outOfStock,
-          totalCriticalAlerts: sessionSummaryData.totalAlerts,
+          totalUnitsDispensed: accurateSummary.totalUnitsDispensed,
+          totalUnitsSold: accurateSummary.totalUnitsSold,
+          totalUnitsMovement: accurateSummary.totalUnitsMovement,
+          totalSalesTransactions: accurateSummary.totalSalesTransactions,
+          totalDispenseTransactions: accurateSummary.totalDispenseTransactions,
+          totalTransactions: accurateSummary.totalTransactions,
+          totalRevenue: accurateSummary.totalRevenue,
+          totalAmountPaid: accurateSummary.totalAmountPaid,
+          totalChange: accurateSummary.totalChange,
+          averageTransactionValue: accurateSummary.averageTransactionValue,
+          lowStockCount: statusCounts.low,
+          expiredCount: statusCounts.expired,
+          outOfStockCount: statusCounts.out,
+          totalCriticalAlerts: statusCounts.expired + statusCounts.out,
           sessionSummary,
           detailedBreakdown,
         },
@@ -698,7 +712,7 @@ export default function Sidebar() {
     } finally {
       setIsEndingSession(false);
     }
-  }, [user, currentSessionStartTime, sessionSummaryData, staffName, adminName, role]);
+  }, [user, currentSessionStartTime, statusCounts, staffName, adminName, role]);
 
   // ── Start Session ──────────────────────────────────────────────────────────
   const handleCreateNewSession = useCallback(async () => {

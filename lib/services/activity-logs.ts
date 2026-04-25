@@ -42,6 +42,7 @@ export interface ActivityLogDetails {
   sessionEndTime?: string;
   sessionDurationMinutes?: number;
   totalUnitsDispensed?: number;
+  totalUnitsSold?: number;
   totalSalesTransactions?: number;
   totalDispenseTransactions?: number;
   totalTransactions?: number;

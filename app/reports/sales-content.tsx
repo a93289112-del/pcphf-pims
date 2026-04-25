@@ -88,11 +88,11 @@ function buildSalesReportHTML(
         : m.medicineName;
       return `
         <tr>
-          <td>${i + 1}</td>
+          <td class="row-number">${i + 1}</td>
           <td>${nameWithStrength}</td>
-          <td style="text-align:center">${m.totalQuantity}</td>
-          <td style="text-align:center">${m.salesCount}</td>
-          <td style="text-align:right">₱${m.totalRevenue.toFixed(2)}</td>
+          <td class="center">${m.totalQuantity}</td>
+          <td class="center">${m.salesCount}</td>
+          <td class="amount-right">₱${m.totalRevenue.toFixed(2)}</td>
         </tr>`;
     })
     .join('');
@@ -103,10 +103,10 @@ function buildSalesReportHTML(
       return `
       <tr>
         <td>${day.displayDate}</td>
-        <td style="text-align:center">${day.salesCount}</td>
-        <td style="text-align:center">${day.totalItems}</td>
-        <td style="text-align:right">₱${day.totalRevenue.toFixed(2)}</td>
-        <td style="text-align:right">₱${avg.toFixed(2)}</td>
+        <td class="center">${day.salesCount}</td>
+        <td class="center">${day.totalItems}</td>
+        <td class="amount-right">₱${day.totalRevenue.toFixed(2)}</td>
+        <td class="amount-right">₱${avg.toFixed(2)}</td>
       </tr>`;
     })
     .join('');
@@ -121,7 +121,7 @@ function buildSalesReportHTML(
           .split('-')
           .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
           .join(' ')}</td>
-        <td style="text-align:right">₱${amount.toFixed(2)}</td>
+        <td class="amount-right">₱${amount.toFixed(2)}</td>
       </tr>`,
     )
     .join('');
@@ -133,75 +133,209 @@ function buildSalesReportHTML(
 <html>
 <head>
   <meta charset="UTF-8"/>
-  <title>Sales Report</title>
+  <title>Sales & Dispensing Report</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1f2937; background: #fff; padding: 20mm 15mm; font-size: 12px; }
-    .header { text-align: center; border-bottom: 3px solid #2563eb; padding-bottom: 16px; margin-bottom: 28px; }
-    .header h1 { font-size: 26px; color: #1e3a8a; letter-spacing: -0.5px; }
-    .header p  { color: #6b7280; margin-top: 4px; font-size: 11px; }
-    h2 { font-size: 13px; color: #1e3a8a; border-left: 4px solid #2563eb; padding-left: 8px; margin-bottom: 12px; }
-    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 28px; }
-    .stat-card { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 14px 12px; }
-    .stat-label { font-size: 10px; color: #6b7280; margin-bottom: 4px; }
-    .stat-value { font-size: 22px; font-weight: 800; color: #1e3a8a; word-break: break-all; }
-    .stat-sub   { font-size: 9px; color: #9ca3af; margin-top: 2px; }
-    .section { margin-bottom: 28px; page-break-inside: avoid; }
-    table { width: 100%; border-collapse: collapse; }
-    thead th { background: #eff6ff; color: #1e40af; padding: 8px 10px; text-align: left; font-size: 11px; border-bottom: 2px solid #bfdbfe; }
-    tbody td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; font-size: 11px; }
-    tbody tr:nth-child(even) td { background: #f9fafb; }
-    .footer { margin-top: 36px; text-align: center; color: #9ca3af; font-size: 10px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
-    .empty { color: #6b7280; font-style: italic; padding: 12px 0; }
-    @media print { body { padding: 10mm; } @page { margin: 10mm; size: A4; } }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { 
+      font-family: Arial, Helvetica, sans-serif; 
+      color: #000; 
+      background: #fff; 
+      padding: 20mm; 
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .org-header {
+      text-align: center;
+      margin-bottom: 8px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 6px;
+    }
+    .org-name {
+      font-size: 10px;
+      font-weight: normal;
+      color: #333;
+    }
+    .org-dept {
+      font-size: 12px;
+      font-weight: bold;
+      color: #000;
+      margin-top: 2px;
+    }
+    .org-title {
+      font-size: 10px;
+      font-weight: normal;
+      color: #333;
+      margin-top: 2px;
+    }
+    .report-title {
+      text-align: center;
+      font-size: 13px;
+      font-weight: bold;
+      color: #000;
+      margin-top: 12px;
+      margin-bottom: 2px;
+      text-decoration: underline;
+    }
+    .report-meta {
+      text-align: center;
+      font-size: 9px;
+      color: #333;
+      margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: bold;
+      color: #000;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 2px;
+    }
+    table { 
+      width: 100%; 
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      border: 1px solid #000;
+    }
+    th { 
+      padding: 5px 6px; 
+      text-align: left; 
+      font-size: 9px;
+      font-weight: bold;
+      color: #000;
+      background: #f5f5f5;
+      border: 1px solid #000;
+      border-bottom: 2px solid #000;
+    }
+    td { 
+      padding: 4px 6px; 
+      border: 1px solid #ddd; 
+      font-size: 9px;
+      color: #000;
+    }
+    tbody tr {
+      background: #fff;
+    }
+    .row-number {
+      width: 3%;
+      text-align: center;
+      font-weight: bold;
+    }
+    .amount-right {
+      text-align: right;
+      font-family: 'Courier New', monospace;
+    }
+    .center {
+      text-align: center;
+    }
+    .footer { 
+      margin-top: 20px; 
+      text-align: center; 
+      color: #333; 
+      font-size: 8px; 
+      border-top: 1px solid #000; 
+      padding-top: 6px;
+    }
+    .empty { 
+      color: #666; 
+      font-style: italic; 
+      padding: 12px 0;
+      text-align: center;
+    }
+    @media print { 
+      body { padding: 15mm; }
+      @page { margin: 15mm; size: A4; }
+      .section-title { page-break-after: avoid; }
+      table { page-break-inside: avoid; }
+    }
   </style>
 </head>
 <body>
-  <div class="header">
-    <h1>Sales Report</h1>
-    <p>Period: ${dateLabel} &nbsp;|&nbsp; Generated: ${generatedAt}</p>
+  <!-- Organization Header -->
+  <div class="org-header">
+    <div class="org-name">Pharmacy Management System</div>
+    <div class="org-dept">PHARMACY OPERATIONS</div>
+    <div class="org-title">Sales & Dispensing Report</div>
   </div>
-  <div class="section">
-    <h2>Key Metrics</h2>
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">Total Revenue</div>
-        <div class="stat-value">₱${salesOverallStats.totalRevenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        <div class="stat-sub">Period total</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Total Transactions</div>
-        <div class="stat-value">${salesOverallStats.totalSales.toLocaleString()}</div>
-        <div class="stat-sub">Sales completed</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Items Sold</div>
-        <div class="stat-value">${salesOverallStats.totalItems.toLocaleString()}</div>
-        <div class="stat-sub">Units sold</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Avg per Sale</div>
-        <div class="stat-value">₱${salesOverallStats.avgPerSale.toFixed(2)}</div>
-        <div class="stat-sub">Per transaction</div>
-      </div>
-    </div>
-  </div>
+
+  <div class="report-title">TRANSACTIONS REPORT</div>
+  <div class="report-meta">Period: ${dateLabel} | Generated: ${generatedAt} | ${generatedDay}</div>
+
+  <!-- Summary Metrics Table -->
+  <div class="section-title">SUMMARY METRICS</div>
+  <table>
+    <tr>
+      <td style="font-weight: bold; width: 50%;">Total POS Sales</td>
+      <td class="amount-right" style="width: 50%;">${salesOverallStats.totalSales}</td>
+    </tr>
+    <tr>
+      <td style="font-weight: bold;">Total Revenue</td>
+      <td class="amount-right">₱${salesOverallStats.totalRevenue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+    </tr>
+    <tr>
+      <td style="font-weight: bold;">Total Items Sold</td>
+      <td class="amount-right">${salesOverallStats.totalItems.toLocaleString()}</td>
+    </tr>
+    <tr>
+      <td style="font-weight: bold;">Average per Sale</td>
+      <td class="amount-right">₱${salesOverallStats.avgPerSale.toFixed(2)}</td>
+    </tr>
+  </table>
+
+  <!-- Payment Methods -->
   ${
     Object.keys(paymentBreakdown).length > 0
-      ? `<div class="section"><h2>Payment Method Breakdown</h2><table><thead><tr><th>Payment Method</th><th style="text-align:right">Revenue</th></tr></thead><tbody>${paymentRows}</tbody></table></div>`
+      ? `<div class="section-title">PAYMENT METHODS</div>
+         <table>
+           <thead><tr><th style="width: 70%;">Payment Method</th><th class="amount-right" style="width: 30%;">Amount</th></tr></thead>
+           <tbody>${paymentRows}</tbody>
+         </table>`
       : ''
   }
+
+  <!-- Top Medicines -->
   ${
     sortedMeds.length > 0
-      ? `<div class="section"><h2>Top Selling Medicines (by Revenue)</h2><table><thead><tr><th>#</th><th>Medicine</th><th style="text-align:center">Qty Sold</th><th style="text-align:center">Transactions</th><th style="text-align:right">Revenue</th></tr></thead><tbody>${topMedRows}</tbody></table></div>`
+      ? `<div class="section-title">TOP 10 MEDICINES BY REVENUE</div>
+         <table>
+           <thead>
+             <tr>
+               <th class="row-number">#</th>
+               <th style="width: 45%;">Medicine</th>
+               <th class="center" style="width: 15%;">Qty Sold</th>
+               <th class="center" style="width: 15%;">Transactions</th>
+               <th class="amount-right" style="width: 20%;">Revenue</th>
+             </tr>
+           </thead>
+           <tbody>${topMedRows}</tbody>
+         </table>`
       : ''
   }
+
+  <!-- Daily Summary -->
   ${
     dailySalesSummaries.length > 0
-      ? `<div class="section"><h2>Daily Sales Summary</h2><table><thead><tr><th>Date</th><th style="text-align:center">Transactions</th><th style="text-align:center">Items Sold</th><th style="text-align:right">Revenue</th><th style="text-align:right">Avg / Sale</th></tr></thead><tbody>${dailyRows}</tbody></table></div>`
-      : `<p class="empty">No daily sales data for the selected date range.</p>`
+      ? `<div class="section-title">DAILY TRANSACTION SUMMARY</div>
+         <table>
+           <thead>
+             <tr>
+               <th style="width: 18%;">Date</th>
+               <th class="center" style="width: 15%;">Sales</th>
+               <th class="center" style="width: 15%;">Items Sold</th>
+               <th class="amount-right" style="width: 25%;">Revenue</th>
+               <th class="amount-right" style="width: 27%;">Avg/Sale</th>
+             </tr>
+           </thead>
+           <tbody>${dailyRows}</tbody>
+         </table>`
+      : `<p class="empty">No data available for the selected period.</p>`
   }
-  <div class="footer">Pharmacy Management System &nbsp;|&nbsp; Confidential &nbsp;|&nbsp; ${generatedDay}</div>
+
+  <div class="footer">
+    <p style="margin-bottom: 3px;">Pharmacy Management System | Confidential</p>
+    <p style="margin: 0;">${generatedDay}</p>
+  </div>
 </body>
 </html>`;
 }

@@ -158,18 +158,25 @@ export default function ResetPasswordContent() {
         const staffQuery = query(usersRef, orderByChild('email'), equalTo(userEmail));
         const snapshot   = await get(staffQuery);
         if (snapshot.exists()) {
-          const staffData = snapshot.val();
-          const staffId   = Object.keys(staffData)[0];
-          await logActivity(
-            'password_changed',
-            staffId,
-            userEmail,
-            'Password reset via email reset link',
-            {},
-            userEmail.split('@')[0],
-            'staff'
-          );
-        }
+        const staffData = snapshot.val();
+        const staffId   = Object.keys(staffData)[0];
+        const profile   = staffData[staffId];  // ← get the actual profile
+
+        const userName = 
+          profile.role === 'admin' 
+            ? (profile.name || userEmail)         // admin uses `name` field
+            : (profile.staffName || userEmail);   // staff uses `staffName` field
+
+        await logActivity(
+          'password_changed',
+          staffId,
+          userEmail,
+          'Password reset via email reset link',
+          {},
+          userName,           // ← actual name from profile
+          profile.role        // ← actual role from profile
+        );
+      }
       } catch (logError) {
         console.error('Failed to log password change:', logError);
       }

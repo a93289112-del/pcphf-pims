@@ -325,7 +325,8 @@ function TransactionDetailsPanel({
                     {formatDate(dayKey + 'T00:00:00')}
                   </span>
                   <span className="text-[10px] font-semibold text-slate-400 tabular-nums">
-                    {firstStock.toLocaleString()} →{' '}
+                    {firstStock.toLocaleString()}
+                    {' → '}
                     <span className="text-slate-600">{lastStock.toLocaleString()}</span>
                   </span>
                 </div>
@@ -534,7 +535,6 @@ function TransactionDetailsPanel({
               const isOpen = expandedKeys.has(key);
               const isDate = viewMode === 'date';
 
-              // FIX: properly typed narrowing instead of 'as' casts
               const rows: TxRow[] = isDate
                 ? (data as TxRow[])
                 : (data as { medicineName: string; category: string; rows: TxRow[] }).rows;
@@ -715,7 +715,7 @@ interface Medicine {
   sellingPrice?:        number;
   minStock?:            number;
   expirationDate?:      string;
-  batches?:             Record<string, MedicineBatch>; // FIFO batches with individual expirations
+  batches?:             Record<string, MedicineBatch>;
   createdAt:            string;
   strength?:            string;
   strengths?:           string[] | null;
@@ -805,8 +805,6 @@ interface Sale {
   change:        number;
   paymentMethod: string;
   items:         SaleItem[];
-  // FIX: itemCount in POS is cart.length (unique line items), NOT total quantity
-  // We sum item.quantity directly for totalItems instead of relying on itemCount
   itemCount:     number;
 }
 
@@ -830,18 +828,15 @@ interface MedicineSalesStats {
 
 // ─── Timezone-safe helpers ────────────────────────────────────────────────────
 
-/** Convert any date string or ISO timestamp → YYYY-MM-DD in Asia/Manila */
 function toPhDateString(dateInput: string | Date): string {
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
 }
 
-/** Today's date as YYYY-MM-DD in Asia/Manila */
 function getTodayPH(): string {
   return toPhDateString(new Date());
 }
 
-/** Human-readable display date in PH locale */
 function toPhDisplayDate(dateInput: string | Date): string {
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   return d.toLocaleDateString('en-PH', {
@@ -861,8 +856,6 @@ function addDays(dateStr: string, days: number): string {
 function getItemUnitType(item: DispenseItem): string {
   return (item.unitType || item.quantityType || 'Units').trim();
 }
-
-// ─── Initial sales date range — last 30 days in PH time ──────────────────────
 
 const getInitialSalesDateRange = () => {
   const today = getTodayPH();
@@ -948,11 +941,7 @@ function TrendFilter({
   );
 }
 
-// ─── Tab type ─────────────────────────────────────────────────────────────────
-
 type Tab = 'dispensing' | 'sales';
-
-// ─── Colors ───────────────────────────────────────────────────────────────────
 
 const COLORS = [
   '#3b82f6', '#10b981', '#f59e0b', '#ef4444',
@@ -966,20 +955,17 @@ export default function ReportsPage() {
   const router       = useRouter();
   const searchParams = useSearchParams();
 
-  // ── Derive active tab directly from URL ──────────────────────────────────
   const activeTab = useMemo<Tab>(() => {
     const tab = searchParams.get('tab');
     return tab === 'sales' || tab === 'dispensing' ? tab : 'dispensing';
   }, [searchParams]);
 
-  // ── Dispensing state ─────────────────────────────────────────────────────
   const [dispensings,          setDispensings]          = useState<Dispensing[]>([]);
   const [stockAdjustments,     setStockAdjustments]     = useState<StockAdjustmentsByMedicine>({});
   const [isLoadingDispensings, setIsLoadingDispensings] = useState(true);
   const [isLoadingAdjustments, setIsLoadingAdjustments] = useState(true);
   const [dispensingDateRange,  setDispensingDateRange]  = useState({ start: '', end: '' });
 
-  // FIX: separate isPrinting/isDownloading per tab to avoid cross-tab overlay conflicts
   const [isDispensingPrinting,    setIsDispensingPrinting]    = useState(false);
   const [isDispensingDownloading, setIsDispensingDownloading] = useState(false);
 
@@ -988,15 +974,12 @@ export default function ReportsPage() {
   const [trendStartDate, setTrendStartDate] = useState('');
   const [trendEndDate,   setTrendEndDate]   = useState('');
 
-  // ── Transaction Details Panel State ─────────────────────────────────────
   const [medicines,    setMedicines]    = useState<Medicine[]>([]);
   const [transactions, setTransactions] = useState<FirebaseTransaction[]>([]);
   const [txFilterMode, setTxFilterMode] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
-  const [txMonth,      setTxMonth]      = useState<string>(
-    new Date().toISOString().slice(0, 7),
-  );
-  const [txQuarter, setTxQuarter] = useState<QuarterType>('Q1');
-  const [txYear,    setTxYear]    = useState<number>(new Date().getFullYear());
+  const [txMonth,      setTxMonth]      = useState<string>(new Date().toISOString().slice(0, 7));
+  const [txQuarter,    setTxQuarter]    = useState<QuarterType>('Q1');
+  const [txYear,       setTxYear]       = useState<number>(new Date().getFullYear());
 
   const years = useMemo(() => {
     const startYear   = 2024;
@@ -1006,19 +989,16 @@ export default function ReportsPage() {
     return list;
   }, []);
 
-  // ── Sales state ──────────────────────────────────────────────────────────
   const [sales,          setSales]          = useState<Sale[]>([]);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [salesDateRange, setSalesDateRange] = useState<{ start: string; end: string }>(
     getInitialSalesDateRange,
   );
 
-  // ── Auth guard ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  // ── Load dispensings ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     const path  = getUserPath(user.uid, 'dispensings');
@@ -1037,7 +1017,6 @@ export default function ReportsPage() {
     return () => unsub();
   }, [user]);
 
-  // ── Load stock adjustments ───────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     const path  = getUserPath(user.uid, 'stockAdjustments');
@@ -1049,7 +1028,6 @@ export default function ReportsPage() {
     return () => unsub();
   }, [user]);
 
-  // ── Load sales ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     const path  = getUserPath(user.uid, 'sales');
@@ -1069,7 +1047,6 @@ export default function ReportsPage() {
     return () => unsub();
   }, [user]);
 
-  // ── Load medicines ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     const medicinesPath = getUserPath(user.uid, 'medicines');
@@ -1087,7 +1064,6 @@ export default function ReportsPage() {
     return () => unsubscribe();
   }, [user]);
 
-  // ── Load transactions ────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
     const transactionsPath = getUserPath(user.uid, 'transactions');
@@ -1099,7 +1075,6 @@ export default function ReportsPage() {
     });
   }, [user]);
 
-  // ── Dispensing stats ─────────────────────────────────────────────────────
   const dispensingStats = useMemo<DispensingStats>(() => {
     if (dispensings.length === 0) return emptyDispensingStats;
 
@@ -1219,7 +1194,6 @@ export default function ReportsPage() {
     };
   }, [dispensings, stockAdjustments, dispensingDateRange, medicines]);
 
-  // ── Trend chart data ─────────────────────────────────────────────────────
   const trendChartData = useMemo(() => {
     const today              = getTodayPH();
     const dispensingsByDate  = new Map<string, { count: number; medicines: number }>();
@@ -1251,7 +1225,53 @@ export default function ReportsPage() {
     });
   }, [dispensings, trendMode, trendPreset, trendStartDate, trendEndDate]);
 
-  // ── Sales filtering — uses PH date throughout ────────────────────────────
+  const unifiedTransactions = useMemo(() => {
+    const combined: Array<{
+      type: 'pos' | 'dispense';
+      date: string;
+      phDate: string;
+      items: Array<{ medicineId: string; medicineName: string; quantity: number; unit: string; revenue?: number }>;
+      totalRevenue?: number;
+      paymentMethod?: string;
+    }> = [];
+
+    sales.forEach((sale) => {
+      const phDate = sale.phDate ?? toPhDateString(sale.date);
+      combined.push({
+        type: 'pos',
+        date: sale.date,
+        phDate,
+        items: sale.items.map((item) => ({
+          medicineId: item.medicineId,
+          medicineName: item.medicineName,
+          quantity: item.quantity,
+          unit: item.unit || 'Units',
+          revenue: item.subtotal,
+        })),
+        totalRevenue: sale.total,
+        paymentMethod: sale.paymentMethod || 'other',
+      });
+    });
+
+    dispensings.forEach((disp) => {
+      const phDate = toPhDateString(disp.date);
+      combined.push({
+        type: 'dispense',
+        date: disp.date,
+        phDate,
+        items: disp.items.map((item) => ({
+          medicineId: item.medicineId,
+          medicineName: item.medicineName,
+          quantity: item.quantity,
+          unit: getItemUnitType(item),
+        })),
+        totalRevenue: 0,
+      });
+    });
+
+    return combined;
+  }, [sales, dispensings]);
+
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
       const saleDate = sale.phDate ?? toPhDateString(sale.date);
@@ -1259,17 +1279,22 @@ export default function ReportsPage() {
     });
   }, [sales, salesDateRange]);
 
-  // ── Daily summaries — keyed and displayed in PH time ─────────────────────
+  const filteredTransactions = useMemo(() => {
+    return unifiedTransactions.filter((tx) => {
+      return tx.phDate >= salesDateRange.start && tx.phDate <= salesDateRange.end;
+    });
+  }, [unifiedTransactions, salesDateRange]);
+
   const dailySalesSummaries = useMemo(() => {
     const summary: Record<string, DailySalesSummary> = {};
 
-    filteredSales.forEach((sale) => {
-      const dateKey = sale.phDate ?? toPhDateString(sale.date);
+    filteredTransactions.forEach((tx) => {
+      const dateKey = tx.phDate;
 
       if (!summary[dateKey]) {
         summary[dateKey] = {
           date:           dateKey,
-          displayDate:    toPhDisplayDate(sale.date),
+          displayDate:    toPhDisplayDate(tx.date),
           salesCount:     0,
           totalRevenue:   0,
           totalItems:     0,
@@ -1277,28 +1302,31 @@ export default function ReportsPage() {
         };
       }
 
-      summary[dateKey].salesCount   += 1;
-      summary[dateKey].totalRevenue += sale.total;
+      if (tx.type === 'pos') {
+        summary[dateKey].salesCount += 1;
+        summary[dateKey].totalRevenue += tx.totalRevenue || 0;
+        if (tx.paymentMethod) {
+          const method = tx.paymentMethod;
+          summary[dateKey].paymentMethods[method] =
+            (summary[dateKey].paymentMethods[method] || 0) + (tx.totalRevenue || 0);
+        }
+      } else if (tx.type === 'dispense') {
+        summary[dateKey].paymentMethods['dispensing'] =
+          (summary[dateKey].paymentMethods['dispensing'] || 0) + tx.items.length;
+      }
 
-      // FIX: sum actual item quantities, not itemCount (which is unique line items)
-      const itemQtySum = sale.items.reduce((s, item) => s + item.quantity, 0);
+      const itemQtySum = tx.items.reduce((s, item) => s + item.quantity, 0);
       summary[dateKey].totalItems += itemQtySum;
-
-      const method = sale.paymentMethod || 'other';
-      summary[dateKey].paymentMethods[method] =
-        (summary[dateKey].paymentMethods[method] || 0) + sale.total;
     });
 
     return Object.values(summary).sort((a, b) => a.date.localeCompare(b.date));
-  }, [filteredSales]);
+  }, [filteredTransactions]);
 
-  // FIX: medicineSalesStats should NOT be sliced here — SalesContent handles top-10 display.
-  // Slicing here would break the "All Medicines" table in the medicines tab.
   const medicineSalesStats = useMemo<MedicineSalesStats[]>(() => {
     const stats: Record<string, MedicineSalesStats> = {};
 
-    filteredSales.forEach((sale) => {
-      sale.items.forEach((item: SaleItem) => {
+    filteredTransactions.forEach((tx) => {
+      tx.items.forEach((item) => {
         if (!stats[item.medicineId]) {
           const med = medicines.find((m) => m.id === item.medicineId);
           stats[item.medicineId] = {
@@ -1311,34 +1339,33 @@ export default function ReportsPage() {
           };
         }
         stats[item.medicineId].totalQuantity += item.quantity;
-        stats[item.medicineId].totalRevenue  += item.subtotal;
+        stats[item.medicineId].totalRevenue  += item.revenue || 0;
         stats[item.medicineId].salesCount    += 1;
       });
     });
 
-    // FIX: return ALL medicines sorted by revenue — SalesContent slices to top 10 for display
     return Object.values(stats).sort((a, b) => b.totalRevenue - a.totalRevenue);
-  }, [filteredSales, medicines]);
+  }, [filteredTransactions, medicines]);
 
   const salesOverallStats = useMemo(() => {
-    const totalSales   = filteredSales.length;
-    const totalRevenue = filteredSales.reduce((sum, s) => sum + s.total, 0);
-    const avgPerSale   = totalSales > 0 ? totalRevenue / totalSales : 0;
+    const posTransactions = filteredTransactions.filter((tx) => tx.type === 'pos');
+    const totalSales      = posTransactions.length;
+    const totalRevenue    = posTransactions.reduce((sum, tx) => sum + (tx.totalRevenue || 0), 0);
+    const avgPerSale      = totalSales > 0 ? totalRevenue / totalSales : 0;
 
     const paymentMethodBreakdown: Record<string, number> = {};
     const unitMap = new Map<string, number>();
-
-    // FIX: compute totalItems by summing actual item quantities
     let totalItems = 0;
 
-    filteredSales.forEach((sale) => {
-      const method = sale.paymentMethod || 'other';
-      paymentMethodBreakdown[method] =
-        (paymentMethodBreakdown[method] || 0) + sale.total;
-
-      sale.items.forEach((item: SaleItem) => {
-        totalItems += item.quantity; // actual units sold
-        const ut    = (item.unit || 'Units').trim();
+    filteredTransactions.forEach((tx) => {
+      if (tx.type === 'pos') {
+        const method = tx.paymentMethod || 'other';
+        paymentMethodBreakdown[method] =
+          (paymentMethodBreakdown[method] || 0) + (tx.totalRevenue || 0);
+      }
+      tx.items.forEach((item) => {
+        totalItems += item.quantity;
+        const ut = item.unit || 'Units';
         unitMap.set(ut, (unitMap.get(ut) ?? 0) + item.quantity);
       });
     });
@@ -1359,111 +1386,342 @@ export default function ReportsPage() {
       paymentMethodBreakdown,
       unitTypeBreakdown,
     };
-  }, [filteredSales]);
+  }, [filteredTransactions]);
 
-  // ── Print / Download (Dispensing) ────────────────────────────────────────
   const buildDispensingReportHTML = useCallback(() => {
     const dateLabel =
       dispensingDateRange.start && dispensingDateRange.end
-        ? `${dispensingDateRange.start} to ${dispensingDateRange.end}`
+        ? `${new Date(dispensingDateRange.start + 'T00:00:00').toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })} – ${new Date(dispensingDateRange.end + 'T00:00:00').toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })}`
         : 'All Time';
 
-    const topMedicinesRows = dispensingStats.topMedicines
-      .map((m, i) => {
-        const unitBreakdown = Object.entries(m.byUnit)
-          .map(([unit, qty]) => `${qty} ${unit}`)
-          .join(', ');
-        const nameWithStrength = m.strength ? `${m.name} (${m.strength})` : m.name;
-        return `<tr>
-          <td>${i + 1}</td>
-          <td>${nameWithStrength}</td>
-          <td>${m.quantity}</td>
-          <td>${unitBreakdown}</td>
-        </tr>`;
-      })
-      .join('');
+    const generatedAt = new Date().toLocaleString('en-PH', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
+    });
 
-    const unitBreakdownRows = dispensingStats.unitTypeBreakdown
-      .map(
-        (u) =>
-          `<tr>
-            <td>${u.type}</td>
-            <td>${u.quantity}</td>
-            <td>${u.percentage.toFixed(1)}%</td>
-          </tr>`,
-      )
-      .join('');
+    const unitRows = dispensingStats.unitTypeBreakdown.map((u, i) => `
+      <tr>
+        <td>${u.type}</td>
+        <td class="r">${u.quantity.toLocaleString()}</td>
+        <td class="r">${u.percentage.toFixed(1)}%</td>
+      </tr>
+    `).join('');
 
-    const dispensingRows = dispensings
-      .slice(0, 50)
-      .map((d) => {
-        const itemsSummary = d.items
-          .map(
-            (item) =>
-              `${item.medicineName} ×${item.quantity} ${getItemUnitType(item)}`,
-          )
-          .join('; ');
-        return `<tr>
-          <td>${toPhDisplayDate(d.date)}</td>
+    const topMedRows = dispensingStats.topMedicines.map((m, i) => {
+      const unitBreakdown = Object.entries(m.byUnit)
+        .sort(([, a], [, b]) => b - a)
+        .map(([unit, qty]) => `${qty.toLocaleString()} ${unit}`)
+        .join(', ');
+      const nameDisplay = m.strength ? `${m.name} (${m.strength})` : m.name;
+      return `
+        <tr>
+          <td class="r muted">${i + 1}</td>
+          <td>${nameDisplay}</td>
+          <td class="r">${m.quantity.toLocaleString()}</td>
+          <td class="muted">${unitBreakdown || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const dispensingRows = dispensings.slice(0, 50).map((d, i) => {
+      const itemsSummary = d.items
+        .map(item => `${item.medicineName} ×${item.quantity} ${getItemUnitType(item)}`)
+        .join('; ');
+      const totalQty = d.items.reduce((sum, item) => sum + item.quantity, 0);
+      return `
+        <tr>
+          <td class="r muted">${i + 1}</td>
+          <td class="nowrap">${toPhDisplayDate(d.date)}</td>
           <td>${d.patientName}</td>
-          <td>${d.patientId}</td>
-          <td>${d.items.length}</td>
-          <td>${d.items.reduce((sum, item) => sum + item.quantity, 0)}</td>
-          <td style="font-size:10px;color:#6b7280">${itemsSummary}</td>
-        </tr>`;
-      })
-      .join('');
-
-    const generatedAt  = new Date().toLocaleString('en-PH',    { timeZone: 'Asia/Manila' });
-    const generatedDay = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
+          <td class="r">${d.items.length}</td>
+          <td class="r">${totalQty.toLocaleString()}</td>
+          <td class="small muted">${itemsSummary}</td>
+        </tr>
+      `;
+    }).join('');
 
     return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/><title>Dispensing Report</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Segoe UI',sans-serif;color:#1f2937;background:#fff;padding:20mm 15mm;font-size:12px}
-  .header{text-align:center;border-bottom:3px solid #2563eb;padding-bottom:16px;margin-bottom:24px}
-  .header h1{font-size:26px;color:#1e3a8a}.header p{color:#6b7280;margin-top:4px;font-size:12px}
-  h2{font-size:14px;color:#1e3a8a;border-left:4px solid #2563eb;padding-left:8px;margin-bottom:12px}
-  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
-  .stat-card{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px}
-  .stat-label{font-size:10px;color:#6b7280;margin-bottom:4px}.stat-value{font-size:20px;font-weight:800;color:#1e3a8a}
-  .section{margin-bottom:24px;page-break-inside:avoid}
-  table{width:100%;border-collapse:collapse}
-  th{background:#eff6ff;color:#1e40af;padding:8px 10px;text-align:left;font-size:11px;border-bottom:2px solid #bfdbfe}
-  td{padding:7px 10px;border-bottom:1px solid #e5e7eb;font-size:11px}
-  tr:nth-child(even) td{background:#f9fafb}
-  .footer{margin-top:30px;text-align:center;color:#9ca3af;font-size:10px;border-top:1px solid #e5e7eb;padding-top:12px}
-  @media print{body{padding:10mm}@page{margin:10mm;size:A4}}
-</style></head><body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Dispensing Report</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      font-size: 11px;
+      color: #111;
+      background: #fff;
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 760px;
+      margin: 32px auto;
+      padding: 40px 44px;
+      border: 1px solid #d1d5db;
+      background: #fff;
+    }
+
+    /* Header */
+    .header {
+      padding-bottom: 18px;
+      border-bottom: 2px solid #111;
+      margin-bottom: 24px;
+    }
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .report-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #111;
+    }
+    .report-sub {
+      font-size: 11px;
+      color: #6b7280;
+      margin-top: 2px;
+    }
+    .header-right {
+      text-align: right;
+      font-size: 10px;
+      color: #6b7280;
+      line-height: 1.7;
+    }
+    .header-right strong {
+      color: #111;
+      font-weight: 600;
+    }
+
+    /* Summary row */
+    .summary-row {
+      display: flex;
+      gap: 0;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 28px;
+    }
+    .summary-cell {
+      flex: 1;
+      padding: 14px 16px;
+      border-right: 1px solid #e5e7eb;
+    }
+    .summary-cell:last-child { border-right: none; }
+    .summary-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .summary-lbl {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9ca3af;
+    }
+
+    /* Sections */
+    .section { margin-bottom: 28px; }
+    .section-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #374151;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 10px;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    thead th {
+      text-align: left;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #6b7280;
+      padding: 6px 8px;
+      border-bottom: 1px solid #d1d5db;
+      white-space: nowrap;
+    }
+    td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #f3f4f6;
+      color: #111;
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .r     { text-align: right; }
+    .muted { color: #6b7280; }
+    .small { font-size: 9px; }
+    .nowrap { white-space: nowrap; }
+
+    /* Footer */
+    .footer {
+      margin-top: 32px;
+      padding-top: 14px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .footer-note {
+      font-size: 9px;
+      color: #9ca3af;
+      line-height: 1.6;
+    }
+    .sig-block { text-align: right; }
+    .sig-line {
+      width: 160px;
+      border-top: 1px solid #374151;
+      margin: 0 0 4px auto;
+    }
+    .sig-label {
+      font-size: 9px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .page { margin: 0; border: 1px solid #d1d5db; max-width: 100%; }
+      .section { page-break-inside: avoid; }
+      thead { display: table-header-group; }
+      @page { size: A4; margin: 14mm; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
   <div class="header">
-    <h1>Medication Dispensing Report</h1>
-    <p>Period: ${dateLabel} &nbsp;|&nbsp; Generated: ${generatedAt}</p>
+    <div class="header-top">
+      <div>
+        <div class="report-name">Dispensing Report</div>
+        <div class="report-sub">Pharmacy Management System</div>
+      </div>
+      <div class="header-right">
+        <div><strong>Period:</strong> ${dateLabel}</div>
+        <div><strong>Generated:</strong> ${generatedAt}</div>
+        <div>Confidential</div>
+      </div>
+    </div>
   </div>
-  <div class="section"><h2>Key Metrics</h2><div class="stats-grid">
-    <div class="stat-card"><div class="stat-label">Total Dispensings</div><div class="stat-value">${dispensingStats.totalDispensings}</div></div>
-    <div class="stat-card"><div class="stat-label">Medicines Dispensed</div><div class="stat-value">${dispensingStats.totalMedicinesDispensed}</div></div>
-    <div class="stat-card"><div class="stat-label">Avg per Dispensing</div><div class="stat-value">${dispensingStats.avgMedicinesPerDispensing.toFixed(1)}</div></div>
-    <div class="stat-card"><div class="stat-label">Unique Patients</div><div class="stat-value">${dispensingStats.uniquePatients}</div></div>
-  </div></div>
-  ${
-    dispensingStats.unitTypeBreakdown.length > 0
-      ? `<div class="section"><h2>Dispensed by Unit Type</h2><table><thead><tr><th>Unit Type</th><th>Quantity</th><th>Share</th></tr></thead><tbody>${unitBreakdownRows}</tbody></table></div>`
-      : ''
-  }
-  ${
-    dispensingStats.topMedicines.length > 0
-      ? `<div class="section"><h2>Top 10 Medicines Dispensed</h2><table><thead><tr><th>#</th><th>Medicine</th><th>Total Qty</th><th>Breakdown by Unit</th></tr></thead><tbody>${topMedicinesRows}</tbody></table></div>`
-      : ''
-  }
-  ${
-    dispensings.length > 0
-      ? `<div class="section"><h2>Recent Dispensings${dispensings.length > 50 ? ' (Top 50)' : ''}</h2><table><thead><tr><th>Date</th><th>Patient Name</th><th>Patient ID</th><th>Items</th><th>Total Qty</th><th>Medicines</th></tr></thead><tbody>${dispensingRows}</tbody></table></div>`
-      : ''
-  }
-  <div class="footer">Pharmacy Management System &nbsp;|&nbsp; Confidential &nbsp;|&nbsp; ${generatedDay}</div>
-</body></html>`;
+
+  <!-- Summary -->
+  <div class="summary-row">
+    <div class="summary-cell">
+      <div class="summary-val">${dispensingStats.totalDispensings.toLocaleString()}</div>
+      <div class="summary-lbl">Total Dispensings</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-val">${dispensingStats.totalMedicinesDispensed.toLocaleString()}</div>
+      <div class="summary-lbl">Medicines Dispensed</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-val">${dispensingStats.avgMedicinesPerDispensing.toFixed(1)}</div>
+      <div class="summary-lbl">Avg per Visit</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-val">${dispensingStats.uniquePatients.toLocaleString()}</div>
+      <div class="summary-lbl">Unique Patients</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-val">${dispensingStats.adjustmentCount.toLocaleString()}</div>
+      <div class="summary-lbl">Restocks</div>
+    </div>
+    <div class="summary-cell">
+      <div class="summary-val">${dispensingStats.totalStockAdded.toLocaleString()}</div>
+      <div class="summary-lbl">Units Restocked</div>
+    </div>
+  </div>
+
+  <!-- Unit Type Breakdown -->
+  ${dispensingStats.unitTypeBreakdown.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Dispensed by Unit Type</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:55%">Unit Type</th>
+          <th class="r" style="width:25%">Quantity</th>
+          <th class="r" style="width:20%">Share</th>
+        </tr>
+      </thead>
+      <tbody>${unitRows}</tbody>
+    </table>
+  </div>
+  ` : ''}
+
+  <!-- Top Medicines -->
+  ${dispensingStats.topMedicines.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Top 10 Most Dispensed Medicines</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="r" style="width:4%">#</th>
+          <th style="width:38%">Medicine</th>
+          <th class="r" style="width:15%">Total Qty</th>
+          <th style="width:43%">Breakdown</th>
+        </tr>
+      </thead>
+      <tbody>${topMedRows}</tbody>
+    </table>
+  </div>
+  ` : ''}
+
+  <!-- Dispensing Records -->
+  ${dispensings.length > 0 ? `
+  <div class="section">
+    <div class="section-title">Dispensing Records${dispensings.length > 50 ? ' (Most Recent 50)' : ''}</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="r" style="width:3%">#</th>
+          <th style="width:13%">Date</th>
+          <th style="width:22%">Patient</th>
+          <th class="r" style="width:7%">Items</th>
+          <th class="r" style="width:8%">Qty</th>
+          <th style="width:47%">Medicines</th>
+        </tr>
+      </thead>
+      <tbody>${dispensingRows}</tbody>
+    </table>
+  </div>
+  ` : `<p style="color:#9ca3af;font-size:10px;text-align:center;padding:20px 0">No dispensing records for this period.</p>`}
+
+  <div class="footer">
+    <div class="footer-note">
+      <div>Pharmacy Management System</div>
+      <div>Generated ${generatedAt}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorized Signature</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>`;
   }, [dispensingStats, dispensings, dispensingDateRange]);
+
+  // ── Print / Download ──────────────────────────────────────────────────────
 
   const handleDispensingPrint = useCallback(() => {
     setIsDispensingPrinting(true);
@@ -1507,7 +1765,8 @@ export default function ReportsPage() {
     }, 100);
   }, [buildDispensingReportHTML]);
 
-  // ── Loading state ────────────────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
+
   const isLoading =
     loading || isLoadingDispensings || isLoadingAdjustments || isLoadingSales;
 
@@ -1526,9 +1785,8 @@ export default function ReportsPage() {
 
   return (
     <>
-      {/* FIX: show Processing overlay only for the active dispensing action */}
-      {isDispensingPrinting    && <Processing message="Preparing PDF..."         />}
-      {isDispensingDownloading && <Processing message="Downloading report..."    />}
+      {isDispensingPrinting    && <Processing message="Preparing PDF..."      />}
+      {isDispensingDownloading && <Processing message="Downloading report..." />}
 
       <div className="min-h-screen bg-slate-50 transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">

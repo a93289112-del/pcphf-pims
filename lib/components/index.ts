@@ -8,3 +8,4 @@ export { default as Receipt } from './receipt';
 export { default as InventorySummary } from './inventory-summary';
 export { default as InventoryOverview } from './inventory-overview';
 export { default as SessionControl } from './session-control';
+export { default as StockAdjustmentSummaryModal } from './stock-adjustment-summary-modal';

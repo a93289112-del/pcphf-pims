@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { useEffect, useState, useMemo } from 'react';
 import { subscribeToActivityLogs, type ActivityLog, type ActivityType, type ActivityLogDetails } from '@/lib/services/activity-logs';
 import AdminSessionSummaryModal from '@/lib/components/admin-session-summary-modal';
+import StockAdjustmentSummaryModal from '@/lib/components/stock-adjustment-summary-modal';
 
 // ── Tiny inline SVG icons ────────────────────────────────────────────────────
 const Icon = {
@@ -312,6 +313,12 @@ export default function LogsContent() {
     timestamp: string;
     type: string;
   } | null>(null);
+  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
+  const [selectedAdjustmentData, setSelectedAdjustmentData] = useState<{
+    details: ActivityLogDetails;
+    staffName: string;
+    timestamp: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -342,28 +349,62 @@ export default function LogsContent() {
 
   // ── Analytics ────────────────────────────────────────────────────────────
   const analytics = useMemo(() => {
-    const dispenses = filteredLogs.filter(l => l.type === 'medicine_dispensed');
-    const sales = filteredLogs.filter(l => l.type === 'medicine_sold');
+    // Get data from UNFILTERED logs for overall stats (dispenses/sales from session_ended)
+    const sessionLogs = activityLogs.filter(l => l.type === 'session_ended');
+    
+    let totalDispensedUnits = 0;
+    let totalSoldUnits = 0;
+    sessionLogs.forEach(log => {
+      const dispensed = typeof log.details?.totalUnitsDispensed === 'number' ? log.details.totalUnitsDispensed : 0;
+      const sold = typeof log.details?.totalUnitsSold === 'number' ? log.details.totalUnitsSold : 0;
+      totalDispensedUnits += dispensed;
+      totalSoldUnits += sold;
+    });
+
+    // For filtered logs (based on user selections)
     const staffCreated = filteredLogs.filter(l => l.type === 'staff_created');
     const staffDisabled = filteredLogs.filter(l => l.type === 'staff_disabled');
+    const adjustments = filteredLogs.filter(l => l.type === 'stock_deducted' || l.type === 'stock_adjusted');
 
-    // Per-staff breakdown (exclude admins)
+    // Per-staff breakdown (from session_ended logs, exclude admins)
     const staffStats: Record<string, { dispense: number; sale: number; adjustment: number; total: number; email: string; name: string }> = {};
-    filteredLogs.forEach(l => {
-      // Skip admin accounts
+    
+    // Process session_ended logs to get accurate dispense/sale counts
+    sessionLogs.forEach(l => {
       const logRole = l.userRole || 'staff';
       if (logRole === 'admin') return;
-      
+      if (user && l.staffId === user.uid) return;
+      if (user && l.staffEmail && l.staffEmail === user.email) return;
+
       const uid = l.staffId || 'system';
       const staffName = l.staffName || l.staffEmail || uid;
       if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: staffName };
-      if (l.type === 'medicine_dispensed') staffStats[uid].dispense++;
-      else if (l.type === 'medicine_sold') staffStats[uid].sale++;
-      else if (l.type === 'stock_deducted' || l.type === 'stock_adjusted') staffStats[uid].adjustment++;
-      staffStats[uid].total++;
+      
+      // Extract accurate counts from session details
+      const dispenseCount = l.details?.totalDispenseTransactions || 0;
+      const saleCount = l.details?.totalSalesTransactions || 0;
+      staffStats[uid].dispense += dispenseCount;
+      staffStats[uid].sale += saleCount;
+      staffStats[uid].total += dispenseCount + saleCount;
     });
 
-    // Daily volume last 14 days
+    // Add adjustment counts from filtered logs
+    filteredLogs.forEach(l => {
+      if (l.type === 'stock_deducted' || l.type === 'stock_adjusted') {
+        const logRole = l.userRole || 'staff';
+        if (logRole === 'admin') return;
+        if (user && l.staffId === user.uid) return;
+        if (user && l.staffEmail && l.staffEmail === user.email) return;
+
+        const uid = l.staffId || 'system';
+        const staffName = l.staffName || l.staffEmail || uid;
+        if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: staffName };
+        staffStats[uid].adjustment++;
+        staffStats[uid].total++;
+      }
+    });
+
+    // Daily volume last 14 days (based on filtered logs)
     const last14 = Array.from({ length: 14 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (13 - i));
       return d.toISOString().slice(0, 10);
@@ -379,8 +420,19 @@ export default function LogsContent() {
       return filteredLogs.filter(l => l.timestamp?.slice(0, 10) === d.toISOString().slice(0, 10)).length;
     });
 
-    return { dispenses, sales, staffCreated, staffDisabled, staffStats, dailyVolume, spark };
-  }, [filteredLogs]);
+    return { 
+      dispenses: sessionLogs, 
+      sales: sessionLogs, 
+      staffCreated, 
+      staffDisabled, 
+      staffStats, 
+      dailyVolume, 
+      spark,
+      totalDispensedUnits,
+      totalSoldUnits
+      
+    };
+  }, [filteredLogs, activityLogs, user]);
 
   const typeBadge = (type: string) => {
     const map: Record<string, { cls: string; icon: React.ReactNode; label: string }> = {
@@ -468,15 +520,20 @@ export default function LogsContent() {
               >
                 <option value="all">All Staff</option>
                 {Array.from(new Set(activityLogs.map(l => l.staffId))).filter(uid => {
-                  // Filter out the current admin user by both uid and email
-                  if (!user) return true;
-                  const staffRecord = activityLogs.find(l => l.staffId === uid);
-                  return uid !== user.uid && staffRecord?.staffEmail !== user.email;
-                }).map(uid => {
-                  const staffRecord = activityLogs.find(l => l.staffId === uid);
-                  const staffName = staffRecord?.staffName || staffRecord?.staffEmail?.split('@')[0] || uid;
-                  return <option key={uid} value={uid}>{staffName}</option>;
-                })}
+              if (!user) return true;
+              const staffRecord = activityLogs.find(l => l.staffId === uid);
+              return uid !== user.uid && 
+                    staffRecord?.staffEmail !== user.email &&
+                    staffRecord?.userRole !== 'admin';  // ← also exclude by role
+            }).map(uid => {
+              const staffRecord = activityLogs.find(l => l.staffId === uid);
+              // Use staffName, but if it looks like an email, fall back to the part before @
+              const rawName = staffRecord?.staffName || '';
+              const staffName = rawName.includes('@') 
+                ? rawName.split('@')[0] 
+                : rawName || staffRecord?.staffEmail?.split('@')[0] || uid;
+              return <option key={uid} value={uid}>{staffName}</option>;
+            })}
               </select>
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.User /></span>
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
@@ -490,18 +547,12 @@ export default function LogsContent() {
                 className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
               >
                 <option value="all">All Types</option>
-                <option value="medicine_dispensed">Dispensed</option>
-                <option value="medicine_sold">POS Sale</option>
                 <option value="medicine_added">Medicine Added</option>
                 <option value="stock_deducted">Stock Deducted</option>
                 <option value="stock_adjusted">Stock Adjusted</option>
-                <option value="medicine_restocked">Restocked</option>
                 <option value="staff_created">Staff Created</option>
                 <option value="staff_disabled">Staff Disabled</option>
-                <option value="admin_login">Admin Login</option>
-                <option value="admin_logout">Admin Logout</option>
-                <option value="staff_login">Staff Login</option>
-                <option value="staff_logout">Staff Logout</option>
+                <option value="session_ended">Session Ended</option>
               </select>
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.Activity /></span>
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
@@ -561,16 +612,16 @@ export default function LogsContent() {
                 },
                 {
                   label: 'Dispenses',
-                  value: analytics.dispenses.length,
-                  sub: 'medication given out',
+                  value: analytics.totalDispensedUnits,
+                  sub: 'total units dispensed',
                   color: 'text-blue-600',
                   spark: analytics.spark,
                   sparkColor: '#3b82f6',
                 },
                 {
                   label: 'POS Sales',
-                  value: analytics.sales.length,
-                  sub: 'units sold',
+                  value: analytics.totalSoldUnits,
+                  sub: 'total units sold',
                   color: 'text-emerald-600',
                   spark: analytics.spark,
                   sparkColor: '#10b981',
@@ -616,14 +667,14 @@ export default function LogsContent() {
                 <p className="text-xs text-slate-400 mb-4">By transaction type</p>
                 <div className="flex items-center gap-4">
                   <DonutChart segments={[
-                    { label: 'Dispense', value: analytics.dispenses.length, color: '#3b82f6' },
-                    { label: 'Sale', value: analytics.sales.length, color: '#10b981' },
+                    { label: 'Dispense', value: analytics.dispenses.filter((s: ActivityLog) => typeof s.details?.totalUnitsDispensed === 'number' && s.details.totalUnitsDispensed > 0).length, color: '#3b82f6' },
+                    { label: 'Sale', value: analytics.sales.filter((s: ActivityLog) => typeof s.details?.totalUnitsSold === 'number' && s.details.totalUnitsSold > 0).length, color: '#10b981' },
                     { label: 'Staff', value: analytics.staffCreated.length, color: '#a855f7' },
                   ]} />
                   <div className="space-y-2 flex-1">
                     {[
-                      { label: 'Dispense', count: analytics.dispenses.length, color: 'bg-blue-500' },
-                      { label: 'Sale', count: analytics.sales.length, color: 'bg-emerald-500' },
+                      { label: 'Dispense', count: analytics.dispenses.filter((s: ActivityLog) => typeof s.details?.totalUnitsDispensed === 'number' && s.details.totalUnitsDispensed > 0).length, color: 'bg-blue-500' },
+                      { label: 'Sale', count: analytics.sales.filter((s: ActivityLog) => typeof s.details?.totalUnitsSold === 'number' && s.details.totalUnitsSold > 0).length, color: 'bg-emerald-500' },
                       { label: 'Staff', count: analytics.staffCreated.length, color: 'bg-purple-500' },
                     ].map(s => (
                       <div key={s.label} className="flex items-center gap-2">
@@ -745,14 +796,17 @@ export default function LogsContent() {
                 <table className="w-full text-sm border-collapse table-fixed">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Timestamp', 'Type', 'Staff', 'Action', 'Details', ''].map(h => (
+                      {['Timestamp', 'Type', 'Staff', 'Action', ''].map(h => (
                         <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLogs.map((log, i) => {
-                      const staffName = log.staffName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
+                      const rawName = log.staffName || '';
+                      const staffName = rawName.includes('@')
+                        ? rawName.split('@')[0]
+                        : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                       const isSessionEnded = log.type === 'session_ended';
                       
                       return (
@@ -774,13 +828,10 @@ export default function LogsContent() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5 w-[28%]">
+                          <td className="px-5 py-3.5 w-[40%]">
                             <p className="text-sm text-slate-800 truncate">{log.action}</p>
                           </td>
-                          <td className="px-5 py-3.5 w-[15%]">
-                            <p className="text-xs text-slate-500 truncate">{JSON.stringify(log.details || {}).substring(0, 50)}...</p>
-                          </td>
-                          <td className="px-5 py-3.5 w-[10%] text-right">
+                          <td className="px-5 py-3.5 w-[13%] text-right">
                             {isSessionEnded && log.details && (
                               <button
                                 onClick={() => {
@@ -821,6 +872,30 @@ export default function LogsContent() {
                                 View
                               </button>
                             )}
+                            {(log.type === 'stock_adjusted' || log.type === 'stock_deducted') && log.details && (
+                              <button
+                                onClick={() => {
+                                  if (log.details) {
+                                    setSelectedAdjustmentData({
+                                      details: log.details,
+                                      staffName: staffName,
+                                      timestamp: log.timestamp,
+                                    });
+                                    setAdjustmentModalOpen(true);
+                                  }
+                                }}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all whitespace-nowrap ${
+                                  log.type === 'stock_deducted'
+                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                                    : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
+                                }`}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                                </svg>
+                                View
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -833,7 +908,10 @@ export default function LogsContent() {
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {filteredLogs.map((log, i) => {
-                const staffName = log.staffName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
+                const rawName = log.staffName || '';
+                const staffName = rawName.includes('@')
+                  ? rawName.split('@')[0]
+                  : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                 const isSessionEnded = log.type === 'session_ended';
                 
                 return (
@@ -855,9 +933,6 @@ export default function LogsContent() {
                     </div>
                     <div className="text-sm text-slate-700 pt-1 border-t border-slate-50">
                       <p className="font-semibold">{log.action}</p>
-                      {log.details && Object.keys(log.details).length > 0 && (
-                        <p className="text-xs text-slate-500 mt-1">{JSON.stringify(log.details).substring(0, 80)}...</p>
-                      )}
                     </div>
                     {isSessionEnded && log.details && (
                       <button
@@ -897,6 +972,30 @@ export default function LogsContent() {
                           <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
                         </svg>
                         View Details
+                      </button>
+                    )}
+                    {(log.type === 'stock_adjusted' || log.type === 'stock_deducted') && log.details && (
+                      <button
+                        onClick={() => {
+                          if (log.details) {
+                            setSelectedAdjustmentData({
+                              details: log.details,
+                              staffName: staffName,
+                              timestamp: log.timestamp,
+                            });
+                            setAdjustmentModalOpen(true);
+                          }
+                        }}
+                        className={`w-full py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
+                          log.type === 'stock_deducted'
+                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
+                            : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
+                        }`}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+                        </svg>
+                        {log.type === 'stock_deducted' ? 'View Deduction' : 'View Adjustment'}
                       </button>
                     )}
                   </div>
@@ -940,6 +1039,20 @@ export default function LogsContent() {
         }}
         log={selectedLogDetails}
       />
+
+      {/* Stock Adjustment Modal */}
+      {selectedAdjustmentData && (
+        <StockAdjustmentSummaryModal
+          isOpen={adjustmentModalOpen}
+          onClose={() => {
+            setAdjustmentModalOpen(false);
+            setSelectedAdjustmentData(null);
+          }}
+          adjustmentData={selectedAdjustmentData.details}
+          staffName={selectedAdjustmentData.staffName}
+          timestamp={selectedAdjustmentData.timestamp}
+        />
+      )}
     </div>
   );
 }

@@ -35,7 +35,7 @@ interface Medicine {
   originalUnit?: string;
   brandModel?: string;
   countryOfOrigin?: string;
-  ageGroup?: string;
+  ageGroup?: string | string[];   // ← supports both legacy string and new array
   unitCost?: number;
   totalCost?: number;
   strength?: string;
@@ -117,6 +117,18 @@ function getMinStock(m: Medicine): number { return m.minStock ?? 0; }
 function getDisplayName(m: Medicine): string { return m.baseName || m.name || '—'; }
 function getDisplayDescription(m: Medicine): string { return m.description || ''; }
 function getDisplayBrand(m: Medicine): string { return m.brandModel || m.brand || ''; }
+
+/** Normalises ageGroup — handles legacy string values and new string[] values */
+function getAgeGroupArray(m: Medicine): string[] {
+  if (!m.ageGroup) return [];
+  return Array.isArray(m.ageGroup) ? m.ageGroup : [m.ageGroup];
+}
+
+/** Short label for compact display (strips the parenthetical age range) */
+function shortAgeLabel(ag: string): string {
+  if (ag === 'For All Ages') return 'All Ages';
+  return ag.split(' (')[0];
+}
 
 function getMedicineStatus(medicine: Medicine) {
   const stock = getEffectiveStock(medicine);
@@ -541,23 +553,12 @@ export default function DispensePage() {
   const patientScrollRef = useRef<HTMLDivElement>(null);
   void isCollapsed;
 
-  // ── Start session from the "no session" modal ─────────────────────────────
-  // FIX: must write BOTH to sessions/{userId} (for TX recording) AND to
-  // activityLogs (session_started), because useSession.hasActiveSession and
-  // the sidebar both derive state from activityLogs. Previously only
-  // startSession() was called, so the log-based check never saw the new
-  // session and hasActiveSession stayed false.
   const handleStartSessionFromModal = async () => {
     if (!user) return;
     try {
       setIsStartingSession(true);
       const sessionStarterName = staffName || adminName || undefined;
-
-      // Write to sessions/{userId} so TX recording still works
       await startSession(user.uid, sessionStarterName);
-
-      // Write session_started activity log — this is what useSession and the
-      // sidebar both read to decide whether a session is active.
       await logActivity(
         'session_started',
         user.uid,
@@ -567,7 +568,6 @@ export default function DispensePage() {
         sessionStarterName,
         role || undefined,
       );
-
       setShowNoSessionModal(false);
       setNotification({ message: 'Session started successfully', type: 'success' });
     } catch (error) {
@@ -578,10 +578,6 @@ export default function DispensePage() {
     }
   };
 
-  // ── Gate dispense on session — single authoritative check ─────────────────
-  // FIX: removed the redundant getActiveSession() database round-trip.
-  // hasActiveSession now reads from activityLogs (same as sidebar), so it is
-  // always accurate without an extra network call.
   const handleDispenseClick = async () => {
     if (!user) {
       setNotification({ message: 'Authentication required. Please login again.', type: 'error' });
@@ -658,10 +654,11 @@ export default function DispensePage() {
     setAvailableUnits(Array.from(units).sort());
   }, [medicines]);
 
+  // ── Flatten ageGroup arrays for the filter dropdown ───────────────────────
   useEffect(() => {
     const ageGroups = new Set<string>();
     medicines.forEach((m) => {
-      if (m.ageGroup) ageGroups.add(m.ageGroup);
+      getAgeGroupArray(m).forEach((ag) => ageGroups.add(ag));
     });
     setAvailableAgeGroups(Array.from(ageGroups).sort());
   }, [medicines]);
@@ -692,10 +689,12 @@ export default function DispensePage() {
   const filteredMedicines = useMemo(() => dispensableMedicines.filter((m) => {
     const q = searchTerm.toLowerCase();
     const matchSearch = [getDisplayName(m), getDisplayDescription(m), getDisplayBrand(m), getRawUnit(m), m.strength ?? ''].some((s) => s.toLowerCase().includes(q));
+    // ageGroup filter works on arrays
+    const matchAge = filterAgeGroup === 'all' || getAgeGroupArray(m).includes(filterAgeGroup);
     return matchSearch
       && (filterUnit === 'all' || getDispensableUnit(m) === filterUnit)
       && (filterStock === 'all' || getMedicineStatus(m).variant === filterStock)
-      && (filterAgeGroup === 'all' || m.ageGroup === filterAgeGroup)
+      && matchAge
       && (!quickSelectBaseName || (m.baseName || m.name) === quickSelectBaseName)
       && (!quickSelectStrength || (m.strength || 'Standard') === quickSelectStrength);
   }), [dispensableMedicines, searchTerm, filterUnit, filterStock, filterAgeGroup, quickSelectBaseName, quickSelectStrength]);
@@ -756,10 +755,6 @@ export default function DispensePage() {
     setDispenseList(next); syncQtyInput(next);
   };
 
-  // ── Actual dispense execution ─────────────────────────────────────────────
-  // FIX: removed the redundant getActiveSession() round-trip at the top.
-  // hasActiveSession (from activityLogs via useSession) is the single source
-  // of truth and is always accurate.
   const handleDispense = async () => {
     if (!user) {
       setNotification({ message: 'Authentication error. Please re-login.', type: 'error' });
@@ -864,15 +859,7 @@ export default function DispensePage() {
           user.uid,
           user.email || '',
           `Dispensed ${item.quantity} ${item.unitType} of ${getDisplayName(item.medicine)} to patient ${fullName}`,
-          {
-            medicineId: item.medicine.id,
-            medicineName: getDisplayName(item.medicine),
-            quantity: item.quantity,
-            unitType: item.unitType,
-            patientName: fullName,
-            patientId,
-            dispensId,
-          },
+          { medicineId: item.medicine.id, medicineName: getDisplayName(item.medicine), quantity: item.quantity, unitType: item.unitType, patientName: fullName, patientId, dispensId },
           staffName || adminName || user.email || undefined,
           role || undefined,
         );
@@ -882,15 +869,7 @@ export default function DispensePage() {
           user.uid,
           user.email || '',
           `Stock deducted for ${getDisplayName(item.medicine)}: ${stockBefore} → ${stockAfter} (${item.quantity} units)`,
-          {
-            medicineId: item.medicine.id,
-            medicineName: getDisplayName(item.medicine),
-            quantity: item.quantity,
-            previousValue: stockBefore,
-            newValue: stockAfter,
-            reason: `Dispensed to patient ${fullName}`,
-            dispensId,
-          },
+          { medicineId: item.medicine.id, medicineName: getDisplayName(item.medicine), quantity: item.quantity, previousValue: stockBefore, newValue: stockAfter, reason: `Dispensed to patient ${fullName}`, dispensId },
           staffName || adminName || user.email || undefined,
           role || undefined,
         );
@@ -1221,6 +1200,7 @@ export default function DispensePage() {
                   <button onClick={() => { setSearchTerm(''); setFilterUnit('all'); setFilterStock('all'); setQuickSelectBaseName(''); setQuickSelectStrength(''); }} className="mt-3 text-xs text-blue-600 hover:underline font-medium">Clear all filters</button>
                 </div>
               ) : viewMode === 'grid' ? (
+                /* ── GRID VIEW ── */
                 <div key="grid" className={`medicine-grid grid gap-4 ${isPanelMinimized ? 'grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4' : 'grid-cols-2 xl:grid-cols-3'}`}>
                   {filteredMedicines.map((medicine) => {
                     const stock = getEffectiveStock(medicine);
@@ -1229,6 +1209,7 @@ export default function DispensePage() {
                     const outOfStock = stock === 0;
                     const cartIndex = dispensList.findIndex((d) => d.medicine.id === medicine.id);
                     const cartQty = cartIndex !== -1 ? dispensList[cartIndex].quantity : 0;
+                    const ageGroups = getAgeGroupArray(medicine);
                     return (
                       <div key={medicine.id}
                         className={`medicine-card bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col cursor-pointer select-none transition-all ${inCart ? 'in-cart' : ''} ${outOfStock ? 'opacity-60' : ''}`}
@@ -1255,7 +1236,12 @@ export default function DispensePage() {
                           <div className="flex flex-wrap gap-1">
                             {medicine.unit && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-semibold rounded-md border border-blue-100">{medicine.unit}</span>}
                             {medicine.strength && <span className="px-1.5 py-0.5 bg-violet-50 text-violet-700 text-[10px] font-semibold rounded-md border border-violet-100">{medicine.strength}</span>}
-                            {medicine.ageGroup && <span className="px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-semibold rounded-md border border-green-100">{medicine.ageGroup}</span>}
+                            {/* ── Age group tags — wrappable ── */}
+                            {ageGroups.map((ag) => (
+                              <span key={ag} className="px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-semibold rounded-md border border-green-100">
+                                {shortAgeLabel(ag)}
+                              </span>
+                            ))}
                           </div>
                           <div className="flex flex-col gap-1 mt-auto pt-2">
                             <div className="flex items-center justify-between">
@@ -1285,12 +1271,19 @@ export default function DispensePage() {
                   })}
                 </div>
               ) : (
+                /* ── TABLE VIEW ── */
                 <div key="table" className="bg-white rounded-2xl border border-slate-200 overflow-hidden fade-in min-w-0">
                   <div className="overflow-x-auto w-full">
-                    <table className="text-sm" style={{ minWidth: '560px', width: '100%', tableLayout: 'fixed' }}>
+                    <table className="text-sm" style={{ width: '100%', tableLayout: 'fixed' }}>
                       <colgroup>
-                        <col style={{ width: '34%' }} /><col style={{ width: '14%' }} /><col style={{ width: '11%' }} />
-                        <col style={{ width: '7%' }} /><col style={{ width: '7%' }} /><col style={{ width: '13%' }} /><col style={{ width: '14%' }} />
+                        {/* Name | Unit | Strength+AgeGroup | Stock | Min | Status | Action */}
+                        <col style={{ width: '28%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '7%' }} />
+                        <col style={{ width: '6%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '12%' }} />
                       </colgroup>
                       <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
@@ -1307,8 +1300,11 @@ export default function DispensePage() {
                           const status = getMedicineStatus(medicine);
                           const inCart = dispensList.some((d) => d.medicine.id === medicine.id);
                           const convLabel = getConversionLabel(medicine);
+                          const ageGroups = getAgeGroupArray(medicine);
                           return (
                             <tr key={medicine.id} className={`transition-colors hover:bg-slate-50 ${inCart ? 'bg-blue-50/40' : ''}`}>
+
+                              {/* Name */}
                               <td className="px-3 py-3 min-w-0">
                                 <div className="flex items-center gap-2 min-w-0">
                                   {medicine.image
@@ -1323,12 +1319,52 @@ export default function DispensePage() {
                                   </div>
                                 </div>
                               </td>
-                              <td className="px-3 py-3"><div className="flex flex-col gap-0.5"><span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border w-fit max-w-full truncate ${getUnitStyles(dispUnit).badge}`}>{dispUnit}</span>{convLabel && <span className="text-[9px] text-slate-400 font-medium truncate">{convLabel}</span>}</div></td>
-                              <td className="px-3 py-3"><div className="flex flex-col gap-0.5">{medicine.strength ? <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 border border-purple-200 w-fit truncate">{medicine.strength}</span> : <span className="text-slate-400 text-xs">—</span>}{medicine.ageGroup && <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 w-fit truncate">{medicine.ageGroup}</span>}</div></td>
+
+                              {/* Unit Type */}
+                              <td className="px-3 py-3">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border w-fit max-w-full truncate ${getUnitStyles(dispUnit).badge}`}>{dispUnit}</span>
+                                  {convLabel && <span className="text-[9px] text-slate-400 font-medium truncate">{convLabel}</span>}
+                                </div>
+                              </td>
+
+                              {/* Strength + Age Group — wrappable tags, contained within cell */}
+                              <td className="px-3 py-3" style={{ overflow: 'hidden' }}>
+                                <div className="flex flex-col gap-1 w-full overflow-hidden">
+                                  {/* Strength pill */}
+                                  {medicine.strength
+                                    ? <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 border border-purple-200 truncate block max-w-full">{medicine.strength}</span>
+                                    : <span className="text-slate-400 text-xs">—</span>
+                                  }
+                                  {/* Age group tags — flex-wrap and overflow hidden to stay inside cell */}
+                                  {ageGroups.length > 0 && (
+                                    <div className="flex flex-wrap gap-0.5 overflow-hidden" style={{ maxHeight: '4rem' }}>
+                                      {ageGroups.map((ag) => (
+                                        <span key={ag} className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 leading-tight" style={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                          {shortAgeLabel(ag)}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Stock */}
                               <td className="px-3 py-3"><span className="text-xs font-medium text-slate-700">{stock}</span></td>
+
+                              {/* Min */}
                               <td className="px-3 py-3"><span className="text-xs font-medium text-slate-700">{minStockVal > 0 ? minStockVal : <span className="text-slate-400 text-[10px]">—</span>}</span></td>
+
+                              {/* Status */}
                               <td className="px-3 py-3"><span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-lg border whitespace-nowrap ${statusStyles[status.variant]}`}>{status.label}</span></td>
-                              <td className="px-3 py-3 text-center"><button onClick={() => addMedicineToCart(medicine)} disabled={stock === 0} className={`px-2.5 py-1.5 text-[10px] font-semibold rounded-lg transition-colors whitespace-nowrap ${stock === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : getUnitStyles(dispUnit).btn}`}>+ Add</button></td>
+
+                              {/* Action */}
+                              <td className="px-3 py-3 text-center">
+                                <button onClick={() => addMedicineToCart(medicine)} disabled={stock === 0}
+                                  className={`px-2.5 py-1.5 text-[10px] font-semibold rounded-lg transition-colors whitespace-nowrap ${stock === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : getUnitStyles(dispUnit).btn}`}>
+                                  + Add
+                                </button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -1409,8 +1445,8 @@ export default function DispensePage() {
                             className="scroll-area overflow-y-auto pr-1 -mr-1"
                             style={{ maxHeight: 'calc(100vh - 310px)' }}
                           >
-                          <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={false} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={handleDispenseClick} onBack={() => setActiveStep(2)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
-                        </div>
+                            <PatientForm patientInfo={patientInfo} onChange={handlePatientChange} expanded={false} canDispense={canDispense} dispensCount={dispensList.length} onConfirm={handleDispenseClick} onBack={() => setActiveStep(2)} patients={filteredPatients} isLoadingPatients={isLoadingPatients} selectedPatientId={selectedPatientId} onSelectPatient={handleSelectPatient} onClearForm={handleClearForm} />
+                          </div>
                           <div className="sticky bottom-0 z-10 flex justify-center pointer-events-none mt-1">
                             <button
                               type="button"
@@ -1606,7 +1642,7 @@ export default function DispensePage() {
                     </div>
                     <button onClick={async () => { setIsPatientExpanded(false); await handleDispenseClick(); }} disabled={!canDispense}
                       className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${canDispense ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
-                     {canDispense ? `Dispense ${dispensList.length} Item${dispensList.length !== 1 ? 's' : ''}` : 'Fill required fields'}
+                      {canDispense ? `Dispense ${dispensList.length} Item${dispensList.length !== 1 ? 's' : ''}` : 'Fill required fields'}
                     </button>
                   </div>
                 )}

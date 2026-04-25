@@ -29,6 +29,7 @@ const COUNTRIES = [
 ] as const;
 
 const AGE_GROUP_OPTIONS = [
+  'For All Ages',
   'Neonatal (Birth – 28 days)',
   'Pediatric / Children (1 month – 12 years)',
   'Adolescent (13 – 17 years)',
@@ -75,23 +76,16 @@ interface SuccessInfo {
 
 /* ─── Duplicate Info (passed to DuplicateModal) ─────────────────────────── */
 interface DuplicateInfo {
-  /** Firebase key of the existing record */
   key:             string;
-  /** Human-readable label for the modal (e.g. "Albendazole 400mg") */
   displayName:     string;
-  /** Current quantity already in the DB */
   currentQty:      number;
-  /** Quantity the user is trying to add (already resolved to final unit) */
   incomingQty:     number;
-  /** Resolved final unit (e.g. "Tablets") */
   unit:            string;
-  /** Brand */
   brand:           string;
-  /** Incoming total cost to add on top of existing totalCost */
   newTotalCost:    number;
 }
 
-/* ─── Generic Error Modal (non-duplicate errors only) ───────────────────── */
+/* ─── Generic Error Modal ───────────────────────────────────────────────── */
 function ErrorModal({
   message,
   onClose,
@@ -173,11 +167,9 @@ function DuplicateModal({
           }
         `}</style>
 
-        {/* Amber accent bar */}
         <div className="h-2 bg-gradient-to-r from-amber-400 to-orange-500" />
 
         <div className="px-6 pt-7 pb-6">
-          {/* Icon */}
           <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-amber-50 border-4 border-amber-100 flex items-center justify-center">
             <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round"
@@ -185,13 +177,11 @@ function DuplicateModal({
             </svg>
           </div>
 
-          {/* Title */}
           <h2 className="text-xl font-black text-slate-900 mb-1 text-center">Duplicate Found</h2>
           <p className="text-sm text-slate-500 text-center mb-5">
             This medicine already exists. Would you like to adjust its stock instead?
           </p>
 
-          {/* Medicine info card */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5 space-y-3">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Medicine</p>
@@ -199,7 +189,6 @@ function DuplicateModal({
               <p className="text-xs text-slate-500">{info.brand} · {info.unit}</p>
             </div>
 
-            {/* Stock breakdown: current / +adding / new total */}
             <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-200 text-center">
               <div>
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Current</p>
@@ -222,7 +211,6 @@ function DuplicateModal({
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex flex-col gap-2">
             <button
               onClick={handleAdjust}
@@ -518,10 +506,8 @@ export default function AddMedicinePage() {
   const [successInfo,      setSuccessInfo]      = useState<SuccessInfo | null>(null);
   const [errorModal,       setErrorModal]       = useState('');
 
-  // Duplicate-specific state
-  const [duplicateInfo, setDuplicateInfo] = useState<DuplicateInfo | null>(null);
+  const [duplicateInfo,    setDuplicateInfo]    = useState<DuplicateInfo | null>(null);
 
-  // Stock-Adjusted success state (for orders that would update existing stock)
   const [stockAdjustedInfo, setStockAdjustedInfo] = useState<{
     displayName: string;
     addedQty:    number;
@@ -535,7 +521,7 @@ export default function AddMedicinePage() {
     quantity:        '',
     unit:            '' as string,
     brandModel:      '',
-    ageGroup:        '',
+    ageGroup:        [] as string[],   // ← now an array
     countryOfOrigin: '',
     unitCost:        '',
     sellingPrice:    '',
@@ -550,6 +536,7 @@ export default function AddMedicinePage() {
   const [showCustomUnitInput, setShowCustomUnitInput] = useState(false);
   const [customUnitInput,     setCustomUnitInput]     = useState('');
   const [customUnitError,     setCustomUnitError]     = useState('');
+  const [ageGroupOpen,        setAgeGroupOpen]        = useState(false);
 
   const totalPiecesCalculated = useMemo(() => {
     const qty = parseInt(formData.quantity);
@@ -572,7 +559,7 @@ export default function AddMedicinePage() {
   const resetForm = () => {
     setFormData({
       name: '', description: '', quantity: '', unit: '',
-      brandModel: '', ageGroup: '', countryOfOrigin: '', unitCost: '',
+      brandModel: '', ageGroup: [], countryOfOrigin: '', unitCost: '',
       sellingPrice: '', minStock: '', expirationDate: '',
     });
     setImageUrl('');
@@ -615,6 +602,27 @@ export default function AddMedicinePage() {
     setFormData((prev) => ({ ...prev, [name]: processedValue }));
   };
 
+  /* ─── Age Group toggle handler ─────────────────────────────────────────── */
+  const handleAgeGroupToggle = (option: string) => {
+    setFormData((prev) => {
+      const isForAll = option === 'For All Ages';
+      const alreadySelected = prev.ageGroup.includes(option);
+
+      if (isForAll) {
+        // "For All Ages" is mutually exclusive — selecting it clears everything else
+        return { ...prev, ageGroup: alreadySelected ? [] : ['For All Ages'] };
+      }
+
+      // Selecting a specific group removes "For All Ages" if present
+      const withoutForAll = prev.ageGroup.filter((g) => g !== 'For All Ages');
+
+      if (alreadySelected) {
+        return { ...prev, ageGroup: withoutForAll.filter((g) => g !== option) };
+      }
+      return { ...prev, ageGroup: [...withoutForAll, option] };
+    });
+  };
+
   const handleAddStrength = () => {
     const strength = strengthInput.trim();
     if (!strength) {
@@ -653,33 +661,32 @@ export default function AddMedicinePage() {
       if (!snap.exists()) throw new Error('Medicine record not found.');
 
       const current = snap.val() as {
-        quantity?:          number;
-        totalCost?:         number;
-        name: string;
-        unit: string;
+        quantity?:  number;
+        totalCost?: number;
+        name:       string;
+        unit:       string;
       };
 
-      const newQty = (current.quantity || 0) + addQty;
+      const newQty       = (current.quantity  || 0) + addQty;
       const newTotalCost = (current.totalCost || 0) + incomingCost;
-      const now = new Date().toISOString();
+      const now          = new Date().toISOString();
 
       const updates: Record<string, unknown> = {};
-      updates[`${medicinePath}/quantity`] = newQty;
+      updates[`${medicinePath}/quantity`]  = newQty;
       updates[`${medicinePath}/totalCost`] = newTotalCost;
       updates[`${medicinePath}/updatedAt`] = now;
 
-      // Log transaction directly
       const transactionsPath = getUserPath(user.uid, 'transactions');
-      const transRef = push(ref(database, transactionsPath));
+      const transRef         = push(ref(database, transactionsPath));
       updates[`${transactionsPath}/${transRef.key}`] = {
-        date: now,
-        type: 'adjustment',
-        medicineId: duplicateKey,
-        quantity: addQty,
+        date:          now,
+        type:          'adjustment',
+        medicineId:    duplicateKey,
+        quantity:      addQty,
         previousStock: current.quantity || 0,
-        newStock: newQty,
-        unitCost: incomingCost / addQty,
-        notes: `Stock added manually`,
+        newStock:      newQty,
+        unitCost:      incomingCost / addQty,
+        notes:         `Stock added manually`,
       };
 
       await update(ref(database), updates);
@@ -706,17 +713,16 @@ export default function AddMedicinePage() {
     }
     setIsSubmitting(true);
     try {
-      if (!formData.name.trim())        throw new Error('Name is required');
-      if (!formData.description.trim()) throw new Error('Item description is required');
-      if (!formData.unit)               throw new Error('Unit is required');
-      if (!formData.brandModel.trim())  throw new Error('Brand / Model is required');
-      if (!formData.ageGroup)           throw new Error('Age group category is required');
-      if (!formData.countryOfOrigin)    throw new Error('Country of origin is required');
+      if (!formData.name.trim())           throw new Error('Name is required');
+      if (!formData.description.trim())    throw new Error('Item description is required');
+      if (!formData.unit)                  throw new Error('Unit is required');
+      if (!formData.brandModel.trim())     throw new Error('Brand / Model is required');
+      if (formData.ageGroup.length === 0)  throw new Error('Age group category is required');
+      if (!formData.countryOfOrigin)       throw new Error('Country of origin is required');
       if (!formData.minStock || isNaN(parseInt(formData.minStock)) || parseInt(formData.minStock) < 0)
         throw new Error('Valid minimum stock is required');
-      if (!formData.expirationDate)     throw new Error('Expiration date is required');
+      if (!formData.expirationDate)        throw new Error('Expiration date is required');
 
-      // ── Compute finalUnit ─────────────────────
       const piecesPerUnitVal = unitConversion?.conversionFactor;
       const finalUnit = piecesPerUnitVal
         ? (unitConversion?.conversionUnit || unitConversion?.customUnitName || 'Pieces')
@@ -729,16 +735,16 @@ export default function AddMedicinePage() {
 
       // ── Duplicate check ───────────────────────
       const medicinesPath = getUserPath(user.uid, 'medicines');
-      const snapshot = await get(ref(database, medicinesPath));
+      const snapshot      = await get(ref(database, medicinesPath));
       if (snapshot.exists()) {
         const rawData = snapshot.val() as Record<string, {
-          baseName?:     string;
-          name?:         string;
-          strength?:     string;
-          brandModel?:   string;
-          unit?:         string;
-          category?:     string;
-          quantity?:     number;
+          baseName?:   string;
+          name?:       string;
+          strength?:   string;
+          brandModel?: string;
+          unit?:       string;
+          category?:   string;
+          quantity?:   number;
         }>;
 
         const entries       = Object.entries(rawData);
@@ -751,9 +757,7 @@ export default function AddMedicinePage() {
           const mBrand    = (m.brandModel || '').toLowerCase();
           const mUnit     = (m.unit || m.category || '').toLowerCase();
           const mStrength = (m.strength || '').toLowerCase();
-          
           const userStrength = strengthVariants[0]?.strength.toLowerCase() || '';
-          
           return (
             mName     === baseName &&
             mBrand    === brand &&
@@ -786,16 +790,16 @@ export default function AddMedicinePage() {
       const updates: Record<string, unknown> = {};
       const transactionsPath = getUserPath(user.uid, 'transactions');
 
-      const itemsToAdd = strengthVariants.length > 0 
+      const itemsToAdd = strengthVariants.length > 0
         ? strengthVariants.map(variant => ({
             name:                 `${baseName} ${variant.strength}`,
-            baseName:             baseName,
-            description:          description,
+            baseName,
+            description,
             quantity:             incomingQty,
             unit:                 finalUnit,
             originalUnit:         formData.unit,
             brandModel:           formData.brandModel.trim(),
-            ageGroup:             formData.ageGroup,
+            ageGroup:             formData.ageGroup,          // saved as array
             countryOfOrigin:      formData.countryOfOrigin,
             unitCost:             unitCostVal,
             sellingPrice:         sellingPriceVal,
@@ -813,17 +817,17 @@ export default function AddMedicinePage() {
             stockPerPieces:       incomingQty,
             unitConversion:       unitConversion ? buildUnitConversionPayload(unitConversion) : null,
             createdAt:            now,
-            updatedAt:            now
+            updatedAt:            now,
           }))
         : [{
             name:                 baseName,
-            baseName:             baseName,
-            description:          description,
+            baseName,
+            description,
             quantity:             incomingQty,
             unit:                 finalUnit,
             originalUnit:         formData.unit,
             brandModel:           formData.brandModel.trim(),
-            ageGroup:             formData.ageGroup,
+            ageGroup:             formData.ageGroup,          // saved as array
             countryOfOrigin:      formData.countryOfOrigin,
             unitCost:             unitCostVal,
             sellingPrice:         sellingPriceVal,
@@ -840,48 +844,40 @@ export default function AddMedicinePage() {
             stockPerPieces:       incomingQty,
             unitConversion:       unitConversion ? buildUnitConversionPayload(unitConversion) : null,
             createdAt:            now,
-            updatedAt:            now
+            updatedAt:            now,
           }];
 
       for (const item of itemsToAdd) {
-        const newMedRef = push(ref(database, medicinesPath));
-        const newMedId = newMedRef.key;
-        
-        // Create initial batch for the stock being added
-        const initialBatchId = `batch_${Date.now()}_initial`;
-        const initialBatch = {
-          quantity: item.quantity,
+        const newMedRef        = push(ref(database, medicinesPath));
+        const newMedId         = newMedRef.key;
+        const initialBatchId   = `batch_${Date.now()}_initial`;
+        const initialBatch     = {
+          quantity:       item.quantity,
           expirationDate: item.expirationDate || formData.expirationDate,
-          createdAt: now,
-        };
-        
-        // Save medicine with initial batch
-        updates[`${medicinesPath}/${newMedId}`] = { 
-          ...item, 
-          id: newMedId,
-          batches: {
-            [initialBatchId]: initialBatch
-          },
-          // expirationDate stays the same (will be the earliest from batches)
+          createdAt:      now,
         };
 
-        // Log transaction directly
+        updates[`${medicinesPath}/${newMedId}`] = {
+          ...item,
+          id: newMedId,
+          batches: { [initialBatchId]: initialBatch },
+        };
+
         const transRef = push(ref(database, transactionsPath));
         updates[`${transactionsPath}/${transRef.key}`] = {
-          date: now,
-          type: 'adjustment',
-          medicineId: newMedId,
-          quantity: item.quantity,
+          date:          now,
+          type:          'adjustment',
+          medicineId:    newMedId,
+          quantity:      item.quantity,
           previousStock: 0,
-          newStock: item.quantity,
-          unitCost: item.unitCost,
-          notes: `Initial stock added manually`,
+          newStock:      item.quantity,
+          unitCost:      item.unitCost,
+          notes:         `Initial stock added manually`,
         };
       }
 
       await update(ref(database), updates);
 
-      // Log each medicine added to activity logs
       for (const item of itemsToAdd) {
         await logActivity(
           'medicine_added',
@@ -890,12 +886,12 @@ export default function AddMedicinePage() {
           `Added medicine: ${item.name || item.baseName} (${item.quantity} ${item.unit}) - Brand: ${item.brandModel}`,
           {
             medicineName: item.name || item.baseName,
-            quantity: item.quantity,
-            unitType: item.unit,
-            unitCost: item.unitCost,
+            quantity:     item.quantity,
+            unitType:     item.unit,
+            unitCost:     item.unitCost,
           },
           staffName || undefined,
-          role || undefined
+          role    || undefined
         );
       }
 
@@ -925,7 +921,7 @@ export default function AddMedicinePage() {
     (strengthVariants.length > 0 || (!!formData.quantity && !isNaN(parseInt(formData.quantity)) && parseInt(formData.quantity) >= 0)) &&
     !!formData.unit &&
     !!formData.brandModel.trim() &&
-    !!formData.ageGroup &&
+    formData.ageGroup.length > 0 &&
     !!formData.countryOfOrigin &&
     !!formData.minStock && !isNaN(parseInt(formData.minStock)) && parseInt(formData.minStock) >= 0 &&
     !!formData.expirationDate;
@@ -944,18 +940,12 @@ export default function AddMedicinePage() {
   return (
     <div className="min-h-screen bg-slate-50 transition-all duration-300 ml-0">
 
-      {/* Processing overlay */}
       {isSubmitting && <Processing message="Adding medicine..." />}
 
-      {/* Generic error modal */}
       {errorModal && (
-        <ErrorModal
-          message={errorModal}
-          onClose={() => setErrorModal('')}
-        />
+        <ErrorModal message={errorModal} onClose={() => setErrorModal('')} />
       )}
 
-      {/* Duplicate modal — shown instead of error when a match is found */}
       {duplicateInfo && (
         <DuplicateModal
           info={duplicateInfo}
@@ -964,7 +954,6 @@ export default function AddMedicinePage() {
         />
       )}
 
-      {/* Stock-adjusted success modal */}
       {stockAdjustedInfo && (
         <StockAdjustedModal
           displayName={stockAdjustedInfo.displayName}
@@ -972,30 +961,17 @@ export default function AddMedicinePage() {
           newTotal={stockAdjustedInfo.newTotal}
           unit={stockAdjustedInfo.unit}
           onClose={() => setStockAdjustedInfo(null)}
-          onGoToList={() => {
-            setStockAdjustedInfo(null);
-            router.push('/medicines');
-          }}
-          onAddAnother={() => {
-            setStockAdjustedInfo(null);
-            resetForm();
-          }}
+          onGoToList={() => { setStockAdjustedInfo(null); router.push('/medicines'); }}
+          onAddAnother={() => { setStockAdjustedInfo(null); resetForm(); }}
         />
       )}
 
-      {/* New-medicine success modal */}
       {showSuccessModal && successInfo && (
         <SuccessModal
           info={successInfo}
           onClose={() => setShowSuccessModal(false)}
-          onGoToList={() => {
-            setShowSuccessModal(false);
-            router.push('/medicines');
-          }}
-          onAddAnother={() => {
-            setShowSuccessModal(false);
-            resetForm();
-          }}
+          onGoToList={() => { setShowSuccessModal(false); router.push('/medicines'); }}
+          onAddAnother={() => { setShowSuccessModal(false); resetForm(); }}
         />
       )}
 
@@ -1255,6 +1231,7 @@ export default function AddMedicinePage() {
 
           {/* Brand & Age Group */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Brand */}
             <div>
               <label htmlFor="brandModel" className="block text-sm font-semibold text-slate-700 mb-2">
                 Brand / Model <span className="text-red-500">*</span>
@@ -1264,18 +1241,106 @@ export default function AddMedicinePage() {
                 className="w-full px-4 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-400"
                 disabled={isSubmitting} required />
             </div>
+
+            {/* Age Group — collapsible multi-select checkbox list */}
             <div>
-              <label htmlFor="ageGroup" className="block text-sm font-semibold text-slate-700 mb-2">
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Age Group Category <span className="text-red-500">*</span>
               </label>
-              <select id="ageGroup" name="ageGroup" value={formData.ageGroup} onChange={handleInputChange}
-                className="w-full px-4 py-2.5 bg-white text-slate-900 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isSubmitting} required>
-                <option value="">Select age group</option>
-                {AGE_GROUP_OPTIONS.map((option) => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
+
+              {/* relative wrapper so the absolute dropdown anchors here */}
+              <div className="relative">
+
+              {/* Trigger button */}
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setAgeGroupOpen((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-4 py-2.5 bg-white border rounded-lg text-sm transition-all disabled:opacity-50
+                  ${ageGroupOpen
+                    ? 'border-blue-500 ring-2 ring-blue-500 rounded-b-none'
+                    : 'border-slate-300 hover:border-slate-400'}`}
+              >
+                <span className={formData.ageGroup.length === 0 ? 'text-slate-400' : 'text-slate-900 font-medium'}>
+                  {formData.ageGroup.length === 0
+                    ? 'Select age group(s)'
+                    : formData.ageGroup.length === 1
+                      ? formData.ageGroup[0]
+                      : `${formData.ageGroup.length} age groups selected`}
+                </span>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${ageGroupOpen ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Dropdown — absolute so it floats over elements below */}
+              {ageGroupOpen && (
+                <div className="absolute z-40 left-0 right-0 bg-white border border-blue-500 border-t-0 rounded-b-lg overflow-hidden divide-y divide-slate-100 max-h-64 overflow-y-auto shadow-xl">
+                  {AGE_GROUP_OPTIONS.map((option) => {
+                    const isForAll  = option === 'For All Ages';
+                    const isChecked = formData.ageGroup.includes(option);
+                    return (
+                      <label
+                        key={option}
+                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors select-none
+                          ${isChecked ? 'bg-blue-50' : 'hover:bg-slate-50'}
+                          ${isForAll  ? 'border-b-2 border-slate-200' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={isSubmitting}
+                          onChange={() => handleAgeGroupToggle(option)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 accent-blue-600 shrink-0"
+                        />
+                        <span className={`text-sm leading-snug
+                          ${isChecked ? 'text-blue-700 font-semibold' : 'text-slate-700'}
+                          ${isForAll  ? 'font-bold' : ''}`}>
+                          {isForAll ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <svg className="w-3.5 h-3.5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                              </svg>
+                              For All Ages
+                            </span>
+                          ) : option}
+                        </span>
+                        {isChecked && (
+                          <svg className="w-4 h-4 text-blue-500 ml-auto shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              </div>{/* end relative wrapper */}
+
+              {/* Selection summary chips */}
+              {formData.ageGroup.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {formData.ageGroup.map((g) => (
+                    <span
+                      key={g}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
+                    >
+                      {g === 'For All Ages' ? '👥 For All Ages' : g.split(' (')[0]}
+                      <button
+                        type="button"
+                        onClick={() => handleAgeGroupToggle(g)}
+                        disabled={isSubmitting}
+                        className="text-blue-400 hover:text-red-500 font-bold transition-colors ml-0.5 disabled:opacity-50"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

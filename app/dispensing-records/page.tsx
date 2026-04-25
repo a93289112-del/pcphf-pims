@@ -53,7 +53,7 @@ interface Dispensing {
   date: string;
   patientName: string;
   patientId: string;
-  patientRecordId?: string; // Database-level patient record ID (distinct from patientId)
+  patientRecordId?: string;
   age?: string;
   notes?: string;
   patientInfo?: PatientInfo;
@@ -167,10 +167,10 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
           </div>
         </div>
 
-        {/* Two-column body — stacks on mobile */}
+        {/* Two-column body */}
         <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
 
-          {/* LEFT — Patient enrollment form (scrollable) */}
+          {/* LEFT — Patient enrollment form */}
           <div className="flex-1 overflow-y-auto scroll-area px-4 sm:px-6 py-5 space-y-6">
 
             <section>
@@ -265,7 +265,7 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
             )}
           </div>
 
-          {/* RIGHT — Medicines dispensed + record meta */}
+          {/* RIGHT — Medicines dispensed */}
           <div className="lg:w-80 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 bg-slate-50/60 flex flex-col overflow-hidden max-h-64 lg:max-h-none">
 
             <div className="px-5 py-4 border-b border-slate-100 bg-white shrink-0">
@@ -366,7 +366,6 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={async () => {
               try {
-                // Fetch and convert logo to base64
                 const logoPath = typeof logoSrc === 'string' ? logoSrc : logoSrc.src;
                 const logoResponse = await fetch(logoPath);
                 const logoBlob = await logoResponse.blob();
@@ -376,296 +375,430 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                   reader.readAsDataURL(logoBlob);
                 });
 
-                const medicinesList = record.items.map((item) => `
-                  <tr>
-                    <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: left;">${item.medicineName}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">${item.selectedStrength || '-'}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">${item.quantity} ${resolveQtyType(item)}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">${item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}</td>
-                    <td style="padding: 8px; border-bottom: 1px solid #e0e0e0; text-align: center;">${item.prescriptionRequired ? '⚕' : '-'}</td>
-                  </tr>
-                `).join('');
-
                 const receiptHtml = `
                   <!DOCTYPE html>
-                  <html>
+                  <html lang="en">
                   <head>
                     <meta charset="UTF-8">
-                    <title>Dispensing Receipt</title>
+                    <title>Dispensing Record — ${record.patientName}</title>
                     <style>
-                      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 15px; background: white; }
-                      .receipt { max-width: 800px; margin: 0 auto; }
-                      .header { text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1e40af; padding-bottom: 15px; }
-                      .logo { width: 75px; height: 75px; margin: 0 auto 12px; display: block; border-radius: 50%; border: 2px solid #e2e8f0; background: white; object-fit: cover; }
-                      .facility-name { font-weight: bold; font-size: 16px; margin-bottom: 3px; color: #1e3a8a; }
-                      .receipt-title { font-size: 14px; font-weight: bold; color: #1e40af; }
-                      .section-title { font-weight: bold; font-size: 12px; margin-top: 15px; margin-bottom: 8px; padding: 6px 8px; background: #eff6ff; border-left: 3px solid #1e40af; }
-                      .form-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }
-                      .form-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
-                      .form-field { font-size: 11px; }
-                      .field-label { font-weight: 600; color: #1e3a8a; font-size: 10px; }
-                      .field-value { font-size: 11px; color: #333; margin-top: 2px; word-break: break-word; }
-                      .medicine-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
-                      .medicine-table th { background: #1e40af; color: white; padding: 8px; font-size: 10px; font-weight: bold; }
-                      .medicine-table th:first-child { text-align: left; }
-                      .medicine-table th:not(:first-child) { text-align: center; }
-                      .medicine-table td { padding: 8px; border-bottom: 1px solid #e0e0e0; }
-                      .medicine-table td:first-child { text-align: left; }
-                      .medicine-table td:not(:first-child) { text-align: center; }
-                      .footer { margin-top: 15px; padding-top: 10px; border-top: 3px solid #1e40af; text-align: center; font-size: 10px; }
-                      .total { margin-bottom: 10px; font-weight: bold; font-size: 12px; color: #1e40af; }
-                      .footer-note { color: #666; font-size: 9px; margin-top: 10px; }
-                      
+                      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+                      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                      html, body {
+                        width: 210mm;
+                        font-family: 'IBM Plex Sans', 'Helvetica Neue', sans-serif;
+                        font-size: 9pt;
+                        color: #111;
+                        background: #fff;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                      }
+
+                      .page {
+                        width: 210mm;
+                        min-height: 297mm;
+                        padding: 14mm 16mm 12mm;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 0;
+                      }
+
+                      /* ── HEADER ── */
+                      .header {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        padding-bottom: 10px;
+                        border-bottom: 2px solid #111;
+                        margin-bottom: 10px;
+                      }
+                      .header-logo {
+                        width: 46px;
+                        height: 46px;
+                        border-radius: 50%;
+                        object-fit: cover;
+                        border: 1.5px solid #ddd;
+                        flex-shrink: 0;
+                      }
+                      .header-text { flex: 1; }
+                      .header-facility {
+                        font-size: 7pt;
+                        font-weight: 600;
+                        letter-spacing: 0.12em;
+                        text-transform: uppercase;
+                        color: #555;
+                      }
+                      .header-title {
+                        font-size: 14pt;
+                        font-weight: 700;
+                        letter-spacing: -0.01em;
+                        color: #111;
+                        line-height: 1.1;
+                        margin-top: 1px;
+                      }
+                      .header-meta {
+                        text-align: right;
+                        font-family: 'IBM Plex Mono', monospace;
+                        font-size: 7.5pt;
+                        color: #555;
+                        line-height: 1.6;
+                      }
+                      .header-meta strong { color: #111; font-weight: 600; }
+
+                      /* ── SECTION ── */
+                      .section {
+                        margin-bottom: 9px;
+                      }
+                      .section-label {
+                        font-size: 6.5pt;
+                        font-weight: 700;
+                        letter-spacing: 0.15em;
+                        text-transform: uppercase;
+                        color: #666;
+                        border-bottom: 1px solid #ddd;
+                        padding-bottom: 3px;
+                        margin-bottom: 6px;
+                      }
+                      .section-label span {
+                        display: inline-block;
+                        background: transparent;
+                        color: #333;
+                        border: 1px solid #ccc;
+                        padding: 1px 5px;
+                        border-radius: 2px;
+                        margin-right: 5px;
+                        font-size: 6pt;
+                        font-weight: 700;
+                      }
+
+                      /* ── FIELD GRID ── */
+                      .field-grid {
+                        display: grid;
+                        gap: 4px 10px;
+                      }
+                      .field-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+                      .field-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+                      .field-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+                      .field-grid.cols-1 { grid-template-columns: 1fr; }
+
+                      .field { display: flex; flex-direction: column; gap: 1px; }
+                      .field-key {
+                        font-size: 6.5pt;
+                        font-weight: 600;
+                        color: #999;
+                        text-transform: uppercase;
+                        letter-spacing: 0.07em;
+                      }
+                      .field-val {
+                        font-size: 8.5pt;
+                        font-weight: 500;
+                        color: #111;
+                        word-break: break-word;
+                      }
+                      .field-val.mono { font-family: 'IBM Plex Mono', monospace; font-size: 8pt; }
+                      .field-span2 { grid-column: span 2; }
+                      .field-span3 { grid-column: span 3; }
+                      .field-span4 { grid-column: span 4; }
+
+                      /* ── INSET BOX (PhilHealth member details) ── */
+                      .inset-box {
+                        background: transparent;
+                        border: 1px solid #ddd;
+                        border-radius: 3px;
+                        padding: 6px 8px;
+                        margin-top: 4px;
+                      }
+                      .inset-label {
+                        font-size: 6pt;
+                        font-weight: 700;
+                        letter-spacing: 0.12em;
+                        text-transform: uppercase;
+                        color: #aaa;
+                        margin-bottom: 5px;
+                      }
+
+                      /* ── MEDICINES TABLE ── */
+                      .med-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 8.5pt;
+                        margin-top: 4px;
+                      }
+                      .med-table thead tr {
+                        background: transparent;
+                        border-bottom: 1.5px solid #222;
+                      }
+                      .med-table thead th {
+                        padding: 5px 8px;
+                        font-size: 6.5pt;
+                        font-weight: 700;
+                        letter-spacing: 0.1em;
+                        text-transform: uppercase;
+                        text-align: left;
+                        color: #333;
+                      }
+                      .med-table thead th:not(:first-child) { text-align: center; }
+                      .med-table tbody tr { border-bottom: 1px solid #ececec; }
+                      .med-table tbody tr:last-child { border-bottom: 1.5px solid #ccc; }
+                      .med-table tbody td {
+                        padding: 5px 8px;
+                        vertical-align: middle;
+                      }
+                      .med-table tbody td:not(:first-child) { text-align: center; }
+                      .med-name { font-weight: 600; color: #111; }
+                      .med-brand { font-size: 7.5pt; color: #888; margin-top: 1px; }
+                      .med-strength {
+                        display: inline-block;
+                        font-size: 7pt;
+                        font-weight: 600;
+                        padding: 1px 5px;
+                        background: transparent;
+                        border: 1px solid #ccc;
+                        border-radius: 2px;
+                        color: #555;
+                        margin-top: 1px;
+                      }
+                      .rx-pill {
+                        display: inline-block;
+                        font-size: 6.5pt;
+                        font-weight: 800;
+                        padding: 1px 4px;
+                        background: transparent;
+                        color: #555;
+                        border: 1px solid #aaa;
+                        border-radius: 2px;
+                        letter-spacing: 0.04em;
+                        margin-left: 4px;
+                        vertical-align: middle;
+                      }
+
+                      /* ── TOTALS BAR ── */
+                      .totals-bar {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: transparent;
+                        border-top: 1.5px solid #ccc;
+                        padding: 5px 8px 0;
+                        margin-top: 4px;
+                      }
+                      .totals-label { font-size: 7pt; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.1em; }
+                      .totals-val { font-size: 9.5pt; font-weight: 700; color: #111; font-family: 'IBM Plex Mono', monospace; }
+
+                      /* ── NOTES ── */
+                      .notes-box {
+                        border: 1px solid #ddd;
+                        border-radius: 3px;
+                        padding: 6px 8px;
+                        font-size: 8.5pt;
+                        color: #444;
+                        line-height: 1.5;
+                      }
+
+                      /* ── SIGNATURE AREA ── */
+                      .sig-area {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 20px;
+                        margin-top: 12px;
+                        padding-top: 8px;
+                        border-top: 1px solid #ddd;
+                      }
+                      .sig-block { display: flex; flex-direction: column; gap: 2px; }
+                      .sig-name { font-size: 9pt; font-weight: 600; color: #111; }
+                      .sig-role { font-size: 7pt; color: #999; text-transform: uppercase; letter-spacing: 0.08em; }
+                      .sig-line { border-top: 1px solid #bbb; margin-bottom: 3px; margin-top: 20px; }
+
+                      /* ── FOOTER ── */
+                      .footer {
+                        margin-top: auto;
+                        padding-top: 8px;
+                        border-top: 1px solid #ddd;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                      }
+                      .footer-id { font-family: 'IBM Plex Mono', monospace; font-size: 6.5pt; color: #bbb; }
+                      .footer-print { font-size: 6.5pt; color: #bbb; }
+                      .footer-conf { font-size: 6.5pt; color: #bbb; text-align: center; }
+
                       @media print {
-                        body { margin: 0; padding: 10px; }
-                        .receipt { max-width: 100%; }
+                        html, body { width: 210mm; }
+                        .page { padding: 12mm 14mm 10mm; }
                         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                       }
                     </style>
                   </head>
                   <body>
-                    <div class="receipt">
-                      <div class="header">
-                        <img src="${logoBase64}" alt="Logo" class="logo">
-                        <div class="facility-name">Passi City Primary Health Care Facility</div>
-                        <div class="receipt-title">PATIENT DISPENSING RECORD</div>
+                  <div class="page">
+
+                    <!-- HEADER -->
+                    <div class="header">
+                      <img src="${logoBase64}" alt="Logo" class="header-logo">
+                      <div class="header-text">
+                        <div class="header-facility">Passi City Primary Health Care Facility</div>
+                        <div class="header-title">Patient Dispensing Record</div>
                       </div>
-                      
-                      <!-- PATIENT INFORMATION SECTION I -->
-                      <div class="section-title">I. PATIENT INFORMATION (Impormasyon ng Pasyente)</div>
-                      <div class="form-grid">
-                        <div class="form-field">
-                          <div class="field-label">Last Name</div>
-                          <div class="field-value">${record.patientInfo?.lastName || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">First Name</div>
-                          <div class="field-value">${record.patientInfo?.firstName || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Middle Name</div>
-                          <div class="field-value">${record.patientInfo?.middleName || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Suffix</div>
-                          <div class="field-value">${record.patientInfo?.suffix || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Maiden Name</div>
-                          <div class="field-value">${record.patientInfo?.maidenName || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Sex (Kasarian)</div>
-                          <div class="field-value">${record.patientInfo?.sex || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Date of Birth</div>
-                          <div class="field-value">${record.patientInfo?.dateOfBirth || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Place of Birth</div>
-                          <div class="field-value">${record.patientInfo?.placeOfBirth || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Blood Type</div>
-                          <div class="field-value">${record.patientInfo?.bloodType || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Religion</div>
-                          <div class="field-value">${record.patientInfo?.religion || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Civil Status</div>
-                          <div class="field-value">${record.patientInfo?.civilStatus || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Spouse Name</div>
-                          <div class="field-value">${record.patientInfo?.spouseName || '-'}</div>
-                        </div>
+                      <div class="header-meta">
+                        <div><strong>Date:</strong> ${formatDate(record.date)}</div>
+                        <div><strong>Dispensed by:</strong> ${record.dispensedBy}</div>
+                        ${record.patientId ? `<div><strong>Patient ID:</strong> ${record.patientId}</div>` : ''}
                       </div>
-                      <div class="form-field" style="margin-bottom: 12px;">
-                        <div class="field-label">Residential Address</div>
-                        <div class="field-value">${record.patientInfo?.residentialAddress || '-'}</div>
+                    </div>
+
+                    <!-- SECTION I: PATIENT INFORMATION -->
+                    <div class="section">
+                      <div class="section-label"><span>I</span> Patient Information (Impormasyon ng Pasyente)</div>
+                      <div class="field-grid cols-4">
+                        <div class="field"><div class="field-key">Last Name</div><div class="field-val">${record.patientInfo?.lastName || '—'}</div></div>
+                        <div class="field"><div class="field-key">First Name</div><div class="field-val">${record.patientInfo?.firstName || '—'}</div></div>
+                        <div class="field"><div class="field-key">Middle Name</div><div class="field-val">${record.patientInfo?.middleName || '—'}</div></div>
+                        <div class="field"><div class="field-key">Suffix</div><div class="field-val">${record.patientInfo?.suffix || '—'}</div></div>
+                        <div class="field"><div class="field-key">Maiden Name</div><div class="field-val">${record.patientInfo?.maidenName || '—'}</div></div>
+                        <div class="field"><div class="field-key">Sex</div><div class="field-val">${record.patientInfo?.sex || '—'}</div></div>
+                        <div class="field"><div class="field-key">Date of Birth</div><div class="field-val">${record.patientInfo?.dateOfBirth || '—'}</div></div>
+                        <div class="field"><div class="field-key">Place of Birth</div><div class="field-val">${record.patientInfo?.placeOfBirth || '—'}</div></div>
+                        <div class="field"><div class="field-key">Blood Type</div><div class="field-val">${record.patientInfo?.bloodType || '—'}</div></div>
+                        <div class="field"><div class="field-key">Religion</div><div class="field-val">${record.patientInfo?.religion || '—'}</div></div>
+                        <div class="field"><div class="field-key">Civil Status</div><div class="field-val">${record.patientInfo?.civilStatus || '—'}</div></div>
+                        <div class="field"><div class="field-key">Spouse Name</div><div class="field-val">${record.patientInfo?.spouseName || '—'}</div></div>
+                        <div class="field field-span4"><div class="field-key">Residential Address</div><div class="field-val">${record.patientInfo?.residentialAddress || '—'}</div></div>
                       </div>
-                      
-                      <!-- EDUCATION & EMPLOYMENT SECTION Ed -->
-                      <div class="section-title">Ed. EDUCATION & EMPLOYMENT</div>
-                      <div class="form-row">
-                        <div class="form-field">
-                          <div class="field-label">Educational Attainment</div>
-                          <div class="field-value">${record.patientInfo?.educationalAttainment || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Employment Status</div>
-                          <div class="field-value">${record.patientInfo?.employmentStatus || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Occupation</div>
-                          <div class="field-value">${record.patientInfo?.occupation || '-'}</div>
-                        </div>
+                    </div>
+
+                    <!-- SECTION Ed/Fm: EDUCATION, EMPLOYMENT & FAMILY -->
+                    <div class="section">
+                      <div class="section-label"><span>Ed/Fm</span> Education, Employment & Family</div>
+                      <div class="field-grid cols-4">
+                        <div class="field"><div class="field-key">Education</div><div class="field-val">${record.patientInfo?.educationalAttainment || '—'}</div></div>
+                        <div class="field"><div class="field-key">Employment</div><div class="field-val">${record.patientInfo?.employmentStatus || '—'}</div></div>
+                        <div class="field"><div class="field-key">Occupation</div><div class="field-val">${record.patientInfo?.occupation || '—'}</div></div>
+                        <div class="field"><div class="field-key">Family Position</div><div class="field-val">${record.patientInfo?.familyMemberPosition === 'Others' ? record.patientInfo?.familyMemberOther : (record.patientInfo?.familyMemberPosition || '—')}</div></div>
+                        <div class="field"><div class="field-key">Contact No.</div><div class="field-val mono">${record.patientInfo?.patientContactNo || '—'}</div></div>
+                        <div class="field"><div class="field-key">Mother's Name</div><div class="field-val">${record.patientInfo?.motherName || '—'}</div></div>
+                        <div class="field"><div class="field-key">Mother's DOB</div><div class="field-val">${record.patientInfo?.motherDateOfBirth || '—'}</div></div>
+                        <div class="field"></div>
                       </div>
-                      
-                      <!-- FAMILY SECTION Fm -->
-                      <div class="section-title">Fm. FAMILY (Pamilya)</div>
-                      <div class="form-row">
-                        <div class="form-field">
-                          <div class="field-label">Family Member Position</div>
-                          <div class="field-value">${record.patientInfo?.familyMemberPosition === 'Others' ? record.patientInfo.familyMemberOther : (record.patientInfo?.familyMemberPosition || '-')}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Patient Contact No.</div>
-                          <div class="field-value">${record.patientInfo?.patientContactNo || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Mother's Name</div>
-                          <div class="field-value">${record.patientInfo?.motherName || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Mother's DOB</div>
-                          <div class="field-value">${record.patientInfo?.motherDateOfBirth || '-'}</div>
-                        </div>
+                    </div>
+
+                    <!-- SECTION II: DSWD -->
+                    <div class="section">
+                      <div class="section-label"><span>II</span> DSWD / Household</div>
+                      <div class="field-grid cols-4">
+                        <div class="field"><div class="field-key">DSWD NHTS</div><div class="field-val">${record.patientInfo?.dswdNhts || '—'}</div></div>
+                        <div class="field"><div class="field-key">Family Household No.</div><div class="field-val mono">${record.patientInfo?.familyHouseholdNumber || '—'}</div></div>
+                        <div class="field"><div class="field-key">4P's Member</div><div class="field-val">${record.patientInfo?.fourPsMember || '—'}</div></div>
+                        <div class="field"><div class="field-key">Household No.</div><div class="field-val mono">${record.patientInfo?.householdNumber || '—'}</div></div>
                       </div>
-                      
-                      <!-- DSWD/HOUSEHOLD SECTION II -->
-                      <div class="section-title">II. DSWD / HOUSEHOLD</div>
-                      <div class="form-grid">
-                        <div class="form-field">
-                          <div class="field-label">DSWD NHTS?</div>
-                          <div class="field-value">${record.patientInfo?.dswdNhts || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Family Household No.</div>
-                          <div class="field-value">${record.patientInfo?.familyHouseholdNumber || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">4P's Member?</div>
-                          <div class="field-value">${record.patientInfo?.fourPsMember || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Household Number</div>
-                          <div class="field-value">${record.patientInfo?.householdNumber || '-'}</div>
-                        </div>
+                    </div>
+
+                    <!-- SECTION III: PHILHEALTH -->
+                    <div class="section">
+                      <div class="section-label"><span>III</span> PhilHealth</div>
+                      <div class="field-grid cols-4">
+                        <div class="field"><div class="field-key">PhilHealth Member</div><div class="field-val">${record.patientInfo?.philhealthMember || '—'}</div></div>
+                        <div class="field"><div class="field-key">Status Type</div><div class="field-val">${record.patientInfo?.philhealthStatusType || '—'}</div></div>
+                        <div class="field"><div class="field-key">Relationship</div><div class="field-val">${record.patientInfo?.philhealthRelationship || '—'}</div></div>
+                        <div class="field"><div class="field-key">Category</div><div class="field-val">${record.patientInfo?.philhealthCategory || '—'}</div></div>
                       </div>
-                      
-                      <!-- PHILHEALTH SECTION III -->
-                      <div class="section-title">III. PHILHEALTH</div>
-                      <div class="form-grid">
-                        <div class="form-field">
-                          <div class="field-label">PhilHealth Member?</div>
-                          <div class="field-value">${record.patientInfo?.philhealthMember || '-'}</div>
+                      ${record.patientInfo?.philhealthMember === 'YES' ? `
+                      <div class="inset-box">
+                        <div class="inset-label">Member Details</div>
+                        <div class="field-grid cols-4">
+                          <div class="field"><div class="field-key">Last Name</div><div class="field-val">${record.patientInfo?.memberLastName || '—'}</div></div>
+                          <div class="field"><div class="field-key">First Name</div><div class="field-val">${record.patientInfo?.memberFirstName || '—'}</div></div>
+                          <div class="field"><div class="field-key">Middle Name</div><div class="field-val">${record.patientInfo?.memberMiddleName || '—'}</div></div>
+                          <div class="field"><div class="field-key">Suffix</div><div class="field-val">${record.patientInfo?.memberSuffix || '—'}</div></div>
+                          <div class="field"><div class="field-key">DOB</div><div class="field-val">${record.patientInfo?.memberDateOfBirth || '—'}</div></div>
+                          <div class="field"><div class="field-key">Gender</div><div class="field-val">${record.patientInfo?.memberGender || '—'}</div></div>
+                          <div class="field"><div class="field-key">PhilHealth No.</div><div class="field-val mono">${record.patientInfo?.memberPhilhealthNo || '—'}</div></div>
+                          <div class="field"><div class="field-key">Independents No.</div><div class="field-val mono">${record.patientInfo?.independentsPhilhealthNo || '—'}</div></div>
                         </div>
-                        <div class="form-field">
-                          <div class="field-label">Status Type</div>
-                          <div class="field-value">${record.patientInfo?.philhealthStatusType || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Relationship</div>
-                          <div class="field-value">${record.patientInfo?.philhealthRelationship || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">PhilHealth Category</div>
-                          <div class="field-value">${record.patientInfo?.philhealthCategory || '-'}</div>
-                        </div>
-                        ${record.patientInfo?.philhealthMember === 'YES' ? `
-                          <div class="form-field">
-                            <div class="field-label">Member Last Name</div>
-                            <div class="field-value">${record.patientInfo?.memberLastName || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Member First Name</div>
-                            <div class="field-value">${record.patientInfo?.memberFirstName || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Member Middle Name</div>
-                            <div class="field-value">${record.patientInfo?.memberMiddleName || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Member Suffix</div>
-                            <div class="field-value">${record.patientInfo?.memberSuffix || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Member DOB</div>
-                            <div class="field-value">${record.patientInfo?.memberDateOfBirth || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Member Gender</div>
-                            <div class="field-value">${record.patientInfo?.memberGender || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Member PhilHealth No.</div>
-                            <div class="field-value">${record.patientInfo?.memberPhilhealthNo || '-'}</div>
-                          </div>
-                          <div class="form-field">
-                            <div class="field-label">Independents PhilHealth No.</div>
-                            <div class="field-value">${record.patientInfo?.independentsPhilhealthNo || '-'}</div>
-                          </div>
-                        ` : ''}
+                      </div>` : ''}
+                    </div>
+
+                    <!-- SECTION IV: PCB -->
+                    <div class="section">
+                      <div class="section-label"><span>IV</span> PCB Eligibility</div>
+                      <div class="field-grid cols-4">
+                        <div class="field"><div class="field-key">PCB Eligible</div><div class="field-val">${record.patientInfo?.pcbEligible || '—'}</div></div>
+                        <div class="field"><div class="field-key">Date of Enlistment</div><div class="field-val">${record.patientInfo?.pcbDateOfEnlistment || '—'}</div></div>
+                        <div class="field"></div><div class="field"></div>
                       </div>
-                      
-                      <!-- PCB ELIGIBILITY SECTION IV -->
-                      <div class="section-title">IV. PCB ELIGIBILITY</div>
-                      <div class="form-row">
-                        <div class="form-field">
-                          <div class="field-label">PCB Eligible?</div>
-                          <div class="field-value">${record.patientInfo?.pcbEligible || '-'}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Date of Enlistment</div>
-                          <div class="field-value">${record.patientInfo?.pcbDateOfEnlistment || '-'}</div>
-                        </div>
-                      </div>
-                      
-                      <!-- DISPENSING INFORMATION -->
-                      <div class="section-title">DISPENSING INFORMATION</div>
-                      <div class="form-row">
-                        <div class="form-field">
-                          <div class="field-label">Dispensing Date</div>
-                          <div class="field-value">${formatDate(record.date)}</div>
-                        </div>
-                        <div class="form-field">
-                          <div class="field-label">Dispensed By</div>
-                          <div class="field-value">${record.dispensedBy}</div>
-                        </div>
-                        ${record.patientId ? `<div class="form-field">
-                          <div class="field-label">Patient ID</div>
-                          <div class="field-value">${record.patientId}</div>
-                        </div>` : ''}
-                      </div>
-                      
-                      <!-- MEDICINES DISPENSED -->
-                      <div class="section-title">MEDICINES DISPENSED</div>
-                      <table class="medicine-table">
+                    </div>
+
+                    <!-- MEDICINES DISPENSED -->
+                    <div class="section">
+                      <div class="section-label"><span>Rx</span> Medicines Dispensed</div>
+                      <table class="med-table">
                         <thead>
                           <tr>
-                            <th>Medicine Name</th>
-                            <th>Strength</th>
-                            <th>Quantity</th>
-                            <th>Expiration</th>
-                            <th>Rx</th>
+                            <th style="width:38%">Medicine / Brand</th>
+                            <th style="width:14%">Strength</th>
+                            <th style="width:13%">Qty</th>
+                            <th style="width:16%">Expiration</th>
+                            <th style="width:11%">Stock After</th>
+                            <th style="width:8%">Rx</th>
                           </tr>
                         </thead>
                         <tbody>
-                          ${medicinesList}
+                          ${record.items.map((item) => {
+                            const stockAfter = (item.stockBeforeDispense ?? 0) - item.quantity;
+                            return `
+                            <tr>
+                              <td>
+                                <div class="med-name">${item.medicineName}</div>
+                                ${item.brand ? `<div class="med-brand">${item.brand}</div>` : ''}
+                              </td>
+                              <td>${item.selectedStrength ? `<span class="med-strength">${item.selectedStrength}</span>` : '—'}</td>
+                              <td>${item.quantity} ${resolveQtyType(item)}</td>
+                              <td>${item.expirationDate ? new Date(item.expirationDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}</td>
+                              <td>${item.stockBeforeDispense !== undefined ? stockAfter : '—'}</td>
+                              <td>${item.prescriptionRequired ? '<span class="rx-pill">RX</span>' : '—'}</td>
+                            </tr>`;
+                          }).join('')}
                         </tbody>
                       </table>
-                      
-                      <!-- NOTES -->
-                      ${record.patientInfo?.notes ? `<div style="margin-top: 12px; padding: 8px; background: #fffacd; border-left: 3px solid #fbbf24;">
-                        <div class="field-label">Notes</div>
-                        <div class="field-value">${record.patientInfo.notes}</div>
-                      </div>` : ''}
-                      
-                      <div class="footer">
-                        <div class="total">Total Dispensed: ${summariseTotals(record.items)}</div>
-                        <div class="footer-note">
-                          Record ID: ${record.id}<br>
-                          Printed: ${new Date().toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                      <div class="totals-bar">
+                        <span class="totals-label">Total Dispensed</span>
+                        <span class="totals-val">${summariseTotals(record.items)}</span>
                       </div>
                     </div>
+
+                    ${(record.patientInfo?.notes || record.notes) ? `
+                    <div class="section">
+                      <div class="section-label">Notes / Special Instructions</div>
+                      <div class="notes-box">${record.patientInfo?.notes || record.notes}</div>
+                    </div>` : ''}
+
+                    <!-- SIGNATURE -->
+                    <div class="sig-area">
+                      <div class="sig-block">
+                        <div class="sig-line"></div>
+                        <div class="sig-name">${record.dispensedBy}</div>
+                        <div class="sig-role">Dispensed By</div>
+                      </div>
+                      <div class="sig-block">
+                        <div class="sig-line"></div>
+                        <div class="sig-name">&nbsp;</div>
+                        <div class="sig-role">Patient / Guardian Signature</div>
+                      </div>
+                    </div>
+
+                    <!-- FOOTER -->
+                    <div class="footer">
+                      <div class="footer-id">Record ID: ${record.id}</div>
+                      <div class="footer-conf">CONFIDENTIAL — For authorized personnel only</div>
+                      <div class="footer-print">Printed: ${new Date().toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+
+                  </div>
                   </body>
                   </html>
                 `;
+
                 const printWindow = window.open('', '', 'width=700,height=900');
                 printWindow?.document.write(receiptHtml);
                 printWindow?.document.close();
@@ -697,7 +830,6 @@ function MedicinesPanel({ record }: { record: Dispensing }) {
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">Medicines & Inventory</p>
         <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
 
-          {/* Desktop table header — hidden on mobile */}
           <div className="hidden sm:grid sm:grid-cols-[2fr_1fr_1.2fr_auto] px-4 py-2.5 bg-slate-50 border-b border-slate-100">
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Medicine / Brand / Strength</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Qty</span>
@@ -817,7 +949,7 @@ function MedicinesPanel({ record }: { record: Dispensing }) {
   );
 }
 
-// ─── Transaction snapshot type (used in handleDelete) ─────────────────────────
+// ─── Transaction snapshot type ─────────────────────────────────────────────────
 interface TransactionSnapshot {
   referenceId?: string;
 }
@@ -897,13 +1029,10 @@ export default function DispensingRecordsPage() {
     setIsProcessing(true);
     try {
       const dispensingToDelete = dispensings.find((d) => d.id === deleteTarget);
-      // patientRecordId is now a typed field on Dispensing — no cast needed
       let patientRecordId = dispensingToDelete?.patientRecordId;
 
-      // 1. Delete the dispensing record itself
       await remove(ref(database, `dispensings/${deleteTarget}`));
 
-      // 2. Find and delete all matching transactions with the same referenceId
       const transactionsRef = ref(database, getUserPath(user.uid, 'transactions'));
       const snapshot = await new Promise<Record<string, TransactionSnapshot>>((resolve) => {
         onValue(
@@ -921,8 +1050,6 @@ export default function DispensingRecordsPage() {
 
       await Promise.all(deletePromises);
 
-      // 3. Delete the associated patient record from the patients node
-      // If we don't have patientRecordId (older records), search by name + DOB
       if (!patientRecordId && dispensingToDelete?.patientInfo) {
         try {
           const allPatients = await new Promise<Record<string, PatientRecord>>((resolve) => {
@@ -953,7 +1080,6 @@ export default function DispensingRecordsPage() {
       if (patientRecordId) {
         try {
           await deletePatientRecord(user.uid, patientRecordId);
-          console.log('[handleDelete] Deleted patient record:', patientRecordId);
         } catch (err) {
           console.warn('[handleDelete] Failed to delete patient record:', err);
         }
@@ -971,7 +1097,6 @@ export default function DispensingRecordsPage() {
       setIsProcessing(false);
     }
   };
-
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -1046,7 +1171,6 @@ export default function DispensingRecordsPage() {
         .card-in      { animation:cardIn      0.35s cubic-bezier(0.22,1,0.36,1) both; }
         .modal-expand { animation:modalExpand 0.3s cubic-bezier(0.22,1,0.36,1) both; }
 
-        /* ── Responsive Table ── */
         .records-table { width:100%; border-collapse:collapse; table-layout:fixed; }
         .records-table thead tr { background:#f8fafc; border-bottom:1px solid #e2e8f0; }
         .records-table thead th { padding:10px 12px; text-align:left; font-size:10px; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#94a3b8; white-space:nowrap; overflow:hidden; }
@@ -1062,7 +1186,6 @@ export default function DispensingRecordsPage() {
         .col-meds     { width:22%; }
         .col-actions  { width:25%; }
 
-        /* Hide date column on very small screens */
         @media (max-width: 640px) {
           .col-date { display:none; }
           .col-patient { width:50%; }
@@ -1111,26 +1234,21 @@ export default function DispensingRecordsPage() {
       )}
 
       {notification && (
-        <div className={`fixed top-5 right-5 z-[100] toast-in flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium ${notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
-          }`}>
+        <div className={`fixed top-5 right-5 z-[100] toast-in flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium ${notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'}`}>
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`} style={{ animation: 'pulse-dot 1.5s ease infinite' }} />
           {notification.message}
         </div>
       )}
 
-      {/* Page wrapper — respects sidebar width, no overflow */}
       <div className="min-h-screen bg-slate-50 transition-all duration-300 ml-0 overflow-x-hidden">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-10">
 
-          {/* Header */}
           <div className="mb-8 sm:mb-10 slide-up">
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 mb-2">Dispensing Records</h1>
             <p className="text-sm text-slate-500">View and manage all patient dispensing history</p>
           </div>
 
-          {/* Controls */}
           <div className="bg-white rounded-2xl border border-slate-200 p-4 mb-4 slide-up" style={{ animationDelay: '0.05s' }}>
-            {/* Search + View Toggle */}
             <div className="flex items-center gap-2 mb-4">
               <div className="relative flex-1 min-w-0">
                 <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1159,7 +1277,6 @@ export default function DispensingRecordsPage() {
               </div>
             </div>
 
-            {/* Sort chips */}
             <div className="flex items-center gap-2 flex-wrap mb-3">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide mr-1">Sort</span>
               {([{ value: 'date-desc', label: 'Newest' }, { value: 'date-asc', label: 'Oldest' }, { value: 'patient', label: 'Patient A–Z' }] as const).map((o) => (
@@ -1170,7 +1287,6 @@ export default function DispensingRecordsPage() {
               ))}
             </div>
 
-            {/* Date range */}
             <div className="pt-3 border-t border-slate-100">
               <div className="flex flex-col sm:flex-row sm:items-end gap-2">
                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide sm:mb-2 shrink-0">Date Range</span>
@@ -1225,7 +1341,6 @@ export default function DispensingRecordsPage() {
                         return (
                           <Fragment key={record.id}>
                             <tr className="row-in" style={{ animationDelay: `${idx * 0.025}s` }}>
-                              {/* Patient */}
                               <td className="col-patient">
                                 <div className="flex items-center gap-2.5">
                                   <div className="patient-avatar w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-xs">
@@ -1242,16 +1357,12 @@ export default function DispensingRecordsPage() {
                                   </div>
                                 </div>
                               </td>
-
-                              {/* Date — hidden on mobile via CSS */}
                               <td className="col-date">
                                 <p className="text-xs font-medium text-slate-700">{formatDateShort(record.date)}</p>
                                 <p className="text-[10px] text-slate-400 mt-0.5">
                                   {new Date(record.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                                 </p>
                               </td>
-
-                              {/* Medicines */}
                               <td className="col-meds">
                                 <div className="flex flex-wrap gap-1">
                                   {record.items.slice(0, 2).map((item, i) => (
@@ -1264,8 +1375,6 @@ export default function DispensingRecordsPage() {
                                   )}
                                 </div>
                               </td>
-
-                              {/* Actions */}
                               <td className="col-actions">
                                 <div className="flex items-center justify-end gap-1 flex-wrap">
                                   <ViewPatientBtn record={record} />
@@ -1286,7 +1395,6 @@ export default function DispensingRecordsPage() {
                                 </div>
                               </td>
                             </tr>
-
                             {isExpanded && (
                               <tr className="table-expand-row">
                                 <td colSpan={4}><MedicinesPanel record={record} /></td>

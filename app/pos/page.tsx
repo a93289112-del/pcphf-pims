@@ -15,6 +15,8 @@ import {
 import dynamic from 'next/dynamic';
 import { getEffectiveStock, deductStockBatch, getTrueEarliestExpiration } from '@/lib/services/stock-management';
 import { logActivity } from '@/lib/services/activity-logs';
+import { useSession } from '@/lib/hooks/useSession';
+import { startSession } from '@/lib/services/session-management';
 import Processing from '@/lib/components/processing';
 
 const Receipt = dynamic(() => import('@/lib/components/receipt'), { ssr: false });
@@ -98,6 +100,7 @@ const statusConfig: Record<string, { dot: string; text: string; bg: string }> = 
 export default function POSPage() {
   const { user, role, loading, staffName, adminName } = useAuth();
   const router            = useRouter();
+  const { hasActiveSession } = useSession({ userId: user?.uid });
 
   const [medicines,          setMedicines]          = useState<Medicine[]>([]);
   const [loadingMedicines,   setLoadingMedicines]   = useState(true);
@@ -120,6 +123,8 @@ export default function POSPage() {
   const [availableUnits,     setAvailableUnits]      = useState<string[]>([]);
   const [availableAgeGroups, setAvailableAgeGroups]  = useState<string[]>([]);
   const [availableStrengths, setAvailableStrengths]  = useState<Array<{ strength: string | undefined; medicine: Medicine }>>([]);
+  const [showNoSessionModal, setShowNoSessionModal]  = useState(false);
+  const [isStartingSession,  setIsStartingSession]   = useState(false);
 
   /* Load medicines from user scope */
   useEffect(() => {
@@ -135,6 +140,29 @@ export default function POSPage() {
       return () => unsub();
     }
   }, [user, loading, router]);
+
+  const handleStartSessionFromModal = async () => {
+    if (!user) return;
+    try {
+      setIsStartingSession(true);
+      const sessionStarterName = staffName || adminName || undefined;
+      await startSession(user.uid, sessionStarterName);
+      await logActivity(
+        'session_started',
+        user.uid,
+        user.email || '',
+        `Session started at ${new Date().toLocaleTimeString('en-PH')}`,
+        { sessionStartTime: new Date().toISOString() },
+        sessionStarterName,
+        role || undefined,
+      );
+      setShowNoSessionModal(false);
+    } catch (error) {
+      console.error('Failed to start session:', error);
+    } finally {
+      setIsStartingSession(false);
+    }
+  };
 
   const medicinesByBaseName = useMemo(() => {
     const map = new Map<string, Medicine[]>();
@@ -259,6 +287,10 @@ export default function POSPage() {
     if (!canPay) return;
     if (!user) {
       setPaymentError('Authentication error. Please re-login.');
+      return;
+    }
+    if (!hasActiveSession) {
+      setShowNoSessionModal(true);
       return;
     }
     setIsProcessing(true);
@@ -995,6 +1027,34 @@ export default function POSPage() {
 
       {isProcessing && <Processing />}
       {showReceipt && lastSale && <Receipt sale={lastSale as Sale} onClose={() => setShowReceipt(false)} />}
+
+      {/* No Session Modal */}
+      {showNoSessionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in" style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.5)' }}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl slide-up">
+            <div className="p-6 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                <div><h3 className="text-lg font-bold text-slate-900">Session Required</h3><p className="text-xs text-slate-400">Start a session before selling</p></div>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-amber-900 font-medium mb-2">⚠️ No Active Session</p>
+                <p className="text-sm text-amber-800">You must start a session before selling medicines. This ensures accurate inventory tracking for your session.</p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-blue-900 mb-2">💡 TIP:</p>
+                <p className="text-xs text-blue-800">Click &quot;Start Session&quot; below to begin, then you can complete your sale.</p>
+              </div>
+            </div>
+            <div className="px-6 pb-6 flex gap-3">
+              <button onClick={() => setShowNoSessionModal(false)} className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">Dismiss</button>
+              <button onClick={handleStartSessionFromModal} disabled={isStartingSession} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition text-sm shadow-lg shadow-emerald-200">{isStartingSession ? 'Starting...' : 'Start Session'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

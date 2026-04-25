@@ -44,50 +44,98 @@ function SummaryStatsGrid({ summary }: { summary: InventorySummary }) {
     {
       label: 'Total Medicines',
       value: summary.totalMedicines,
-      color: 'text-blue-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 015.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 006.354-5.646z" /></svg>,
+      icon: (
+        // Pill outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M10.5 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v2" />
+          <circle cx="17" cy="17" r="5" />
+          <path d="m14.5 19.5 5-5" />
+        </svg>
+      ),
     },
     {
       label: 'Total Stock Units',
       value: summary.totalStockUnits.toLocaleString(),
-      color: 'text-emerald-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>,
+      icon: (
+        // Archive box outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M21 8H3M21 8a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1M21 8l-1.5-4.5a1 1 0 0 0-.95-.5H5.45a1 1 0 0 0-.95.5L3 8" />
+          <path d="M10 13h4" />
+        </svg>
+      ),
     },
     {
       label: 'Stock Value',
       value: `₱${summary.totalStockValue.toFixed(2)}`,
-      color: 'text-purple-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+      icon: (
+        // Circle dollar outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v10" />
+          <path d="M15.5 9.5A3.5 3.5 0 0 0 12 8c-1.93 0-3.5 1.12-3.5 2.5S10.07 13 12 13s3.5 1.12 3.5 2.5S13.93 18 12 18a3.5 3.5 0 0 1-3.5-1.5" />
+        </svg>
+      ),
     },
     {
       label: 'Avg Stock/Medicine',
       value: summary.avgStockPerMedicine.toFixed(1),
-      color: 'text-slate-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>,
+      icon: (
+        // Bar chart outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <rect x="3" y="12" width="4" height="9" rx="1" />
+          <rect x="10" y="7" width="4" height="14" rx="1" />
+          <rect x="17" y="3" width="4" height="18" rx="1" />
+        </svg>
+      ),
     },
     {
       label: 'Units Dispensed',
       value: summary.totalUnitsDispensed.toLocaleString(),
-      color: 'text-blue-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h-.75A2.25 2.25 0 004.5 9.75v7.5a2.25 2.25 0 002.25 2.25h7.5a2.25 2.25 0 002.25-2.25v-7.5a2.25 2.25 0 00-2.25-2.25h-.75m-6 3.75l3 3m0 0l3-3m-3 3V1.5m6 9h.75a2.25 2.25 0 012.25 2.25v7.5a2.25 2.25 0 01-2.25 2.25h-7.5a2.25 2.25 0 01-2.25-2.25v-.75" /></svg>,
+      icon: (
+        // Tray arrow down outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M12 3v12" />
+          <path d="m8 11 4 4 4-4" />
+          <path d="M8 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1" />
+          <path d="M19 5h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3" />
+          <path d="M8 19h8" />
+        </svg>
+      ),
     },
     {
       label: 'Units Sold (POS)',
       value: summary.totalUnitsSold.toLocaleString(),
-      color: 'text-emerald-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.821 4.915h15.412c.516 0 .949.589.788 1.067l-1.528 4.684a1.125 1.125 0 01-1.066.755H7.5M12 15a3 3 0 11-6 0 3 3 0 016 0zm0 0a3 3 0 015.25 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+      icon: (
+        // Shopping cart outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <path d="M16 10a4 4 0 0 1-8 0" />
+        </svg>
+      ),
     },
     {
       label: 'Low Stock Count',
       value: summary.lowStockCount,
-      color: 'text-yellow-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>,
+      icon: (
+        // Triangle alert outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      ),
     },
     {
       label: 'Out of Stock',
       value: summary.outOfStockCount,
-      color: 'text-red-600',
-      icon: <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>,
+      icon: (
+        // Circle X outline
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="m15 9-6 6M9 9l6 6" />
+        </svg>
+      ),
     },
   ];
 
@@ -103,11 +151,11 @@ function SummaryStatsGrid({ summary }: { summary: InventorySummary }) {
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                 {stat.label}
               </p>
-              <p className={`text-2xl font-black ${stat.color}`}>
+              <p className="text-2xl font-black text-slate-900">
                 {stat.value}
               </p>
             </div>
-            <div className={`text-slate-400 ${stat.color}`}>
+            <div className="text-slate-400">
               {stat.icon}
             </div>
           </div>
@@ -123,27 +171,27 @@ function StatusOverviewCards({ summary }: { summary: InventorySummary }) {
     {
       label: 'In Stock',
       value: summary.optimalStockCount,
-      color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      bg: 'bg-emerald-50 border-emerald-200',
     },
     {
       label: 'Low Stock',
       value: summary.lowStockCount,
-      color: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+      bg: 'bg-yellow-50 border-yellow-200',
     },
     {
       label: 'Expiring Soon',
       value: summary.expiringCount,
-      color: 'bg-orange-50 text-orange-700 border-orange-200',
+      bg: 'bg-orange-50 border-orange-200',
     },
     {
       label: 'Expired',
       value: summary.expiredCount,
-      color: 'bg-red-50 text-red-700 border-red-200',
+      bg: 'bg-red-50 border-red-200',
     },
     {
       label: 'Out of Stock',
       value: summary.outOfStockCount,
-      color: 'bg-slate-50 text-slate-700 border-slate-200',
+      bg: 'bg-slate-50 border-slate-200',
     },
   ];
 
@@ -152,12 +200,12 @@ function StatusOverviewCards({ summary }: { summary: InventorySummary }) {
       {overviewCards.map((card) => (
         <div
           key={card.label}
-          className={`border rounded-lg p-3 text-center ${card.color}`}
+          className={`border rounded-lg p-3 text-center ${card.bg}`}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+          <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-slate-500">
             {card.label}
           </p>
-          <p className="text-2xl font-black">{card.value}</p>
+          <p className="text-2xl font-black text-slate-900">{card.value}</p>
         </div>
       ))}
     </div>
@@ -234,13 +282,13 @@ function MedicineDetailsTable({
               <td className="px-4 py-3 text-right font-semibold text-slate-900 font-mono">
                 ₱{medicine.totalValue.toFixed(2)}
               </td>
-              <td className="px-4 py-3 text-center text-blue-600 font-semibold">
+              <td className="px-4 py-3 text-center text-slate-900 font-semibold">
                 {medicine.dispensedQty.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-center text-emerald-600 font-semibold">
+              <td className="px-4 py-3 text-center text-slate-900 font-semibold">
                 {medicine.soldQty.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-center text-violet-600 font-semibold">
+              <td className="px-4 py-3 text-center text-slate-900 font-semibold">
                 {medicine.adjustedQty > 0 ? '+' : ''}{medicine.adjustedQty.toLocaleString()}
               </td>
             </tr>

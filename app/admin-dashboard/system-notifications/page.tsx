@@ -45,18 +45,21 @@ export default function SystemNotificationsPage() {
       });
   }, [activityLogs, filterType, filterStaff, searchTerm]);
 
-  const uniqueStaff = useMemo(() => {
-    const staffNotificationTypes = ['admin_login', 'admin_logout', 'staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
-    const staff = new Map<string, { id: string; email: string; name?: string }>();
-    activityLogs
-      .filter(log => staffNotificationTypes.includes(log.type))
-      .forEach(log => {
-        if (!staff.has(log.staffId)) {
-          staff.set(log.staffId, { id: log.staffId, email: log.staffEmail, name: log.staffName });
-        }
-      });
-    return Array.from(staff.values());
-  }, [activityLogs]);
+      const uniqueStaff = useMemo(() => {
+      const staffOnlyTypes = ['staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
+      const staff = new Map<string, { id: string; email: string; name?: string }>();
+      activityLogs
+        .filter(log => staffOnlyTypes.includes(log.type))
+        .filter(log => log.userRole !== 'admin')
+        .filter(log => log.staffId !== user?.uid)       // exclude by UID
+        .filter(log => log.staffEmail !== user?.email)  // exclude by email (catches old logs)
+        .forEach(log => {
+          if (!staff.has(log.staffId)) {
+            staff.set(log.staffId, { id: log.staffId, email: log.staffEmail, name: log.staffName });
+          }
+        });
+      return Array.from(staff.values());
+    }, [activityLogs, user]);
 
   // ── Label map ─────────────────────────────────────────────────────────────
   const getActivityTypeLabel = (type: string): string => {
@@ -303,13 +306,13 @@ export default function SystemNotificationsPage() {
                               )}
                               {log.details.totalDispenseTransactions !== undefined && (
                                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
-                                  <p className="text-indigo-600 font-medium text-[10px] mb-1">Dispense Txns</p>
+                                  <p className="text-indigo-600 font-medium text-[10px] mb-1">Dispense Transaction</p>
                                   <p className="text-indigo-900 font-black text-lg">{log.details.totalDispenseTransactions}</p>
                                 </div>
                               )}
                               {log.details.totalSalesTransactions !== undefined && (
                                 <div className="bg-violet-50 border border-violet-200 rounded-lg p-2">
-                                  <p className="text-violet-600 font-medium text-[10px] mb-1">Sales Txns</p>
+                                  <p className="text-violet-600 font-medium text-[10px] mb-1">Sales Transaction</p>
                                   <p className="text-violet-900 font-black text-lg">{log.details.totalSalesTransactions}</p>
                                 </div>
                               )}
