@@ -29,7 +29,7 @@ interface Medicine {
   totalCost?: number;
   containerQuantity?: number;
   expirationDate?: string;
-  batches?: Record<string, MedicineBatch>; // FIFO batches with individual expirations
+  batches?: Record<string, MedicineBatch>;
   createdAt: string;
   strength?: string;
   category?: string;
@@ -43,8 +43,6 @@ type MedicineRecord = Omit<Medicine, 'id'>;
 function getDisplayName(m: Medicine): string        { return m.name || '—'; }
 function getDisplayDescription(m: Medicine): string { return m.description || '—'; }
 
-// FIX: prefer originalUnit so the table always shows what was ordered
-// (e.g. "Boxes"), not the converted tracking unit (e.g. "Tablets").
 function getDisplayUnit(m: Medicine): string {
   return m.originalUnit || m.unit || m.category || '—';
 }
@@ -58,18 +56,10 @@ function getDisplayUnitCost(m: Medicine): number | null {
   return m.unitCost !== undefined ? m.unitCost : null;
 }
 
-// Total cost = current container quantity × unit cost.
-// We deliberately recalculate from containerQuantity × unitCost rather than
-// reading the stored `totalCost` field, because `totalCost` in the DB is a
-// cumulative purchase ledger value that grows with every stock adjustment and
-// is never reduced when stock is dispensed/sold. Using it here would make the
-// grand total overstate the value of stock actually on hand.
 function getDisplayTotalCost(m: Medicine): number | null {
   const containerQty = m.containerQuantity ?? m.quantity ?? 0;
   const cost = getDisplayUnitCost(m);
   if (cost !== null && cost > 0 && containerQty >= 0) return containerQty * cost;
-  // Fall back to stored totalCost only when unitCost is absent (legacy records
-  // that were saved without a unit cost but do have a totalCost snapshot).
   if (cost === null && m.totalCost != null) return m.totalCost;
   return null;
 }
@@ -100,6 +90,11 @@ const UNIT_BADGE: Record<string, string> = {
 function unitBadgeCls(unit: string): string {
   return UNIT_BADGE[unit] ?? 'bg-slate-100 text-slate-600 border border-slate-200';
 }
+
+// ─── Scroll threshold ──────────────────────────────────────────────────────────
+// Each row is ~44px tall; 10 rows ≈ 440px + 48px thead = 488px
+const TABLE_SCROLL_THRESHOLD = 10;
+const TABLE_BODY_MAX_HEIGHT   = 440; // px — just the tbody, thead stays sticky above
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function InventoryRecordsPage() {
@@ -132,7 +127,6 @@ export default function InventoryRecordsPage() {
     }
   }, [user]);
 
-  // Unit filter options derived from originalUnit (same field used in the table)
   const unitTypes = Array.from(
     new Set(medicines.map((m) => getDisplayUnit(m)).filter((u) => u !== '—'))
   ).sort();
@@ -150,6 +144,9 @@ export default function InventoryRecordsPage() {
   });
 
   const grandTotalCost = filtered.reduce((sum, m) => sum + (getDisplayTotalCost(m) ?? 0), 0);
+
+  // Whether the table body should scroll
+  const tableScrollable = filtered.length > TABLE_SCROLL_THRESHOLD;
 
   if (loading) {
     return (
@@ -178,6 +175,29 @@ export default function InventoryRecordsPage() {
           box-shadow: 0 4px 16px rgba(0,0,0,0.08);
           border-color: #cbd5e1;
         }
+
+        /*
+         * Scrollable inventory table
+         * We use a CSS-only sticky-header technique:
+         *   - thead cells get position:sticky; top:0 so they freeze when the
+         *     wrapper div scrolls vertically.
+         *   - A thin box-shadow on thead replaces the border that disappears
+         *     when the element is taken out of normal flow.
+         */
+        .inv-table-scroll-wrap {
+          overflow-x: auto;
+          overflow-y: auto;
+        }
+        .inv-table-scroll-wrap thead th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: #f8fafc; /* bg-slate-50 */
+          /* Restore bottom border that sticky removes from normal flow */
+          box-shadow: inset 0 -1px 0 #e2e8f0;
+        }
+        /* Grand-total tfoot stays at the bottom — no sticky needed; it's
+           outside the scrollable tbody so it always shows below the table. */
       `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -307,7 +327,20 @@ export default function InventoryRecordsPage() {
           <>
             {/* ── Table View ── */}
             <div className="surface-card-rec overflow-hidden">
-              <div className="overflow-x-auto">
+
+              {/*
+               * ── Scroll container ──────────────────────────────────────────
+               * Always overflow-x-auto (horizontal scroll on narrow screens).
+               * When rows > TABLE_SCROLL_THRESHOLD we also cap the height and
+               * enable vertical scroll. The thead sticks via CSS (.inv-table-scroll-wrap thead th).
+               * The tfoot (grand total) lives OUTSIDE this wrapper so it's
+               * always visible below the scrollable area.
+               */}
+              <div
+                className="inv-table-scroll-wrap"
+                style={tableScrollable ? { maxHeight: `${TABLE_BODY_MAX_HEIGHT + 48}px` } : {}}
+                // 48px ≈ thead height; total cap shows thead + 10 body rows
+              >
                 <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
@@ -326,9 +359,7 @@ export default function InventoryRecordsPage() {
 
                   <tbody className="divide-y divide-slate-100">
                     {filtered.map((medicine, index) => {
-                      // originalUnit is used for the Unit column display
                       const unit      = getDisplayUnit(medicine);
-                      // Qty shows the container/ordered quantity, not the converted pieces
                       const qty       = getDisplayQuantity(medicine);
                       const brand     = getDisplayBrand(medicine);
                       const country   = getDisplayCountry(medicine);
@@ -379,14 +410,14 @@ export default function InventoryRecordsPage() {
                             )}
                           </td>
 
-                          {/* Unit — shows originalUnit (e.g. "Boxes"), not converted unit */}
+                          {/* Unit */}
                           <td className="px-3 py-2.5 text-left">
                             <span className={`px-2 py-0.5 rounded text-xs font-semibold inline-block whitespace-nowrap ${unitBadgeCls(unit)}`}>
                               {unit}
                             </span>
                           </td>
 
-                          {/* Quantity — shows container qty (e.g. 10 Boxes), not piece count */}
+                          {/* Quantity */}
                           <td className="px-3 py-2.5 text-left">
                             <span className="text-xs font-bold font-mono text-slate-900">
                               {fmt(qty)}
@@ -432,33 +463,49 @@ export default function InventoryRecordsPage() {
                       );
                     })}
                   </tbody>
-
-                  {/* Grand total footer */}
-                  <tfoot>
-                    <tr className="border-t border-slate-200 bg-slate-50">
-                      <td
-                        colSpan={9}
-                        className="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500"
-                      >
-                        Grand Total Cost
-                      </td>
-                      <td className="px-3 py-3 text-left">
-                        <span className="text-sm font-bold font-mono text-slate-900 whitespace-nowrap">
-                          ₱{formatPeso(grandTotalCost)}
-                        </span>
-                      </td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
 
+              {/*
+               * Grand-total footer sits OUTSIDE the scroll wrapper so it's
+               * always pinned below the visible rows, whether scrolling or not.
+               */}
+              <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                <tfoot>
+                  <tr className="border-t border-slate-200 bg-slate-50">
+                    <td
+                      colSpan={9}
+                      className="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-widest text-slate-500"
+                    >
+                      Grand Total Cost
+                    </td>
+                    <td className="px-3 py-3 text-left">
+                      <span className="text-sm font-bold font-mono text-slate-900 whitespace-nowrap">
+                        ₱{formatPeso(grandTotalCost)}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+
               {/* Table footer row */}
               <div className="px-4 py-2.5 border-t border-slate-100 bg-white flex items-center justify-between rounded-b-xl">
-                <p className="text-[11px] text-slate-400">
-                  {filtered.length !== medicines.length
-                    ? `${filtered.length} of ${medicines.length} records`
-                    : `${filtered.length} ${filtered.length === 1 ? 'record' : 'records'}`}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[11px] text-slate-400">
+                    {filtered.length !== medicines.length
+                      ? `${filtered.length} of ${medicines.length} records`
+                      : `${filtered.length} ${filtered.length === 1 ? 'record' : 'records'}`}
+                  </p>
+                  {/* Scroll hint badge */}
+                  {tableScrollable && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-semibold">
+                      <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                      scroll to see all
+                    </span>
+                  )}
+                </div>
                 {(searchTerm || filterUnit) && (
                   <button
                     onClick={() => { setSearchTerm(''); setFilterUnit(''); }}

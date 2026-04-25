@@ -17,7 +17,6 @@ import {
 } from './filter-utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-// Defined locally so this file has no external type dependency
 interface MedicineBatch {
   quantity: number;
   expirationDate: string;
@@ -304,7 +303,6 @@ function buildDetailedTransactions(
     });
   });
 
-  // Also include medicines referenced in transactions but not in the map
   aggregated.forEach((agg, medicineId) => {
     if (!medicinesMap.has(medicineId)) {
       const totalOutflow = agg.dispensedQty + agg.posSalesQty;
@@ -626,13 +624,16 @@ function AnnualChartPanel({
 }
 
 // ─── Top Medicines Chart ───────────────────────────────────────────────────────
+// Scrollable when more than 10 medicines
 function TopMedicinesChart({ data }: { data: TopMedicineItem[] }) {
   if (!data.length) return (
     <div className="flex items-center justify-center h-48">
       <p className="text-sm text-slate-400">No data for this period</p>
     </div>
   );
+
   const maxUsage = Math.max(...data.map(d => d.usage), 1);
+  const scrollable = data.length > 10;
 
   const getStatusInfo = (med: TopMedicineItem) => {
     const stock = med.stockAfter;
@@ -650,57 +651,63 @@ function TopMedicinesChart({ data }: { data: TopMedicineItem[] }) {
   };
 
   return (
-    <div className="space-y-5">
-      {data.map((med, i) => {
-        const { label: statusLabel, badgeClass } = getStatusInfo(med);
-        return (
-          <div key={`${med.name}-${i}`} className="group">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="shrink-0 w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors italic">
-                  {i + 1}
-                </span>
-                <div className="flex items-baseline gap-2 min-w-0">
-                  <span className="text-xs font-bold text-slate-700 truncate group-hover:text-slate-900 transition-colors">{med.name}</span>
-                  {med.strength && (
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100/50 truncate uppercase tracking-wider">
-                      {med.strength}
-                    </span>
-                  )}
+    // ── Scroll wrapper: activates only when > 10 items ──
+    <div
+      className={scrollable ? 'overflow-y-auto pr-2' : ''}
+      style={scrollable ? { maxHeight: '520px' } : {}}
+    >
+      <div className="space-y-5">
+        {data.map((med, i) => {
+          const { label: statusLabel, badgeClass } = getStatusInfo(med);
+          return (
+            <div key={`${med.name}-${i}`} className="group">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-colors italic">
+                    {i + 1}
+                  </span>
+                  <div className="flex items-baseline gap-2 min-w-0">
+                    <span className="text-xs font-bold text-slate-700 truncate group-hover:text-slate-900 transition-colors">{med.name}</span>
+                    {med.strength && (
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100/50 truncate uppercase tracking-wider">
+                        {med.strength}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <span className="text-[11px] font-black text-slate-900">{med.usage.toLocaleString()} units</span>
+                  <span className={`px-1.5 py-0.5 rounded-md border text-[9px] font-black tracking-wider ${badgeClass}`}>
+                    {statusLabel}
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-3 shrink-0 ml-4">
-                <span className="text-[11px] font-black text-slate-900">{med.usage.toLocaleString()} units</span>
-                <span className={`px-1.5 py-0.5 rounded-md border text-[9px] font-black tracking-wider ${badgeClass}`}>
-                  {statusLabel}
-                </span>
+              <div className="relative h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
+                <div
+                  className="absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out shadow-sm"
+                  style={{
+                    width: `${(med.usage / maxUsage) * 100}%`,
+                    background: `linear-gradient(90deg, ${CHART_COLORS.pie[i % CHART_COLORS.pie.length]}, ${CHART_COLORS.pie[(i + 1) % CHART_COLORS.pie.length]})`,
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between mt-1.5 px-0.5">
+                <div className="flex gap-3">
+                  <div className="flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-blue-400" />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Disp: {med.dispensed}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">POS: {med.sales}</span>
+                  </div>
+                </div>
+                <span className="text-[9px] font-black text-slate-400 italic">{med.percentage.toFixed(1)}% share</span>
               </div>
             </div>
-            <div className="relative h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
-              <div
-                className="absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-out shadow-sm"
-                style={{
-                  width: `${(med.usage / maxUsage) * 100}%`,
-                  background: `linear-gradient(90deg, ${CHART_COLORS.pie[i % CHART_COLORS.pie.length]}, ${CHART_COLORS.pie[(i + 1) % CHART_COLORS.pie.length]})`,
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-1.5 px-0.5">
-              <div className="flex gap-3">
-                <div className="flex items-center gap-1">
-                  <div className="w-1 h-1 rounded-full bg-blue-400" />
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Disp: {med.dispensed}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-1 h-1 rounded-full bg-emerald-400" />
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">POS: {med.sales}</span>
-                </div>
-              </div>
-              <span className="text-[9px] font-black text-slate-400 italic">{med.percentage.toFixed(1)}% share</span>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -708,6 +715,12 @@ function TopMedicinesChart({ data }: { data: TopMedicineItem[] }) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 type TabType = 'monthly' | 'quarterly' | 'annual';
 type SortField = 'medicineName' | 'category' | 'dispensedQty' | 'posSalesQty' | 'totalUsed' | 'stockDeducted';
+
+// ─── Table row count constant ──────────────────────────────────────────────────
+// When filteredData exceeds this, the tbody becomes scrollable
+const TABLE_SCROLL_THRESHOLD = 10;
+// Each row is ~64px tall (2 lines of content + padding); 10 rows ≈ 640px
+const TABLE_MAX_HEIGHT = 640;
 
 interface MedicineDispensingMonitorProps {
   hideHeader?: boolean;
@@ -725,7 +738,6 @@ interface MedicineDispensingMonitorProps {
   onFilterStartDateChange?: (date: string) => void;
   onFilterEndDateChange?: (date: string) => void;
   userId?: string;
-  // ↓ These can still be passed to skip the internal fetch entirely
   initialMedicines?: Medicine[];
   initialTransactions?: FirebaseTransaction[];
 }
@@ -750,7 +762,6 @@ export default function MedicineDispensingMonitor({
   initialTransactions,
 }: MedicineDispensingMonitorProps = {}) {
 
-  // ── Internal state (used when not driven by dashboard props) ──
   const [activeTab, setActiveTab] = useState<TabType>('monthly');
   const [selectedMonth, setSelectedMonth] = useState<string>(new Date().toISOString().slice(0, 7));
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterType>('Q1');
@@ -772,7 +783,6 @@ export default function MedicineDispensingMonitor({
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockModalSearch, setStockModalSearch] = useState('');
 
-  // ── Internal Firebase data (only used when initialMedicines/Transactions not provided) ──
   const [internalMedicines, setInternalMedicines] = useState<Medicine[]>([]);
   const [internalTransactions, setInternalTransactions] = useState<FirebaseTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -780,26 +790,17 @@ export default function MedicineDispensingMonitor({
   const currentYear = new Date().getFullYear();
   const years = useMemo(() => Array.from({ length: 5 }, (_, i) => currentYear - i), [currentYear]);
 
-  // ── Firebase listener — uses getUserPath so paths always match the rest of the app ──
   useEffect(() => {
-    // Skip fetch if caller already provided the data
-    if (initialMedicines && initialTransactions) {
-      return;
-    }
-    if (!userId) {
-      return;
-    }
+    if (initialMedicines && initialTransactions) return;
+    if (!userId) return;
 
-    // getUserPath is the same helper used everywhere else in the app
     const medsPath = getUserPath(userId, 'medicines');
     const transPath = getUserPath(userId, 'transactions');
 
     let medsReady = false;
     let transReady = false;
     const checkDone = () => {
-      if (medsReady && transReady) {
-        Promise.resolve().then(() => setLoading(false));
-      }
+      if (medsReady && transReady) Promise.resolve().then(() => setLoading(false));
     };
 
     const unsubMeds = onValue(ref(database, medsPath), snap => {
@@ -832,7 +833,6 @@ export default function MedicineDispensingMonitor({
     return () => { unsubMeds(); unsubTrans(); };
   }, [userId, initialMedicines, initialTransactions]);
 
-  // ── Resolved data: prefer props, fall back to internal state ──
   const effectiveMedicines = initialMedicines ?? internalMedicines;
   const effectiveTransactions = initialTransactions ?? internalTransactions;
   const isActuallyLoading = loading && !initialMedicines && !initialTransactions;
@@ -843,23 +843,16 @@ export default function MedicineDispensingMonitor({
     return map;
   }, [effectiveMedicines]);
 
-  // ── Resolved period selectors ──
   const effectiveMonth = dashboardSelectedMonth ?? selectedMonth;
   const effectiveQuarter = dashboardSelectedQuarter ?? selectedQuarter;
   const effectiveYear = dashboardSelectedYear ?? selectedYear;
 
-  // ── Date range — mirrors dashboard logic exactly ──────────────────────────
-  // Handles all 7 filter range values: today / last7 / last30 / monthly /
-  // quarterly / annual / custom.  Uses the same arithmetic the dashboard uses
-  // so the chart always shows data for the same window.
   const dateRange = useMemo(() => {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-    if (dashboardFilterRange === 'today') {
-      return { start: todayStart, end: todayEnd };
-    }
+    if (dashboardFilterRange === 'today') return { start: todayStart, end: todayEnd };
     if (dashboardFilterRange === 'last7') {
       const s = new Date(todayStart); s.setDate(s.getDate() - 6);
       return { start: s, end: todayEnd };
@@ -868,34 +861,19 @@ export default function MedicineDispensingMonitor({
       const s = new Date(todayStart); s.setDate(s.getDate() - 29);
       return { start: s, end: todayEnd };
     }
-    if (dashboardFilterRange === 'monthly') {
-      return getDateRange('monthly', effectiveMonth);
-    }
-    if (dashboardFilterRange === 'quarterly') {
-      return getDateRange('quarterly', undefined, effectiveQuarter, effectiveYear);
-    }
-    if (dashboardFilterRange === 'annual') {
-      return getDateRange('annual', undefined, undefined, effectiveYear);
-    }
+    if (dashboardFilterRange === 'monthly') return getDateRange('monthly', effectiveMonth);
+    if (dashboardFilterRange === 'quarterly') return getDateRange('quarterly', undefined, effectiveQuarter, effectiveYear);
+    if (dashboardFilterRange === 'annual') return getDateRange('annual', undefined, undefined, effectiveYear);
     if (dashboardFilterRange === 'custom' && dashboardFilterStartDate && dashboardFilterEndDate) {
       return getDateRange('custom', undefined, undefined, undefined, dashboardFilterStartDate, dashboardFilterEndDate);
     }
-    // Stand-alone (no dashboard props): use internal activeTab
     return getDateRange(activeTab, selectedMonth, selectedQuarter, selectedYear);
   }, [
-    dashboardFilterRange,
-    dashboardFilterStartDate,
-    dashboardFilterEndDate,
-    effectiveMonth,
-    effectiveQuarter,
-    effectiveYear,
-    activeTab,
-    selectedMonth,
-    selectedQuarter,
-    selectedYear,
+    dashboardFilterRange, dashboardFilterStartDate, dashboardFilterEndDate,
+    effectiveMonth, effectiveQuarter, effectiveYear,
+    activeTab, selectedMonth, selectedQuarter, selectedYear,
   ]);
 
-  // ── Filtered transactions for the selected period ──
   const filteredByDate = useMemo(
     () => filterTransactions(effectiveTransactions, dateRange.start, dateRange.end),
     [effectiveTransactions, dateRange],
@@ -904,7 +882,6 @@ export default function MedicineDispensingMonitor({
   const aggregated = useMemo(() => aggregateByMedicine(filteredByDate), [filteredByDate]);
   const aggregatedData = useMemo(() => buildDetailedTransactions(aggregated, medicinesMap), [aggregated, medicinesMap]);
 
-  // ── Metrics ──────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
     const totalDispensed = aggregatedData.reduce((s, d) => s + d.dispensedQty, 0);
     const totalPosSalesQty = aggregatedData.reduce((s, d) => s + d.posSalesQty, 0);
@@ -915,12 +892,10 @@ export default function MedicineDispensingMonitor({
       filteredByDate.filter(t => t.type === 'sale').map(t => t.referenceId).filter(Boolean),
     ).size;
 
-    // Previous period for comparison — only meaningful for periodic ranges
     let prevTotalDispensed = 0;
     let prevTotalStockDeducted = 0;
     let prevPosSales = 0;
-    const isPeriodic = !dashboardFilterRange ||
-      ['monthly', 'quarterly', 'annual'].includes(dashboardFilterRange);
+    const isPeriodic = !dashboardFilterRange || ['monthly', 'quarterly', 'annual'].includes(dashboardFilterRange);
 
     if (isPeriodic) {
       const prevTab = (dashboardFilterRange as TabType) ?? activeTab;
@@ -934,12 +909,8 @@ export default function MedicineDispensingMonitor({
     }
 
     return {
-      medicinesWithActivity,
-      totalDispensed,
-      totalPosSales: posSalesTransactions,
-      totalPosSalesQty,
-      totalStockDeducted,
-      remainingStock,
+      medicinesWithActivity, totalDispensed, totalPosSales: posSalesTransactions,
+      totalPosSalesQty, totalStockDeducted, remainingStock,
       previousPeriodDispensed: prevTotalDispensed,
       previousPeriodSales: prevPosSales,
       previousPeriodStockDeducted: prevTotalStockDeducted,
@@ -949,11 +920,11 @@ export default function MedicineDispensingMonitor({
     dashboardFilterRange, activeTab, effectiveMonth, effectiveQuarter, effectiveYear,
   ]);
 
-  // ── Top medicines ──
   const topMedicinesData = useMemo<TopMedicineItem[]>(() => {
+    // Show ALL medicines (no .slice) so the scrollable list shows everything
     const sorted = [...aggregatedData].sort((a, b) => b.totalUsed - a.totalUsed);
     const total = sorted.reduce((s, d) => s + d.totalUsed, 0);
-    return sorted.slice(0, 7).map(d => {
+    return sorted.map(d => {
       const med = medicinesMap.get(d.medicineId);
       return {
         name: d.medicineName,
@@ -969,7 +940,6 @@ export default function MedicineDispensingMonitor({
     });
   }, [aggregatedData, medicinesMap]);
 
-  // ── Table data ──
   const filteredData = useMemo(() => {
     return aggregatedData
       .filter(d =>
@@ -998,25 +968,21 @@ export default function MedicineDispensingMonitor({
     else { setSortField(field); setSortOrder('desc'); }
   }, [sortField]);
 
-  // ── Which tab/chart to render ──
-  // For non-periodic ranges (today/last7/last30/custom) we show a daily
-  // breakdown using the MonthlyChartPanel with a synthetic "month" that
-  // covers the selected window, or simply the current month as fallback.
   const effectiveTab: TabType =
     dashboardFilterRange === 'quarterly' ? 'quarterly' :
       dashboardFilterRange === 'annual' ? 'annual' :
         dashboardFilterRange ? 'monthly' :
           activeTab;
 
-  // For today/last7/last30/custom the MonthlyChartPanel needs a selectedMonth.
-  // We use the current month so the daily axis is correct.
   const chartMonth =
     (dashboardFilterRange === 'today' || dashboardFilterRange === 'last7' ||
       dashboardFilterRange === 'last30' || dashboardFilterRange === 'custom')
       ? new Date().toISOString().slice(0, 7)
       : effectiveMonth;
 
-  // ── Loading state ──
+  // ── Whether the table body should scroll ──
+  const tableScrollable = filteredData.length > TABLE_SCROLL_THRESHOLD;
+
   if (isActuallyLoading) {
     return (
       <div className="w-full flex items-center justify-center py-20">
@@ -1132,8 +1098,6 @@ export default function MedicineDispensingMonitor({
 
       {/* ── CHART SECTION ── */}
       <div className="surface-card p-4 sm:p-6">
-
-        {/* Tab selector when not driven by dashboard */}
         {!dashboardFilterRange && (
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6 border-b border-slate-200 pb-4">
             <div className="flex gap-2">
@@ -1176,7 +1140,6 @@ export default function MedicineDispensingMonitor({
           </div>
         )}
 
-        {/* ── Chart panels ── */}
         {effectiveTab === 'monthly' && (
           <MonthlyChartPanel filteredByDate={filteredByDate} selectedMonth={chartMonth} />
         )}
@@ -1188,7 +1151,6 @@ export default function MedicineDispensingMonitor({
           <AnnualChartPanel filteredByDate={filteredByDate} selectedYear={effectiveYear} />
         )}
 
-        {/* Empty state when no transactions in the window */}
         {filteredByDate.length === 0 && (
           <div className="flex flex-col items-center justify-center py-10 gap-2 text-center">
             <svg className="w-10 h-10 text-slate-200" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -1257,112 +1219,137 @@ export default function MedicineDispensingMonitor({
 
       {/* ── TRANSACTION TABLE ── */}
       <div className="surface-card p-4 sm:p-6">
+        {/* Header row: title + row count badge + search */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <h3 className="text-base font-bold text-slate-900">Medicine Stocks Timeline</h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-base font-bold text-slate-900">Medicine Stocks Timeline</h3>
+            {/* Row count badge — shows how many rows and hints about scroll */}
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-wider">
+              {filteredData.length} {filteredData.length === 1 ? 'item' : 'items'}
+              {tableScrollable && (
+                <span className="text-blue-400 ml-0.5">· scroll</span>
+              )}
+            </span>
+          </div>
           <input type="text" placeholder="Search medicine or category..."
             value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             className="w-full sm:w-72 px-3 py-2 text-sm border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
-        <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                {([
-                  { field: 'medicineName', label: 'Medicine Name', align: 'left' },
-                  { field: 'category', label: 'Category', align: 'left' },
-                  { field: 'dispensedQty', label: 'Dispensed', align: 'right' },
-                  { field: 'posSalesQty', label: 'POS Sales', align: 'right' },
-                  { field: 'totalUsed', label: 'Total Used', align: 'right' },
-                  { field: null, label: 'Opening Stock', align: 'right' },
-                  { field: 'stockDeducted', label: 'Deducted', align: 'right' },
-                  { field: null, label: 'Closing Stock', align: 'right' },
-                ] as const).map(col => (
-                  <th key={col.label}
-                    className={`px-4 py-3 text-${col.align} text-[10px] font-black uppercase tracking-widest text-slate-400`}>
-                    {col.field ? (
-                      <button onClick={() => toggleSort(col.field as SortField)}
-                        className={`flex items-center gap-1 hover:text-slate-900 transition-colors ${col.align === 'right' ? 'ml-auto' : ''}`}>
-                        {col.label}
-                        {sortField === col.field && (
-                          <span className="text-blue-600 font-black">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                        )}
-                      </button>
-                    ) : col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map(row => {
-                const med = medicinesMap.get(row.medicineId);
-                const isLowStock = med?.minStock !== undefined && row.stockAfter > 0 && row.stockAfter <= med.minStock;
-                const isOut = row.stockAfter === 0;
-                return (
-                  <tr key={row.medicineId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col min-w-0">
-                        <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">{row.medicineName}</p>
-                        {med?.strength && (
-                          <span className="mt-1 text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100/50 uppercase tracking-wider w-fit">
-                            {med.strength}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
-                        {row.category}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-black text-blue-600 tabular-nums">{row.dispensedQty.toLocaleString()}</span>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Units</p>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-black text-emerald-600 tabular-nums">{row.posSalesQty.toLocaleString()}</span>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Sales</p>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-black text-slate-900 tabular-nums">{row.totalUsed.toLocaleString()}</span>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Total</p>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-bold text-slate-500 tabular-nums">{row.stockBefore.toLocaleString()}</span>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Opening</p>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="font-black text-red-500 tabular-nums">−{row.stockDeducted.toLocaleString()}</span>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase">Outflow</p>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex flex-col items-end">
-                        <span className={`font-black tabular-nums ${isOut ? 'text-red-600' : isLowStock ? 'text-amber-600' : 'text-emerald-600'}`}>
-                          {row.stockAfter.toLocaleString()}
-                        </span>
-                        {isOut ? (
-                          <span className="text-[8px] font-black text-white bg-red-500 px-1 rounded uppercase tracking-tighter">Out</span>
-                        ) : isLowStock ? (
-                          <span className="text-[8px] font-black text-white bg-amber-500 px-1 rounded uppercase tracking-tighter">Low</span>
-                        ) : (
-                          <p className="text-[9px] text-slate-400 font-bold uppercase">Closing</p>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/*
+          ── Scrollable table container ──
+          We use a wrapper div with overflow-x-auto for horizontal scroll (existing)
+          AND overflow-y-auto + maxHeight for vertical scroll when rows > threshold.
+          The thead is made sticky so column headers stay visible while scrolling.
+        */}
+        <div
+          className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6"
+        >
+          <div
+            className={tableScrollable ? 'overflow-y-auto' : ''}
+            style={tableScrollable ? { maxHeight: `${TABLE_MAX_HEIGHT}px` } : {}}
+          >
+            <table className="w-full text-sm">
+              {/* ── Sticky header — stays put while tbody scrolls ── */}
+              <thead className="sticky top-0 z-10 bg-white">
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  {([
+                    { field: 'medicineName', label: 'Medicine Name', align: 'left' },
+                    { field: 'category', label: 'Category', align: 'left' },
+                    { field: 'dispensedQty', label: 'Dispensed', align: 'right' },
+                    { field: 'posSalesQty', label: 'POS Sales', align: 'right' },
+                    { field: 'totalUsed', label: 'Total Used', align: 'right' },
+                    { field: null, label: 'Opening Stock', align: 'right' },
+                    { field: 'stockDeducted', label: 'Deducted', align: 'right' },
+                    { field: null, label: 'Closing Stock', align: 'right' },
+                  ] as const).map(col => (
+                    <th key={col.label}
+                      className={`px-4 py-3 text-${col.align} text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-50`}>
+                      {col.field ? (
+                        <button onClick={() => toggleSort(col.field as SortField)}
+                          className={`flex items-center gap-1 hover:text-slate-900 transition-colors ${col.align === 'right' ? 'ml-auto' : ''}`}>
+                          {col.label}
+                          {sortField === col.field && (
+                            <span className="text-blue-600 font-black">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                          )}
+                        </button>
+                      ) : col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
 
-          {filteredData.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 gap-2">
-              <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-              </svg>
-              <p className="text-sm text-slate-400 font-medium">No results found</p>
-            </div>
-          )}
+              <tbody>
+                {filteredData.map(row => {
+                  const med = medicinesMap.get(row.medicineId);
+                  const isLowStock = med?.minStock !== undefined && row.stockAfter > 0 && row.stockAfter <= med.minStock;
+                  const isOut = row.stockAfter === 0;
+                  return (
+                    <tr key={row.medicineId} className="border-b border-slate-100 hover:bg-slate-50 transition-colors group">
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col min-w-0">
+                          <p className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">{row.medicineName}</p>
+                          {med?.strength && (
+                            <span className="mt-1 text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100/50 uppercase tracking-wider w-fit">
+                              {med.strength}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-100 px-1.5 py-0.5 rounded whitespace-nowrap">
+                          {row.category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-black text-blue-600 tabular-nums">{row.dispensedQty.toLocaleString()}</span>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Units</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-black text-emerald-600 tabular-nums">{row.posSalesQty.toLocaleString()}</span>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Sales</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-black text-slate-900 tabular-nums">{row.totalUsed.toLocaleString()}</span>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Total</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-bold text-slate-500 tabular-nums">{row.stockBefore.toLocaleString()}</span>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Opening</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-black text-red-500 tabular-nums">−{row.stockDeducted.toLocaleString()}</span>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase">Outflow</p>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-col items-end">
+                          <span className={`font-black tabular-nums ${isOut ? 'text-red-600' : isLowStock ? 'text-amber-600' : 'text-emerald-600'}`}>
+                            {row.stockAfter.toLocaleString()}
+                          </span>
+                          {isOut ? (
+                            <span className="text-[8px] font-black text-white bg-red-500 px-1 rounded uppercase tracking-tighter">Out</span>
+                          ) : isLowStock ? (
+                            <span className="text-[8px] font-black text-white bg-amber-500 px-1 rounded uppercase tracking-tighter">Low</span>
+                          ) : (
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">Closing</p>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {filteredData.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 gap-2">
+                <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+                <p className="text-sm text-slate-400 font-medium">No results found</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

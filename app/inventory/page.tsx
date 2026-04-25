@@ -36,10 +36,8 @@ function getDisplayName(m: Medicine): string        { return m.name || '—'; }
 function getDisplayDescription(m: Medicine): string { return m.description || '—'; }
 function getDisplayBrand(m: Medicine): string       { return m.brandModel || m.brand || '—'; }
 function getDisplayUnit(m: Medicine): string        { return m.unit || m.category || '—'; }
-function getEffectiveStock(m: Medicine): number {
-  return m.quantity ?? 0;
-}
-function getMinStock(m: Medicine): number { return m.minStock ?? 0; }
+function getEffectiveStock(m: Medicine): number     { return m.quantity ?? 0; }
+function getMinStock(m: Medicine): number           { return m.minStock ?? 0; }
 
 // ─── Status logic ──────────────────────────────────────────────────────────────
 type FieldStatus = 'out' | 'expired' | 'urgent' | 'expiring' | 'low' | 'in';
@@ -126,6 +124,11 @@ const fmt = (value: number): string => {
   return parseFloat(value.toFixed(2)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 
+// ─── Scroll threshold ──────────────────────────────────────────────────────────
+// Each row ≈ 46px; 10 rows = 460px + 44px thead = 504px total cap
+const TABLE_SCROLL_THRESHOLD = 10;
+const TABLE_BODY_MAX_HEIGHT   = 460; // px — tbody only; thead sticks above via CSS
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 export default function InventoryPage() {
   const { user, loading } = useAuth();
@@ -203,6 +206,9 @@ export default function InventoryPage() {
 
   const summary = computeSummaryCounts(medicines);
 
+  // Whether the desktop table body should scroll
+  const tableScrollable = filteredMedicines.length > TABLE_SCROLL_THRESHOLD;
+
   const getHighlightRowCls  = (id: string) => highlightId === id ? 'bg-blue-50 ring-2 ring-blue-400 ring-inset animate-pulse-once' : '';
   const getHighlightCardCls = (id: string) => highlightId === id ? 'ring-2 ring-blue-400 bg-blue-50 animate-pulse-once' : '';
 
@@ -226,11 +232,30 @@ export default function InventoryPage() {
           100% { box-shadow:0 0 0 0 rgba(59,130,246,0); }
         }
         .animate-pulse-once { animation:pulseOnce 1.2s ease-out 3; }
+
+        /*
+         * Sticky-header technique for the inventory table scroll container.
+         * We cap the wrapper height and let it scroll vertically; thead cells
+         * are position:sticky so they stay visible as rows scroll past.
+         * box-shadow replaces the border that disappears from normal flow.
+         */
+        .inv-tbl-wrap {
+          overflow-x: auto;
+          overflow-y: auto;
+        }
+        .inv-tbl-wrap thead th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: #f8fafc; /* bg-slate-50 */
+          /* Restore the bottom border that sticky removes */
+          box-shadow: inset 0 -1px 0 rgba(226,232,240,0.8);
+        }
       `}</style>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="mb-8 sm:mb-10">
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 mb-2">Inventory</h1>
           <p className="text-sm sm:text-base text-slate-500">Monitor stock levels and expiration dates</p>
@@ -242,9 +267,11 @@ export default function InventoryPage() {
           )}
         </div>
 
-        {/* Toolbar */}
+        {/* ── Toolbar ── */}
         <div className="surface-card p-4 sm:p-5 mb-8 rounded-xl">
           <div className="flex flex-wrap items-end gap-2 sm:gap-3">
+
+            {/* Search */}
             <div className="flex-1 min-w-44 max-w-72">
               <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">Search</label>
               <input type="text" placeholder="Search by name, description, brand..."
@@ -252,6 +279,7 @@ export default function InventoryPage() {
                 className="w-full max-w-xs px-3 py-2 text-slate-900 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm" />
             </div>
 
+            {/* Unit Type */}
             <div className="basis-28 sm:basis-36 shrink-0">
               <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">Unit Type</label>
               <select value={filterUnit} onChange={(e) => setFilterUnit(e.target.value)}
@@ -261,6 +289,7 @@ export default function InventoryPage() {
               </select>
             </div>
 
+            {/* Stock Status */}
             <div className="basis-auto shrink-0">
               <label className="block text-xs sm:text-sm font-semibold text-slate-900 mb-2">Stock Status</label>
               <div className="md:hidden">
@@ -289,6 +318,7 @@ export default function InventoryPage() {
               </div>
             </div>
 
+            {/* Right controls */}
             <div className="flex items-center gap-2 ml-auto shrink-0">
               <button onClick={() => { setSearchTerm(''); setFilterUnit(''); setStockStatus('all'); setHighlightId(null); }}
                 className="px-2.5 py-1.5 text-xs sm:text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
@@ -302,7 +332,7 @@ export default function InventoryPage() {
           </div>
         </div>
 
-        {/* Loading / Empty */}
+        {/* ── Loading / Empty ── */}
         {isLoadingMedicines ? (
           <div className="text-center py-12">
             <div className="w-12 h-12 border-4 border-gray-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
@@ -316,116 +346,157 @@ export default function InventoryPage() {
           <>
             {/* ── Desktop Table View ─────────────────────────────────────────── */}
             {viewMode === 'table' && (
-              <div className="hidden md:block w-full surface-card rounded-xl overflow-x-auto">
-                <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
-                  <thead className="bg-slate-50/70 border-b border-slate-200/80">
-                    <tr>
-                      {['Name', 'Item Description', 'Brand / Model', 'Unit', 'Strength', 'Quantity', 'Min Stock', 'Status', 'Expiry Date'].map((h) => (
-                        <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200/80">
-                    {filteredMedicines.map((medicine) => {
-                      const status   = getMedicineStatus(medicine);
-                      const badge    = fieldBadge(status.variant, status.label);
-                      const stock    = getEffectiveStock(medicine);
-                      const minStock = getMinStock(medicine);
-                      const unit     = getDisplayUnit(medicine);
-                      const rowTint  =
-                        status.variant === 'out'      ? 'bg-red-50/40' :
-                        status.variant === 'expired'  ? 'bg-gray-50/60' :
-                        status.variant === 'expiring' ? 'bg-orange-50/40' :
-                        status.variant === 'low'      ? 'bg-yellow-50/40' : '';
+              <div className="hidden md:block w-full surface-card rounded-xl overflow-hidden">
 
-                      return (
-                        <tr key={medicine.id}
-                          ref={(el) => { highlightRefs.current[medicine.id] = el; }}
-                          className={`hover:bg-slate-50/70 transition-colors ${rowTint} ${getHighlightRowCls(medicine.id)}`}>
+                {/*
+                 * ── Scroll wrapper ────────────────────────────────────────────
+                 * Always overflow-x-auto for wide tables on smaller desktops.
+                 * When rows > TABLE_SCROLL_THRESHOLD we also cap the height and
+                 * enable vertical scroll. thead sticks via .inv-tbl-wrap thead th.
+                 */}
+                <div
+                  className="inv-tbl-wrap"
+                  style={tableScrollable ? { maxHeight: `${TABLE_BODY_MAX_HEIGHT + 44}px` } : {}}
+                >
+                  <table className="min-w-full text-sm" style={{ borderCollapse: 'collapse' }}>
+                    <thead className="bg-slate-50/70 border-b border-slate-200/80">
+                      <tr>
+                        {['Name', 'Item Description', 'Brand / Model', 'Unit', 'Strength', 'Quantity', 'Min Stock', 'Status', 'Expiry Date'].map((h) => (
+                          <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
 
-                          {/* Name */}
-                          <td className="px-3 py-2.5 text-left">
-                            <div className="flex items-center gap-2">
-                              {highlightId === medicine.id && (
-                                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
-                              )}
-                              <span className="text-xs font-semibold text-slate-900 truncate max-w-35">
-                                {getDisplayName(medicine)}
+                    <tbody className="divide-y divide-slate-200/80">
+                      {filteredMedicines.map((medicine) => {
+                        const status   = getMedicineStatus(medicine);
+                        const badge    = fieldBadge(status.variant, status.label);
+                        const stock    = getEffectiveStock(medicine);
+                        const minStock = getMinStock(medicine);
+                        const unit     = getDisplayUnit(medicine);
+                        const rowTint  =
+                          status.variant === 'out'      ? 'bg-red-50/40' :
+                          status.variant === 'expired'  ? 'bg-gray-50/60' :
+                          status.variant === 'expiring' ? 'bg-orange-50/40' :
+                          status.variant === 'low'      ? 'bg-yellow-50/40' : '';
+
+                        return (
+                          <tr key={medicine.id}
+                            ref={(el) => { highlightRefs.current[medicine.id] = el; }}
+                            className={`hover:bg-slate-50/70 transition-colors ${rowTint} ${getHighlightRowCls(medicine.id)}`}>
+
+                            {/* Name */}
+                            <td className="px-3 py-2.5 text-left">
+                              <div className="flex items-center gap-2">
+                                {highlightId === medicine.id && (
+                                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 animate-pulse" />
+                                )}
+                                <span className="text-xs font-semibold text-slate-900 truncate max-w-35">
+                                  {getDisplayName(medicine)}
+                                </span>
+                                {medicine.prescriptionRequired && (
+                                  <span className="shrink-0 text-[9px] font-bold text-white bg-red-600 px-1 py-0.5 rounded">Rx</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Item Description */}
+                            <td className="px-3 py-2.5 text-left max-w-45">
+                              <span className="text-xs text-slate-600 truncate block w-full" title={getDisplayDescription(medicine)}>
+                                {getDisplayDescription(medicine)}
                               </span>
-                              {medicine.prescriptionRequired && (
-                                <span className="shrink-0 text-[9px] font-bold text-white bg-red-600 px-1 py-0.5 rounded">Rx</span>
-                              )}
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Item Description */}
-                          <td className="px-3 py-2.5 text-left max-w-45">
-                            <span className="text-xs text-slate-600 truncate block w-full" title={getDisplayDescription(medicine)}>
-                              {getDisplayDescription(medicine)}
-                            </span>
-                          </td>
-
-                          {/* Brand / Model */}
-                          <td className="px-3 py-2.5 text-left max-w-30">
-                            <span className="text-xs text-slate-600 truncate block" title={getDisplayBrand(medicine)}>
-                              {getDisplayBrand(medicine)}
-                            </span>
-                          </td>
-
-                          {/* Unit */}
-                          <td className="px-3 py-2.5 text-left">
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold inline-block whitespace-nowrap ${unitBadgeCls(unit)}`}>
-                              {unit}
-                            </span>
-                          </td>
-
-                          {/* Strength */}
-                          <td className="px-3 py-2.5 text-left">
-                            {medicine.strength ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200 inline-block whitespace-nowrap">
-                                {medicine.strength}
+                            {/* Brand / Model */}
+                            <td className="px-3 py-2.5 text-left max-w-30">
+                              <span className="text-xs text-slate-600 truncate block" title={getDisplayBrand(medicine)}>
+                                {getDisplayBrand(medicine)}
                               </span>
-                            ) : (
-                              <span className="text-slate-300 text-xs">—</span>
-                            )}
-                          </td>
+                            </td>
 
-                          {/* Quantity */}
-                          <td className="px-3 py-2.5 text-left">
-                            <span className={`text-xs font-bold font-mono ${status.variant === 'out' ? 'text-red-400' : 'text-slate-900'}`}>
-                              {status.variant === 'out' ? '—' : fmt(stock)}
-                            </span>
-                          </td>
+                            {/* Unit */}
+                            <td className="px-3 py-2.5 text-left">
+                              <span className={`px-2 py-0.5 rounded text-xs font-semibold inline-block whitespace-nowrap ${unitBadgeCls(unit)}`}>
+                                {unit}
+                              </span>
+                            </td>
 
-                          {/* Min Stock */}
-                          <td className="px-3 py-2.5 text-left">
-                            <span className="text-xs font-medium text-slate-700 font-mono">
-                              {minStock > 0 ? fmt(minStock) : <span className="text-slate-300">—</span>}
-                            </span>
-                          </td>
+                            {/* Strength */}
+                            <td className="px-3 py-2.5 text-left">
+                              {medicine.strength ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200 inline-block whitespace-nowrap">
+                                  {medicine.strength}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300 text-xs">—</span>
+                              )}
+                            </td>
 
-                          {/* Status */}
-                          <td className="px-3 py-2.5 text-left">
-                            <span className={`px-2 py-0.5 rounded text-xs font-semibold inline-block whitespace-nowrap ${badge.cls}`}>
-                              {badge.label}
-                            </span>
-                          </td>
+                            {/* Quantity */}
+                            <td className="px-3 py-2.5 text-left">
+                              <span className={`text-xs font-bold font-mono ${status.variant === 'out' ? 'text-red-400' : 'text-slate-900'}`}>
+                                {status.variant === 'out' ? '—' : fmt(stock)}
+                              </span>
+                            </td>
 
-                          {/* Expiry Date */}
-                          <td className="px-3 py-2.5 text-left">
-                            <span className="text-xs text-slate-600 whitespace-nowrap">
-                              {medicine.expirationDate
-                                ? parseLocalDate(medicine.expirationDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
-                                : <span className="text-slate-300">N/A</span>}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            {/* Min Stock */}
+                            <td className="px-3 py-2.5 text-left">
+                              <span className="text-xs font-medium text-slate-700 font-mono">
+                                {minStock > 0 ? fmt(minStock) : <span className="text-slate-300">—</span>}
+                              </span>
+                            </td>
+
+                            {/* Status */}
+                            <td className="px-3 py-2.5 text-left">
+                              <span className={`px-2 py-0.5 rounded text-xs font-semibold inline-block whitespace-nowrap ${badge.cls}`}>
+                                {badge.label}
+                              </span>
+                            </td>
+
+                            {/* Expiry Date */}
+                            <td className="px-3 py-2.5 text-left">
+                              <span className="text-xs text-slate-600 whitespace-nowrap">
+                                {medicine.expirationDate
+                                  ? parseLocalDate(medicine.expirationDate).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+                                  : <span className="text-slate-300">N/A</span>}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── Table footer: row count + scroll hint ── */}
+                <div className="px-4 py-2.5 border-t border-slate-100 bg-white flex items-center justify-between rounded-b-xl">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[11px] text-slate-400">
+                      {filteredMedicines.length !== medicines.length
+                        ? `${filteredMedicines.length} of ${medicines.length} records`
+                        : `${filteredMedicines.length} ${filteredMedicines.length === 1 ? 'record' : 'records'}`}
+                    </p>
+                    {/* Scroll hint — only shown when the table is in scroll mode */}
+                    {tableScrollable && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-400 text-[10px] font-semibold">
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                        scroll to see all
+                      </span>
+                    )}
+                  </div>
+                  {(searchTerm || filterUnit || stockStatus !== 'all') && (
+                    <button
+                      onClick={() => { setSearchTerm(''); setFilterUnit(''); setStockStatus('all'); setHighlightId(null); }}
+                      className="text-[11px] text-slate-500 hover:text-slate-800 underline underline-offset-2"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
