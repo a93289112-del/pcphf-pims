@@ -263,7 +263,7 @@ export default function AdminDashboard() {
               sub="entries today"
             />
             <StatCard
-              title="Disabled Accounts"
+              title="Disabled"
               value={disabledStaffCount}
               icon={<UserOffIcon />}
               accent={disabledStaffCount > 0 ? 'rose' : 'emerald'}
