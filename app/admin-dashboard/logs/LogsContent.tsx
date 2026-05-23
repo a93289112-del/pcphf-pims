@@ -290,14 +290,14 @@ function DetailsModal({
               <p className="text-sm font-semibold text-slate-900">{log.staffName}</p>
             </div>
 
-            {lastLogin && (
+            {!TRANSACTION_TYPES.includes(log.type as ActivityType) && lastLogin && (
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Last Active (Login)</p>
                 <p className="text-sm font-semibold text-slate-900">{new Date(lastLogin.timestamp).toLocaleString()}</p>
               </div>
             )}
 
-            {!lastLogin && (
+            {!TRANSACTION_TYPES.includes(log.type as ActivityType) && !lastLogin && (
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Last Active</p>
                 <p className="text-sm text-slate-500">No login data available</p>
