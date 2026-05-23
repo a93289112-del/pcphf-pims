@@ -41,16 +41,16 @@ interface AdminSidebarItem {
 
 // ─── Menu config ───────────────────────────────────────────────────────────────
 const ADMIN_MENU: AdminSidebarItem[] = [
-  { id: 'admin',                label: 'Dashboard',            path: '/admin-dashboard' },
-  { id: 'inventory-records',    label: 'Pharmacy Overview',    path: '/admin-dashboard/reports/inventory' },
+  { id: 'admin', label: 'Dashboard', path: '/admin-dashboard' },
+  { id: 'inventory-records', label: 'Pharmacy Overview', path: '/staff-dashboard' },
   {
     id: 'staff-management',
     label: 'Staff Management',
     hasDropdown: true,
     subItems: [
-      { id: 'staff-list',    label: 'View All Staff',         path: '/admin-dashboard/staff-list' },
-      { id: 'create-staff',  label: 'Create Staff Accounts',  path: '/admin-dashboard/create-staff-accounts' },
-      { id: 'activity-logs', label: 'Staff Activity Logs',    path: '/admin-dashboard/logs' },
+      { id: 'staff-list', label: 'View All Staff', path: '/admin-dashboard/staff-list' },
+      { id: 'create-staff', label: 'Create Staff Accounts', path: '/admin-dashboard/create-staff-accounts' },
+      { id: 'activity-logs', label: 'Staff Activity Logs', path: '/admin-dashboard/logs' },
     ],
   },
   { id: 'system-notifications', label: 'System Notifications', path: '/admin-dashboard/system-notifications' },
@@ -131,15 +131,15 @@ function NavContent({
   };
 
   const linkBase = `group relative flex items-center gap-3 rounded-xl transition-all duration-200 border`;
-  const linkPad  = isCollapsed ? 'px-2 py-2 justify-center' : 'px-4 py-3';
-  const activeStyle   = 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm';
+  const linkPad = isCollapsed ? 'px-2 py-2 justify-center' : 'px-4 py-3';
+  const activeStyle = 'bg-blue-50 text-blue-700 border-blue-100 shadow-sm';
   const inactiveStyle = 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 border-transparent';
 
   return (
     <nav className="flex-1 overflow-y-auto p-3 space-y-1">
       {ADMIN_MENU.map((item) => {
         if (item.hasDropdown) {
-          const isOpen         = openDropdown === item.id;
+          const isOpen = openDropdown === item.id;
           const isAnySubActive = item.subItems?.some((s) => isActive(s.path));
 
           return (
@@ -178,11 +178,10 @@ function NavContent({
                       key={sub.id}
                       href={sub.path}
                       onClick={onLinkClick}
-                      className={`flex items-center justify-between px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${
-                        isSubActive(sub.path)
+                      className={`flex items-center justify-between px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-150 ${isSubActive(sub.path)
                           ? 'bg-blue-50 text-blue-700'
                           : 'text-slate-500 hover:bg-slate-100/80 hover:text-slate-900'
-                      }`}
+                        }`}
                     >
                       <span className="truncate">{sub.label}</span>
                       {sub.badge !== undefined && sub.badge > 0 && (
@@ -233,14 +232,14 @@ function NavContent({
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function AdminSidebar() {
   const { user, logOut, adminName } = useAuth();
-  const router       = useRouter();
-  const pathname     = usePathname();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isCollapsed, toggleSidebar } = useSidebar();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [openDropdown,      setOpenDropdown]      = useState<string | null>(null);
-  const [mobileOpen,        setMobileOpen]         = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // ── Close drawer when a nav link is tapped — no effect needed at all ──────
   const closeMobileDrawer = useCallback(() => setMobileOpen(false), []);

@@ -8,16 +8,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import ConfirmationModal from './confirmation-modal';
-import EndSessionModal from './end-session-modal';
 import Processing from './processing';
 import { database, getUserPath } from '../services/firebase';
 import { ref, onValue } from 'firebase/database';
-import { logActivity, subscribeToActivityLogs } from '../services/activity-logs';
-import { calculateAccurateSessionSummary, formatCurrency, formatNumber } from '../services/session-summary';
+import { logActivity } from '../services/activity-logs';
 import { type FirebaseTransaction } from '@/lib/types';
-
-// ─── Storage key for session start time ────────────────────────────────────────
-const SESSION_START_KEY = (uid: string) => `session_start_${uid}`;
 
 interface MedicineBatch {
   quantity: number;
@@ -470,26 +465,8 @@ export default function Sidebar() {
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showEndSessionModal, setShowEndSessionModal] = useState(false);
-  const [isEndingSession, setIsEndingSession] = useState(false);
-  const [sessionState, setSessionState] = useState<'active' | 'ended'>('ended');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notifPanelOpen, setNotifPanelOpen] = useState(true);
-
-  const [currentSessionStartTime, setCurrentSessionStartTime] = useState<Date>(() => {
-    if (typeof window !== 'undefined') {
-      const uid = sessionStorage.getItem('_uid');
-      if (uid) {
-        const stored = localStorage.getItem(SESSION_START_KEY(uid));
-        if (stored) return new Date(stored);
-      }
-    }
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
-
-  const [currentSessionEndTime, setCurrentSessionEndTime] = useState<Date | null>(null);
 
   const [statusCounts, setStatusCounts] = useState<StatusCounts>({ urgent: 0, expired: 0, expiring: 0, out: 0, low: 0 });
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -517,51 +494,6 @@ export default function Sidebar() {
   }, [mobileOpen]);
 
   const closeMobileDrawer = useCallback(() => setMobileOpen(false), []);
-
-  // ── Session state subscription ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = subscribeToActivityLogs((logs) => {
-      const todayEvents = logs
-        .filter((log) => {
-          const isThisUser = log.staffId === user.uid || log.staffEmail === user.email;
-          const isToday = new Date(log.timestamp) >= todayStart;
-          const isSession = log.type === 'session_ended' || log.type === 'session_started';
-          return isThisUser && isToday && isSession;
-        })
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      const lastEvent = todayEvents[todayEvents.length - 1];
-
-      if (!lastEvent) {
-        setSessionState('ended');
-        const stored = localStorage.getItem(SESSION_START_KEY(user.uid));
-        if (stored) {
-          const storedDate = new Date(stored);
-          if (storedDate >= todayStart) { setCurrentSessionStartTime(storedDate); return; }
-        }
-        return;
-      }
-
-      if (lastEvent.type === 'session_ended') {
-        setSessionState('ended');
-        setCurrentSessionEndTime(new Date(lastEvent.timestamp));
-        const lastStarted = [...todayEvents].reverse().find((e) => e.type === 'session_started');
-        if (lastStarted) {
-          const t = new Date(lastStarted.timestamp);
-          setCurrentSessionStartTime(t);
-          localStorage.setItem(SESSION_START_KEY(user.uid), t.toISOString());
-        }
-      } else if (lastEvent.type === 'session_started') {
-        setSessionState('active');
-        setCurrentSessionEndTime(null);
-        const t = new Date(lastEvent.timestamp);
-        setCurrentSessionStartTime(t);
-        localStorage.setItem(SESSION_START_KEY(user.uid), t.toISOString());
-      }
-    });
-    return () => unsubscribe();
-  }, [user, todayStart]);
 
   // ── Medicines listener ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -596,146 +528,6 @@ export default function Sidebar() {
     return () => unsub();
   }, [user]);
 
-  // ── Session summary ────────────────────────────────────────────────────────
-  const sessionSummaryData = useMemo(() => {
-    // If session has ended, don't count any transactions (show 0)
-    if (sessionState === 'ended') {
-      return {
-        dispensed: 0,
-        transactions: 0,
-        sold: 0,
-        totalUnits: 0,
-        lowStock: 0,
-        expired: medicines.filter((m) => m.expirationDate && new Date(m.expirationDate) < new Date()).length,
-        outOfStock: medicines.filter((m) => (m.quantity ?? 0) === 0).length,
-        expiring: medicines.filter((m) => { if (!m.expirationDate) return false; const days = Math.floor((new Date(m.expirationDate).getTime() - Date.now()) / 86_400_000); return days >= 0 && days <= 30; }).length,
-        totalAlerts: 0,
-        dispenseCount: 0,
-        saleCount: 0,
-        durationMinutes: 0,
-        sessionStart: currentSessionStartTime.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
-        sessionEnd: currentSessionEndTime?.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }) || new Date().toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
-        sessionStartTime: currentSessionStartTime,
-      };
-    }
-
-    const sessionTxns = transactions.filter((t: FirebaseTransaction) => {
-      const dt = new Date(t.date);
-      const endTime = currentSessionEndTime || new Date();
-      return dt >= currentSessionStartTime && dt <= endTime;
-    });
-    const dispenseTxns = sessionTxns.filter((t) => t.type === 'dispense');
-    const saleTxns = sessionTxns.filter((t) => t.type === 'sale');
-
-    const dispensed = dispenseTxns.reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
-    const sold = saleTxns.reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
-    const totalUnits = dispensed + sold;
-
-    const dispenseCount = new Set(dispenseTxns.map((t) => t.referenceId).filter(Boolean)).size;
-    const saleCount = new Set(saleTxns.map((t) => t.referenceId).filter(Boolean)).size;
-    const totalTxns = dispenseCount + saleCount;
-
-    const outOfStockCount = medicines.filter((m) => (m.quantity ?? 0) === 0).length;
-    const lowStockCount = medicines.filter((m) => { const min = m.minStock ?? 0; const qty = m.quantity ?? 0; return min > 0 && qty > 0 && qty <= min; }).length;
-    const expiredCount = medicines.filter((m) => m.expirationDate && new Date(m.expirationDate) < new Date()).length;
-    const expiringCount = medicines.filter((m) => { if (!m.expirationDate) return false; const days = Math.floor((new Date(m.expirationDate).getTime() - Date.now()) / 86_400_000); return days >= 0 && days <= 30; }).length;
-
-    const now = new Date();
-    const durationMinutes = Math.max(0, Math.floor((now.getTime() - currentSessionStartTime.getTime()) / 60_000));
-
-    return {
-      dispensed, transactions: totalTxns, sold, totalUnits,
-      lowStock: lowStockCount, expired: expiredCount, outOfStock: outOfStockCount,
-      expiring: expiringCount, totalAlerts: outOfStockCount + expiredCount,
-      dispenseCount, saleCount, durationMinutes,
-      sessionStart: currentSessionStartTime.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
-      sessionEnd: now.toLocaleString('en-PH', { dateStyle: 'long', timeStyle: 'short' }),
-      sessionStartTime: currentSessionStartTime,
-    };
-  }, [medicines, transactions, currentSessionStartTime, currentSessionEndTime, sessionState]);
-
-  // ── End Session ────────────────────────────────────────────────────────────
-  const handleEndSession = useCallback(async () => {
-    if (!user) return;
-    setIsEndingSession(true);
-    try {
-      const now = new Date();
-      const sessionDurationMinutes = Math.max(0, Math.floor((now.getTime() - currentSessionStartTime.getTime()) / 60_000));
-      const durationHours = Math.floor(sessionDurationMinutes / 60);
-      const durationMins = sessionDurationMinutes % 60;
-      const durationStr = `${durationHours}h ${durationMins}m`;
-
-      // Calculate accurate session summary from actual POS sales and dispense records
-      const accurateSummary = await calculateAccurateSessionSummary(
-        user.uid,
-        currentSessionStartTime,
-        now
-      );
-
-      const sessionSummary = `Daily session ended with ${formatNumber(accurateSummary.totalUnitsMovement)} total units moved (${formatNumber(accurateSummary.totalUnitsSold)} sold, ${formatNumber(accurateSummary.totalUnitsDispensed)} dispensed) through ${formatNumber(accurateSummary.totalTransactions)} transactions. Revenue: ${formatCurrency(accurateSummary.totalRevenue)}. Duration: ${durationStr}.`;
-      const detailedBreakdown = `Sales: ${accurateSummary.totalSalesTransactions} txns (${formatNumber(accurateSummary.totalUnitsSold)} units) | Dispenses: ${accurateSummary.totalDispenseTransactions} txns (${formatNumber(accurateSummary.totalUnitsDispensed)} units) | Total Revenue: ${formatCurrency(accurateSummary.totalRevenue)} | Average per transaction: ${formatCurrency(accurateSummary.averageTransactionValue)}`;
-
-      await logActivity(
-        'session_ended',
-        user.uid,
-        user.email || 'unknown@pharmacy.local',
-        `Daily session ended at ${now.toLocaleTimeString('en-PH')}`,
-        {
-          sessionStartTime: currentSessionStartTime.toISOString(),
-          sessionEndTime: now.toISOString(),
-          sessionDurationMinutes,
-          totalUnitsDispensed: accurateSummary.totalUnitsDispensed,
-          totalUnitsSold: accurateSummary.totalUnitsSold,
-          totalUnitsMovement: accurateSummary.totalUnitsMovement,
-          totalSalesTransactions: accurateSummary.totalSalesTransactions,
-          totalDispenseTransactions: accurateSummary.totalDispenseTransactions,
-          totalTransactions: accurateSummary.totalTransactions,
-          totalRevenue: accurateSummary.totalRevenue,
-          totalAmountPaid: accurateSummary.totalAmountPaid,
-          totalChange: accurateSummary.totalChange,
-          averageTransactionValue: accurateSummary.averageTransactionValue,
-          lowStockCount: statusCounts.low,
-          expiredCount: statusCounts.expired,
-          outOfStockCount: statusCounts.out,
-          totalCriticalAlerts: statusCounts.expired + statusCounts.out,
-          sessionSummary,
-          detailedBreakdown,
-        },
-        staffName || adminName || user.email || 'Staff Member',
-        role || undefined,
-      );
-
-      setSessionState('ended');
-      setShowEndSessionModal(false);
-    } catch (err) {
-      console.error('[sidebar] Error ending session:', err);
-    } finally {
-      setIsEndingSession(false);
-    }
-  }, [user, currentSessionStartTime, statusCounts, staffName, adminName, role]);
-
-  // ── Start Session ──────────────────────────────────────────────────────────
-  const handleCreateNewSession = useCallback(async () => {
-    if (!user) return;
-    try {
-      const now = new Date();
-      setCurrentSessionStartTime(now);
-      localStorage.setItem(SESSION_START_KEY(user.uid), now.toISOString());
-      setSessionState('active');
-      await logActivity(
-        'session_started',
-        user.uid,
-        user.email || 'unknown@pharmacy.local',
-        `Session started at ${now.toLocaleTimeString('en-PH')}`,
-        { sessionStartTime: now.toISOString() },
-        staffName || adminName || user.email || 'Staff Member',
-        role || undefined,
-      );
-    } catch (err) {
-      console.error('[sidebar] Error starting new session:', err);
-    }
-  }, [user, staffName, adminName, role]);
-
   const handleLogout = async () => {
     try {
       await logOut();
@@ -751,39 +543,11 @@ export default function Sidebar() {
     <div className={`shrink-0 border-t border-slate-200/70 bg-white/90 backdrop-blur-md space-y-2 ${showUserInfo ? 'p-3' : 'p-2'}`}>
       {showUserInfo && (
         <div className="px-3 py-2 bg-slate-50 rounded-xl border border-slate-100">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Staff Session</p>
-          <p className="text-xs font-bold text-slate-900 truncate">{staffName || user?.email}</p>
-          {role === 'staff' && (
-            <span className={`inline-flex items-center gap-1 mt-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${sessionState === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${sessionState === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-              {sessionState === 'active' ? 'Session active' : 'No active session'}
-            </span>
-          )}
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{role === 'admin' ? 'Admin' : 'Staff'}</p>
+          <p className="text-xs font-bold text-slate-900 truncate">{adminName || staffName || user?.email}</p>
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        {role === 'staff' && (
-          sessionState === 'ended' ? (
-            <button
-              onClick={handleCreateNewSession}
-              title={!showUserInfo ? 'Start session' : undefined}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-white text-xs font-bold bg-emerald-500 hover:bg-emerald-600 active:scale-95 transition-all"
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" /></svg>
-              {showUserInfo && <span>Start session</span>}
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowEndSessionModal(true)}
-              disabled={isEndingSession}
-              title={!showUserInfo ? 'End session' : undefined}
-              className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-white text-xs font-bold active:scale-95 transition-all ${isEndingSession ? 'bg-slate-300 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'}`}
-            >
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-              {showUserInfo && <span>{isEndingSession ? 'Ending…' : 'End session'}</span>}
-            </button>
-          )
-        )}
         <button
           onClick={() => setShowLogoutConfirm(true)}
           title={!showUserInfo ? 'Sign Out' : undefined}
@@ -921,19 +685,6 @@ export default function Sidebar() {
         onConfirm={handleLogout}
         onCancel={() => setShowLogoutConfirm(false)}
       />
-
-      {role === 'staff' && (
-        <>
-          <EndSessionModal
-            isOpen={showEndSessionModal}
-            onClose={() => setShowEndSessionModal(false)}
-            sessionData={sessionSummaryData}
-            isLoading={isEndingSession}
-            onConfirm={handleEndSession}
-          />
-          {isEndingSession && <Processing message="Ending session..." />}
-        </>
-      )}
     </>
   );
 }

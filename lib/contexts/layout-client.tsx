@@ -14,7 +14,6 @@ export default function LayoutClient({ children }: { children: ReactNode }) {
   const publicPages = [
     '/',
     '/login',
-    '/register',
     '/admin-init',
     '/forgot-password',
     '/reset-password',

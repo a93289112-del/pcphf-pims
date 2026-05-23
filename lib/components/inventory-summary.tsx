@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   type InventorySummary,
   type MedicineInventoryStatus,
   calculateInventorySummary,
   getMedicineStatusList,
   sortMedicinesByStatus,
-  getCategoryBreakdown,
 } from '@/lib/services/inventory-summary';
 import { type Medicine, type FirebaseTransaction } from '@/lib/types';
 
@@ -23,11 +22,12 @@ interface InventorySummaryProps {
 // Status Badge Component
 function StatusBadge({ status }: { status: MedicineInventoryStatus['status'] }) {
   const config = {
-    optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Optimal' },
+    inStock: { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'In Stock' },
     low: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Low Stock' },
     out: { bg: 'bg-red-100', text: 'text-red-700', label: 'Out of Stock' },
     expired: { bg: 'bg-black', text: 'text-white', label: 'Expired' },
     expiring: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Expiring Soon' },
+    critical: { bg: 'bg-red-200', text: 'text-red-900', label: 'Critical' },
   };
 
   const cfg = config[status];
@@ -40,100 +40,81 @@ function StatusBadge({ status }: { status: MedicineInventoryStatus['status'] }) 
 
 // Summary Stats Grid
 function SummaryStatsGrid({ summary }: { summary: InventorySummary }) {
+  const accentMap: Record<string, { bg: string; icon: string }> = {
+    indigo: { bg: 'bg-indigo-50', icon: 'bg-indigo-600 text-white' },
+    amber: { bg: 'bg-amber-50', icon: 'bg-amber-500 text-white' },
+    emerald: { bg: 'bg-emerald-50', icon: 'bg-emerald-500 text-white' },
+    teal: { bg: 'bg-teal-50', icon: 'bg-teal-600 text-white' },
+  };
+
   const stats = [
     {
-      label: 'Total Medicines',
+      title: 'Total Medicines',
       value: summary.totalMedicines,
+      accent: 'indigo',
       icon: (
-        // Pill outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <path d="M10.5 20H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H20a2 2 0 0 1 2 2v2" />
-          <circle cx="17" cy="17" r="5" />
-          <path d="m14.5 19.5 5-5" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L20 9m-8 4.5L4 5m7.5 9L12 17.5m.5-13H11a1 1 0 00-1 1v6a1 1 0 001 1h1a1 1 0 001-1V5a1 1 0 00-1-1z" />
         </svg>
       ),
     },
     {
-      label: 'Total Stock Units',
+      title: 'Total Stock Units',
       value: summary.totalStockUnits.toLocaleString(),
+      accent: 'emerald',
       icon: (
-        // Archive box outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <path d="M21 8H3M21 8a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1M21 8l-1.5-4.5a1 1 0 0 0-.95-.5H5.45a1 1 0 0 0-.95.5L3 8" />
-          <path d="M10 13h4" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m0 10v10l8 4m0-10l8 4" />
         </svg>
       ),
     },
     {
-      label: 'Stock Value',
-      value: `₱${summary.totalStockValue.toFixed(2)}`,
+      title: 'Stock Value',
+      value: `₱${summary.totalStockValue.toFixed(0)}`,
+      accent: 'amber',
       icon: (
-        // Circle dollar outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 7v10" />
-          <path d="M15.5 9.5A3.5 3.5 0 0 0 12 8c-1.93 0-3.5 1.12-3.5 2.5S10.07 13 12 13s3.5 1.12 3.5 2.5S13.93 18 12 18a3.5 3.5 0 0 1-3.5-1.5" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
     },
     {
-      label: 'Avg Stock/Medicine',
-      value: summary.avgStockPerMedicine.toFixed(1),
-      icon: (
-        // Bar chart outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <rect x="3" y="12" width="4" height="9" rx="1" />
-          <rect x="10" y="7" width="4" height="14" rx="1" />
-          <rect x="17" y="3" width="4" height="18" rx="1" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Units Dispensed',
+      title: 'Units Dispensed',
       value: summary.totalUnitsDispensed.toLocaleString(),
+      accent: 'teal',
       icon: (
-        // Tray arrow down outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <path d="M12 3v12" />
-          <path d="m8 11 4 4 4-4" />
-          <path d="M8 19H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1" />
-          <path d="M19 5h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-3" />
-          <path d="M8 19h8" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2m0 0v-8m0 8l6-4m-6 4l-6-4" />
         </svg>
       ),
     },
     {
-      label: 'Units Sold (POS)',
+      title: 'Units Sold (POS)',
       value: summary.totalUnitsSold.toLocaleString(),
+      accent: 'indigo',
       icon: (
-        // Shopping cart outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <path d="M16 10a4 4 0 0 1-8 0" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       ),
     },
     {
-      label: 'Low Stock Count',
+      title: 'Low Stock Count',
       value: summary.lowStockCount,
+      accent: 'amber',
       icon: (
-        // Triangle alert outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4v2m0 5v1M7.08 6.47A9.969 9.969 0 0112 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12c0-1.821.487-3.53 1.333-5" />
         </svg>
       ),
     },
     {
-      label: 'Out of Stock',
+      title: 'Out of Stock',
       value: summary.outOfStockCount,
+      accent: 'teal',
       icon: (
-        // Circle X outline
-        <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="9" />
-          <path d="m15 9-6 6M9 9l6 6" />
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       ),
     },
@@ -141,73 +122,24 @@ function SummaryStatsGrid({ summary }: { summary: InventorySummary }) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      {stats.map((stat) => (
-        <div
-          key={stat.label}
-          className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                {stat.label}
-              </p>
-              <p className="text-2xl font-black text-slate-900">
-                {stat.value}
-              </p>
-            </div>
-            <div className="text-slate-400">
-              {stat.icon}
+      {stats.map((stat) => {
+        const accent = accentMap[stat.accent];
+        return (
+          <div
+            key={stat.title}
+            className="group relative bg-white rounded-2xl border border-slate-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 overflow-hidden"
+          >
+            <div className={`absolute -top-4 -right-4 w-20 h-20 rounded-full ${accent.bg} opacity-60 blur-xl pointer-events-none`} />
+            <div className="relative">
+              <div className={`p-2.5 rounded-xl ${accent.icon} shadow-sm w-fit mb-5`}>
+                {stat.icon}
+              </div>
+              <p className="text-3xl font-black text-slate-900 leading-none mb-1.5">{stat.value}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.title}</p>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// Status Overview Cards
-function StatusOverviewCards({ summary }: { summary: InventorySummary }) {
-  const overviewCards = [
-    {
-      label: 'In Stock',
-      value: summary.optimalStockCount,
-      bg: 'bg-emerald-50 border-emerald-200',
-    },
-    {
-      label: 'Low Stock',
-      value: summary.lowStockCount,
-      bg: 'bg-yellow-50 border-yellow-200',
-    },
-    {
-      label: 'Expiring Soon',
-      value: summary.expiringCount,
-      bg: 'bg-orange-50 border-orange-200',
-    },
-    {
-      label: 'Expired',
-      value: summary.expiredCount,
-      bg: 'bg-red-50 border-red-200',
-    },
-    {
-      label: 'Out of Stock',
-      value: summary.outOfStockCount,
-      bg: 'bg-slate-50 border-slate-200',
-    },
-  ];
-
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-      {overviewCards.map((card) => (
-        <div
-          key={card.label}
-          className={`border rounded-lg p-3 text-center ${card.bg}`}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-slate-500">
-            {card.label}
-          </p>
-          <p className="text-2xl font-black text-slate-900">{card.value}</p>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -217,13 +149,28 @@ function StatusOverviewCards({ summary }: { summary: InventorySummary }) {
 function MedicineDetailsTable({
   medicines,
   criticalOnly = false,
+  statusFilter = null,
 }: {
   medicines: MedicineInventoryStatus[];
   criticalOnly?: boolean;
+  statusFilter?: string | null;
 }) {
-  const filtered = criticalOnly
-    ? medicines.filter((m) => m.status !== 'optimal')
-    : medicines;
+  let filtered = medicines;
+
+  if (criticalOnly) {
+    filtered = medicines.filter((m) => m.status === 'critical');
+  } else if (statusFilter) {
+    // Map filter types to medicine statuses
+    const filterMap: Record<string, string[]> = {
+      'critical': ['critical'],
+      'low': ['low'],
+      'expiring': ['expiring'],
+      'out-of-stock': ['out'],
+    };
+    const targetStatuses = filterMap[statusFilter] || [];
+    filtered = medicines.filter((m) => targetStatuses.includes(m.status));
+  }
+
   const sorted = sortMedicinesByStatus(filtered, criticalOnly ? 'critical' : 'all');
 
   if (sorted.length === 0) {
@@ -247,13 +194,11 @@ function MedicineDetailsTable({
             <th className="px-4 py-3 text-left font-bold text-slate-700">Medicine</th>
             <th className="px-4 py-3 text-left font-bold text-slate-700">Category</th>
             <th className="px-4 py-3 text-center font-bold text-slate-700">Current Stock</th>
-            <th className="px-4 py-3 text-center font-bold text-slate-700">Min Level</th>
             <th className="px-4 py-3 text-center font-bold text-slate-700">Status</th>
             <th className="px-4 py-3 text-right font-bold text-slate-700">Unit Cost</th>
             <th className="px-4 py-3 text-right font-bold text-slate-700">Total Value</th>
             <th className="px-4 py-3 text-center font-bold text-slate-700">Dispensed</th>
             <th className="px-4 py-3 text-center font-bold text-slate-700">Sold</th>
-            <th className="px-4 py-3 text-center font-bold text-slate-700">Adjusted</th>
           </tr>
         </thead>
         <tbody>
@@ -276,9 +221,6 @@ function MedicineDetailsTable({
               <td className="px-4 py-3 text-center font-semibold text-slate-900 tabular-nums">
                 {medicine.currentStock.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-center text-slate-600 tabular-nums">
-                {medicine.minStock.toLocaleString()}
-              </td>
               <td className="px-4 py-3 text-center">
                 <StatusBadge status={medicine.status} />
               </td>
@@ -294,9 +236,6 @@ function MedicineDetailsTable({
               <td className="px-4 py-3 text-center text-slate-900 font-semibold">
                 {medicine.soldQty.toLocaleString()}
               </td>
-              <td className="px-4 py-3 text-center text-slate-900 font-semibold">
-                {medicine.adjustedQty > 0 ? '+' : ''}{medicine.adjustedQty.toLocaleString()}
-              </td>
             </tr>
           ))}
         </tbody>
@@ -308,61 +247,10 @@ function MedicineDetailsTable({
             <td className="px-4 py-3 text-center font-black text-slate-900 tabular-nums">
               {sorted.reduce((sum, m) => sum + m.currentStock, 0).toLocaleString()}
             </td>
-            <td colSpan={7} />
+            <td colSpan={5} />
           </tr>
         </tfoot>
       </table>
-    </div>
-  );
-}
-
-// Category Breakdown Table
-function CategoryBreakdownTable({ medicines }: { medicines: MedicineInventoryStatus[] }) {
-  const categories = getCategoryBreakdown(medicines);
-
-  if (categories.length === 0) return null;
-
-  return (
-    <div className="mt-1">
-      <h3 className="text-lg font-bold text-slate-900 mb-6">Stock by Category</h3>
-      <div
-        className="overflow-y-auto overflow-x-auto rounded-xl border border-slate-200 shadow-sm
-                   scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent
-                   hover:scrollbar-thumb-slate-400"
-        style={{ maxHeight: '300px' }}
-      >
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-slate-50 border-b border-slate-200">
-              <th className="px-4 py-3 text-left font-bold text-slate-700">Category</th>
-              <th className="px-4 py-3 text-center font-bold text-slate-700">Medicines</th>
-              <th className="px-4 py-3 text-right font-bold text-slate-700">Total Stock</th>
-              <th className="px-4 py-3 text-right font-bold text-slate-700">Total Value</th>
-              <th className="px-4 py-3 text-right font-bold text-slate-700">Avg Unit Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((cat) => (
-              <tr
-                key={cat.category}
-                className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-              >
-                <td className="px-4 py-3 font-semibold text-slate-900">{cat.category}</td>
-                <td className="px-4 py-3 text-center font-semibold text-slate-900">{cat.medicineCount}</td>
-                <td className="px-4 py-3 text-right font-semibold text-slate-900 tabular-nums">
-                  {cat.totalStock.toLocaleString()}
-                </td>
-                <td className="px-4 py-3 text-right font-semibold text-slate-900 font-mono">
-                  ₱{cat.totalValue.toFixed(2)}
-                </td>
-                <td className="px-4 py-3 text-right text-slate-600 font-mono">
-                  ₱{cat.avgUnitCost.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
@@ -376,6 +264,8 @@ export default function InventorySummaryComponent({
   showDetailedTable = true,
   criticalOnly = false,
 }: InventorySummaryProps) {
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
+
   const summary = useMemo(
     () => calculateInventorySummary(medicines, transactions, dateRangeStart, dateRangeEnd),
     [medicines, transactions, dateRangeStart, dateRangeEnd],
@@ -389,33 +279,28 @@ export default function InventorySummaryComponent({
   return (
     <div className="w-full">
       <SummaryStatsGrid summary={summary} />
-      <StatusOverviewCards summary={summary} />
 
       {showDetailedTable && (
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
           <div className="px-6 py-4 border-b border-slate-200">
             <h3 className="text-lg font-bold text-slate-900 mt-4">
-              {criticalOnly ? 'Critical Items' : 'All Medicines Inventory'}
+              {criticalOnly ? 'Critical Items' : activeFilter ? 'Filtered Medicines' : 'All Medicines Inventory'}
             </h3>
             <p className="text-sm text-slate-500 mt-1">
               {criticalOnly
                 ? 'Medicines requiring immediate attention'
-                : 'Complete inventory status across all medicines'}
+                : activeFilter
+                  ? 'Medicines matching the selected alert category'
+                  : 'Complete inventory status across all medicines'}
             </p>
           </div>
           <div className="p-0">
-            <MedicineDetailsTable medicines={medicineStatusList} criticalOnly={criticalOnly} />
+            <MedicineDetailsTable medicines={medicineStatusList} criticalOnly={criticalOnly} statusFilter={activeFilter} />
           </div>
-        </div>
-      )}
-
-      {showDetailedTable && (
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm p-6 mt-6">
-          <CategoryBreakdownTable medicines={medicineStatusList} />
         </div>
       )}
     </div>
   );
 }
 
-export { MedicineDetailsTable, SummaryStatsGrid, StatusOverviewCards, CategoryBreakdownTable };
+export { MedicineDetailsTable, SummaryStatsGrid };

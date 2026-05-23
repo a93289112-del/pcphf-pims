@@ -52,9 +52,9 @@ interface Medicine {
 type MedicineRecord = Omit<Medicine, 'id'>;
 
 // ─── Helpers — mirrored from dispense page ─────────────────────────────────────
-function getDisplayName(m: Medicine): string  { return m.baseName || m.name || '—'; }
+function getDisplayName(m: Medicine): string { return m.baseName || m.name || '—'; }
 function getDisplayBrand(m: Medicine): string { return m.brandModel || m.brand || '—'; }
-function getCategory(m: Medicine): string     { return m.category || 'Unknown'; }
+function getCategory(m: Medicine): string { return m.category || 'Unknown'; }
 function getEffectiveStock(m: Medicine): number {
   return m.quantity ?? 0;
 }
@@ -68,7 +68,7 @@ function getMinStock(m: Medicine): number { return m.minStock ?? 0; }
  *   originalUnit   = originalUnit                     (e.g. "Boxes")
  */
 function getConversionLabel(m: Medicine): string | null {
-  const pcsPerUnit   = m.unitConversion?.conversionFactor;
+  const pcsPerUnit = m.unitConversion?.conversionFactor;
   const containerQty = m.containerQuantity;
   const originalUnit = m.originalUnit;
   if (!pcsPerUnit || !containerQty || !originalUnit) return null;
@@ -90,11 +90,11 @@ function getDaysUntilExpiry(expirationDate: string): number {
 }
 
 function getExpiryMilestone(days: number): { label: string; chipCls: string } | null {
-  if (days < 0)   return null;
-  if (days === 0) return { label: 'Expires Today',    chipCls: 'bg-red-100 text-red-700 border-red-300' };
+  if (days < 0) return null;
+  if (days === 0) return { label: 'Expires Today', chipCls: 'bg-red-100 text-red-700 border-red-300' };
   if (days === 1) return { label: 'Expires Tomorrow', chipCls: 'bg-red-100 text-red-700 border-red-300' };
-  if (days <= 7)  return { label: '1 week left',      chipCls: 'bg-orange-100 text-orange-700 border-orange-300' };
-  if (days <= 30) return { label: '1 month left',     chipCls: 'bg-yellow-100 text-yellow-700 border-yellow-300' };
+  if (days <= 7) return { label: '1 week left', chipCls: 'bg-orange-100 text-orange-700 border-orange-300' };
+  if (days <= 30) return { label: '1 month left', chipCls: 'bg-yellow-100 text-yellow-700 border-yellow-300' };
   return null;
 }
 
@@ -102,10 +102,10 @@ function getExpiryMilestone(days: number): { label: string; chipCls: string } | 
 type FieldStatus = 'out' | 'expired' | 'urgent' | 'expiring' | 'low' | 'in';
 
 function getMedicineStatus(m: Medicine): FieldStatus {
-  const stock    = getEffectiveStock(m);
+  const stock = getEffectiveStock(m);
   const minStock = getMinStock(m);
-  const exp      = m.expirationDate ? parseLocalDate(m.expirationDate) : null;
-  const today    = getTodayMidnight();
+  const exp = m.expirationDate ? parseLocalDate(m.expirationDate) : null;
+  const today = getTodayMidnight();
 
   if (stock === 0) return 'out';
   if (exp && exp < today) return 'expired';
@@ -134,23 +134,23 @@ function getMedicineFlags(m: Medicine): MedicineFlags {
   const status = getMedicineStatus(m);
   return {
     status,
-    isOut:      status === 'out',
-    isExpired:  status === 'expired',
+    isOut: status === 'out',
+    isExpired: status === 'expired',
     isExpiring: status === 'expiring',
-    isLow:      status === 'low',
-    isIn:       status === 'in',
-    isUrgent:   status === 'urgent',
+    isLow: status === 'low',
+    isIn: status === 'in',
+    isUrgent: status === 'urgent',
   };
 }
 
 function getStatusBadge(status: FieldStatus): { label: string; classes: string } {
   switch (status) {
-    case 'expired':  return { label: 'Expired',       classes: 'bg-red-100 text-red-700 border border-red-200' };
+    case 'expired': return { label: 'Expired', classes: 'bg-red-100 text-red-700 border border-red-200' };
     case 'expiring': return { label: 'Expiring Soon', classes: 'bg-orange-100 text-orange-700 border border-orange-200' };
-    case 'urgent':   return { label: 'Urgent Alert',  classes: 'bg-red-600 text-white border border-red-700 font-black animate-pulse' };
-    case 'out':      return { label: 'Out of Stock',  classes: 'bg-slate-100 text-slate-700 border border-slate-200' };
-    case 'low':      return { label: 'Low Stock',     classes: 'bg-yellow-100 text-yellow-700 border border-yellow-200' };
-    case 'in':       return { label: 'In Stock',      classes: 'bg-emerald-100 text-emerald-700 border border-emerald-200' };
+    case 'urgent': return { label: 'Urgent Alert', classes: 'bg-red-600 text-white border border-red-700 font-black animate-pulse' };
+    case 'out': return { label: 'Out of Stock', classes: 'bg-slate-100 text-slate-700 border border-slate-200' };
+    case 'low': return { label: 'Low Stock', classes: 'bg-yellow-100 text-yellow-700 border border-yellow-200' };
+    case 'in': return { label: 'In Stock', classes: 'bg-emerald-100 text-emerald-700 border border-emerald-200' };
   }
 }
 
@@ -160,12 +160,12 @@ function computeStatusCounts(medicines: Medicine[]): StatusCounts {
   let out = 0, expired = 0, expiring = 0, low = 0, inStock = 0, urgent = 0;
   for (const m of medicines) {
     const f = getMedicineFlags(m);
-    if      (f.isOut)      out++;
-    else if (f.isExpired)  expired++;
-    else if (f.isUrgent)   urgent++;
+    if (f.isOut) out++;
+    else if (f.isExpired) expired++;
+    else if (f.isUrgent) urgent++;
     else if (f.isExpiring) expiring++;
-    else if (f.isLow)      low++;
-    else                   inStock++;
+    else if (f.isLow) low++;
+    else inStock++;
   }
   return { out, expired, expiring, low, in: inStock, urgent };
 }
@@ -260,18 +260,18 @@ type FilterTab = 'urgent' | 'all' | 'in' | 'low' | 'expiring' | 'expired' | 'out
 const VALID_TABS: FilterTab[] = ['urgent', 'all', 'in', 'low', 'expiring', 'expired', 'out'];
 
 const TABS = [
-  { key: 'urgent'   as FilterTab, label: 'Urgent',   Icon: IconUrgent,   activeClass: 'bg-red-600 text-white border-red-600',        badgeClass: 'bg-red-400 text-white' },
-  { key: 'all'      as FilterTab, label: 'All',      Icon: IconAll,      activeClass: 'bg-slate-900 text-white border-slate-900',     badgeClass: 'bg-slate-700 text-white' },
-  { key: 'in'       as FilterTab, label: 'In Stock', Icon: IconInStock,  activeClass: 'bg-emerald-600 text-white border-emerald-600', badgeClass: 'bg-emerald-500 text-white' },
-  { key: 'low'      as FilterTab, label: 'Low',      Icon: IconLow,      activeClass: 'bg-yellow-500 text-white border-yellow-500',   badgeClass: 'bg-yellow-400 text-slate-900' },
-  { key: 'expiring' as FilterTab, label: 'Expiring', Icon: IconExpiring, activeClass: 'bg-orange-500 text-white border-orange-500',   badgeClass: 'bg-orange-400 text-white' },
-  { key: 'expired'  as FilterTab, label: 'Expired',  Icon: IconExpired,  activeClass: 'bg-red-700 text-white border-red-700',         badgeClass: 'bg-red-500 text-white' },
-  { key: 'out'      as FilterTab, label: 'Out',      Icon: IconOut,      activeClass: 'bg-slate-600 text-white border-slate-600',     badgeClass: 'bg-slate-500 text-white' },
+  { key: 'urgent' as FilterTab, label: 'Urgent', Icon: IconUrgent, activeClass: 'bg-red-600 text-white border-red-600', badgeClass: 'bg-red-400 text-white' },
+  { key: 'all' as FilterTab, label: 'All', Icon: IconAll, activeClass: 'bg-slate-900 text-white border-slate-900', badgeClass: 'bg-slate-700 text-white' },
+  { key: 'in' as FilterTab, label: 'In Stock', Icon: IconInStock, activeClass: 'bg-emerald-600 text-white border-emerald-600', badgeClass: 'bg-emerald-500 text-white' },
+  { key: 'low' as FilterTab, label: 'Low', Icon: IconLow, activeClass: 'bg-yellow-500 text-white border-yellow-500', badgeClass: 'bg-yellow-400 text-slate-900' },
+  { key: 'expiring' as FilterTab, label: 'Expiring', Icon: IconExpiring, activeClass: 'bg-orange-500 text-white border-orange-500', badgeClass: 'bg-orange-400 text-white' },
+  { key: 'expired' as FilterTab, label: 'Expired', Icon: IconExpired, activeClass: 'bg-red-700 text-white border-red-700', badgeClass: 'bg-red-500 text-white' },
+  { key: 'out' as FilterTab, label: 'Out', Icon: IconOut, activeClass: 'bg-slate-600 text-white border-slate-600', badgeClass: 'bg-slate-500 text-white' },
 ];
 
 // ─── Shared expiry display row ────────────────────────────────────────────────
 function ExpiryRow({ expirationDate }: { expirationDate: string }) {
-  const days      = getDaysUntilExpiry(expirationDate);
+  const days = getDaysUntilExpiry(expirationDate);
   const milestone = getExpiryMilestone(days);
   const dateLabel = parseLocalDate(expirationDate).toLocaleDateString('en-US', {
     month: 'short', day: 'numeric', year: 'numeric',
@@ -311,7 +311,7 @@ function ConversionChip({ medicine }: { medicine: Medicine }) {
 
 // ─── Urgent Card ──────────────────────────────────────────────────────────────
 function UrgentCard({ medicine }: { medicine: Medicine }) {
-  const stock    = getEffectiveStock(medicine);
+  const stock = getEffectiveStock(medicine);
   const minStock = getMinStock(medicine);
   // When a unit conversion exists, getEffectiveStock() returns stockPerUnit which is in
   // the CONVERTED unit (Tablets/Pieces), NOT the container (Boxes). The container count
@@ -384,9 +384,9 @@ function UrgentCard({ medicine }: { medicine: Medicine }) {
 
 // ─── Standard notification card ───────────────────────────────────────────────
 function MedicineNotificationCard({ medicine }: { medicine: Medicine }) {
-  const flags    = getMedicineFlags(medicine);
-  const badge    = getStatusBadge(flags.status);
-  const stock    = getEffectiveStock(medicine);
+  const flags = getMedicineFlags(medicine);
+  const badge = getStatusBadge(flags.status);
+  const stock = getEffectiveStock(medicine);
   const minStock = getMinStock(medicine);
   // Same fix as UrgentCard: stockPerUnit is in converted units (Tablets), not containers (Boxes).
   const hasConversion = !!(medicine.unitConversion?.conversionFactor && medicine.originalUnit);
@@ -397,19 +397,19 @@ function MedicineNotificationCard({ medicine }: { medicine: Medicine }) {
   const milestone = daysUntilExpiry !== null ? getExpiryMilestone(daysUntilExpiry) : null;
 
   const cardBorder =
-    flags.status === 'expired'  ? 'border-red-200 bg-red-50/40' :
-    flags.status === 'expiring' ? 'border-orange-200 bg-orange-50/40' :
-    flags.status === 'out'      ? 'border-slate-200 bg-slate-50/40' :
-    flags.status === 'low'      ? 'border-yellow-200 bg-yellow-50/40' :
-                                  'border-emerald-200 bg-emerald-50/20';
+    flags.status === 'expired' ? 'border-red-200 bg-red-50/40' :
+      flags.status === 'expiring' ? 'border-orange-200 bg-orange-50/40' :
+        flags.status === 'out' ? 'border-slate-200 bg-slate-50/40' :
+          flags.status === 'low' ? 'border-yellow-200 bg-yellow-50/40' :
+            'border-emerald-200 bg-emerald-50/20';
 
-  const barPct   = minStock > 0 ? Math.min((stock / minStock) * 100, 100) : null;
+  const barPct = minStock > 0 ? Math.min((stock / minStock) * 100, 100) : null;
   const barColor =
-    flags.status === 'out'      ? 'bg-slate-400' :
-    flags.status === 'low'      ? 'bg-yellow-500' :
-    flags.status === 'expiring' ? 'bg-orange-500' :
-    flags.status === 'expired'  ? 'bg-red-400' :
-    'bg-emerald-500';
+    flags.status === 'out' ? 'bg-slate-400' :
+      flags.status === 'low' ? 'bg-yellow-500' :
+        flags.status === 'expiring' ? 'bg-orange-500' :
+          flags.status === 'expired' ? 'bg-red-400' :
+            'bg-emerald-500';
 
   return (
     <div className={`flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-4 rounded-xl border ${cardBorder} hover:shadow-sm transition-all`}>
@@ -498,11 +498,11 @@ function MedicineNotificationCard({ medicine }: { medicine: Medicine }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function NotificationsPage() {
   const { user, loading: authLoading } = useAuth();
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
-  const [loading,   setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
 
   const paramTab = searchParams.get('tab') as FilterTab | null;
   const [activeTab, setActiveTab] = useState<FilterTab>(
@@ -527,39 +527,39 @@ export default function NotificationsPage() {
     });
   }, [user]);
 
-  const counts  = computeStatusCounts(medicines);
+  const counts = computeStatusCounts(medicines);
   const flagged = medicines.map((m) => ({ m, f: getMedicineFlags(m) }));
 
   const tabMedicines: Record<FilterTab, Medicine[]> = {
-    urgent:   flagged.filter((x) => x.f.isUrgent).map((x) => x.m),
-    all:      medicines,
-    in:       flagged.filter((x) => x.f.isIn).map((x) => x.m),
-    low:      flagged.filter((x) => x.f.isLow).map((x) => x.m),
+    urgent: flagged.filter((x) => x.f.isUrgent).map((x) => x.m),
+    all: medicines,
+    in: flagged.filter((x) => x.f.isIn).map((x) => x.m),
+    low: flagged.filter((x) => x.f.isLow).map((x) => x.m),
     expiring: flagged.filter((x) => x.f.isExpiring).map((x) => x.m),
-    expired:  flagged.filter((x) => x.f.isExpired).map((x) => x.m),
-    out:      flagged.filter((x) => x.f.isOut).map((x) => x.m),
+    expired: flagged.filter((x) => x.f.isExpired).map((x) => x.m),
+    out: flagged.filter((x) => x.f.isOut).map((x) => x.m),
   };
 
   const tabCounts: Record<FilterTab, number> = {
-    urgent:   counts.urgent,
-    all:      medicines.length,
-    in:       counts.in,
-    low:      counts.low,
+    urgent: counts.urgent,
+    all: medicines.length,
+    in: counts.in,
+    low: counts.low,
     expiring: counts.expiring,
-    expired:  counts.expired,
-    out:      counts.out,
+    expired: counts.expired,
+    out: counts.out,
   };
 
   const alertCount = counts.out + counts.expired + counts.expiring + counts.low;
-  const displayed  = tabMedicines[activeTab];
+  const displayed = tabMedicines[activeTab];
 
   const summaryCards = [
-    { tab: 'urgent'   as FilterTab, label: 'Urgent',        sub: 'Low + expiring',  count: counts.urgent,   activeBg: 'bg-red-50 border-red-300',        numCls: 'text-red-600',     lblCls: 'text-red-700' },
-    { tab: 'in'       as FilterTab, label: 'In Stock',      sub: 'Available now',   count: counts.in,       activeBg: 'bg-emerald-50 border-emerald-200', numCls: 'text-emerald-600', lblCls: 'text-emerald-700' },
-    { tab: 'low'      as FilterTab, label: 'Low Stock',     sub: 'Below minimum',   count: counts.low,      activeBg: 'bg-yellow-50 border-yellow-200',  numCls: 'text-yellow-600',  lblCls: 'text-yellow-700' },
-    { tab: 'expiring' as FilterTab, label: 'Expiring Soon', sub: 'Within 30 days',  count: counts.expiring, activeBg: 'bg-orange-50 border-orange-200',  numCls: 'text-orange-600',  lblCls: 'text-orange-700' },
-    { tab: 'expired'  as FilterTab, label: 'Expired',       sub: 'Past expiry',     count: counts.expired,  activeBg: 'bg-red-50 border-red-200',        numCls: 'text-red-600',     lblCls: 'text-red-700' },
-    { tab: 'out'      as FilterTab, label: 'Out of Stock',  sub: 'Zero stock',      count: counts.out,      activeBg: 'bg-slate-100 border-slate-300',   numCls: 'text-slate-700',   lblCls: 'text-slate-800' },
+    { tab: 'urgent' as FilterTab, label: 'Urgent', sub: 'Low + expiring', count: counts.urgent, activeBg: 'bg-red-50 border-red-300', numCls: 'text-red-600', lblCls: 'text-red-700' },
+    { tab: 'in' as FilterTab, label: 'In Stock', sub: 'Available now', count: counts.in, activeBg: 'bg-emerald-50 border-emerald-200', numCls: 'text-emerald-600', lblCls: 'text-emerald-700' },
+    { tab: 'low' as FilterTab, label: 'Low Stock', sub: 'Below minimum', count: counts.low, activeBg: 'bg-yellow-50 border-yellow-200', numCls: 'text-yellow-600', lblCls: 'text-yellow-700' },
+    { tab: 'expiring' as FilterTab, label: 'Expiring Soon', sub: 'Within 30 days', count: counts.expiring, activeBg: 'bg-orange-50 border-orange-200', numCls: 'text-orange-600', lblCls: 'text-orange-700' },
+    { tab: 'expired' as FilterTab, label: 'Expired', sub: 'Past expiry', count: counts.expired, activeBg: 'bg-red-50 border-red-200', numCls: 'text-red-600', lblCls: 'text-red-700' },
+    { tab: 'out' as FilterTab, label: 'Out of Stock', sub: 'Zero stock', count: counts.out, activeBg: 'bg-slate-100 border-slate-300', numCls: 'text-slate-700', lblCls: 'text-slate-800' },
   ];
 
   if (loading) {
@@ -634,7 +634,7 @@ export default function NotificationsPage() {
         <div className="mb-6 overflow-x-auto pb-1">
           <div className="flex gap-2 min-w-max">
             {TABS.map((tab) => {
-              const count    = tabCounts[tab.key];
+              const count = tabCounts[tab.key];
               const isActive = activeTab === tab.key;
               return (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -676,8 +676,8 @@ export default function NotificationsPage() {
                 {activeTab === 'urgent'
                   ? 'No medicines are both low stock and expiring. Great job!'
                   : activeTab === 'in'
-                  ? 'Add medicines to your inventory to see them here.'
-                  : 'Nothing to worry about in this category.'}
+                    ? 'Add medicines to your inventory to see them here.'
+                    : 'Nothing to worry about in this category.'}
               </p>
             </div>
           ) : activeTab === 'urgent' ? (

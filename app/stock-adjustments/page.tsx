@@ -83,13 +83,13 @@ function normalizeMedicineForStatus(medicine: Medicine): Medicine {
   const stock = getCurrentStock(medicine);
   return {
     ...medicine,
-    quantity:        stock,
-    stockPerUnit:    stock,
-    stockPerPieces:  stock,
-    totalPieces:     stock,
+    quantity: stock,
+    stockPerUnit: stock,
+    stockPerPieces: stock,
+    totalPieces: stock,
     // Null these out so the status function cannot re-divide by conversionFactor
-    unitConversion:  null,
-    piecesPerUnit:   undefined,
+    unitConversion: null,
+    piecesPerUnit: undefined,
     containerQuantity: undefined,
   };
 }
@@ -106,13 +106,13 @@ function formatDateTime(iso: string): string {
 /** How long ago (relative label) */
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
-  const mins  = Math.floor(diff / 60_000);
-  const hrs   = Math.floor(diff / 3_600_000);
-  const days  = Math.floor(diff / 86_400_000);
-  if (mins  < 1)  return 'just now';
-  if (mins  < 60) return `${mins}m ago`;
-  if (hrs   < 24) return `${hrs}h ago`;
-  if (days  < 7)  return `${days}d ago`;
+  const mins = Math.floor(diff / 60_000);
+  const hrs = Math.floor(diff / 3_600_000);
+  const days = Math.floor(diff / 86_400_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
@@ -121,10 +121,10 @@ function timeAgo(iso: string): string {
 // ---------------------------------------------------------------------------
 
 interface UnitConversion {
-  packagingUnit?:    string;
-  conversionUnit?:   string;
+  packagingUnit?: string;
+  conversionUnit?: string;
   conversionFactor?: number;
-  customUnitName?:   string;
+  customUnitName?: string;
 }
 
 interface MedicineBatch {
@@ -182,7 +182,7 @@ interface StockAdjustment {
   newSellingPrice?: number;
 }
 
-type MedicineRecord        = Omit<Medicine, 'id'>;
+type MedicineRecord = Omit<Medicine, 'id'>;
 type StockAdjustmentRecord = Omit<StockAdjustment, 'id' | 'medicineId'>;
 
 // ---------------------------------------------------------------------------
@@ -203,50 +203,48 @@ function HistoryCard({
   onDelete,
   setEditData,
 }: {
-  adjustment:     StockAdjustment;
-  index:          number;
-  total:          number;
-  isEditing:      boolean;
-  editData:       { quantity: string; expirationDate: string };
+  adjustment: StockAdjustment;
+  index: number;
+  total: number;
+  isEditing: boolean;
+  editData: { quantity: string; expirationDate: string };
   inputUnitLabel: string;
-  onEdit:         () => void;
-  onCancelEdit:   () => void;
-  onSaveEdit:     () => void;
-  onDelete:       () => void;
-  setEditData:    (d: { quantity: string; expirationDate: string }) => void;
+  onEdit: () => void;
+  onCancelEdit: () => void;
+  onSaveEdit: () => void;
+  onDelete: () => void;
+  setEditData: (d: { quantity: string; expirationDate: string }) => void;
 }) {
-  const isPositive   = adjustment.quantity > 0;
-  const isZero       = adjustment.quantity === 0;
+  const isPositive = adjustment.quantity > 0;
+  const isZero = adjustment.quantity === 0;
   const isExpiryOnly = isZero && !!adjustment.expirationDate;
 
-  const hasSnapshot     = adjustment.stockAfter !== undefined;
-  const stockAfterDisp  = hasSnapshot ? adjustment.stockAfter! : null;
+  const hasSnapshot = adjustment.stockAfter !== undefined;
+  const stockAfterDisp = hasSnapshot ? adjustment.stockAfter! : null;
   const stockBeforeDisp = hasSnapshot ? adjustment.stockBefore : null;
 
   return (
-    <div className={`relative bg-white border-2 rounded-2xl overflow-hidden transition-all hover:shadow-lg ${
-      isEditing
-        ? 'border-blue-400 shadow-lg'
-        : adjustment.priceAdjustment
-          ? 'border-rose-200 hover:border-rose-300'
-          : isExpiryOnly
-            ? 'border-orange-200 hover:border-orange-300'
-            : isPositive
-              ? 'border-emerald-200 hover:border-emerald-300'
-              : isZero
-                ? 'border-slate-200'
-                : 'border-red-200 hover:border-red-300'
-    }`}>
+    <div className={`relative bg-white border-2 rounded-2xl overflow-hidden transition-all hover:shadow-lg ${isEditing
+      ? 'border-blue-400 shadow-lg'
+      : adjustment.priceAdjustment
+        ? 'border-rose-200 hover:border-rose-300'
+        : isExpiryOnly
+          ? 'border-orange-200 hover:border-orange-300'
+          : isPositive
+            ? 'border-emerald-200 hover:border-emerald-300'
+            : isZero
+              ? 'border-slate-200'
+              : 'border-red-200 hover:border-red-300'
+      }`}>
 
       {/* Colour strip at top */}
-      <div className={`h-1.5 w-full ${
-        isEditing               ? 'bg-blue-500'
+      <div className={`h-1.5 w-full ${isEditing ? 'bg-blue-500'
         : adjustment.priceAdjustment ? 'bg-rose-400'
-        : isExpiryOnly          ? 'bg-orange-400'
-        : isPositive            ? 'bg-emerald-400'
-        : isZero                ? 'bg-slate-300'
-        :                         'bg-red-400'
-      }`} />
+          : isExpiryOnly ? 'bg-orange-400'
+            : isPositive ? 'bg-emerald-400'
+              : isZero ? 'bg-slate-300'
+                : 'bg-red-400'
+        }`} />
 
       <div className="p-4">
 
@@ -261,9 +259,8 @@ function HistoryCard({
 
             {/* Delta badge */}
             {!isExpiryOnly && !isZero && (
-              <span className={`text-sm font-black px-3 py-1 rounded-full ${
-                isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
-              }`}>
+              <span className={`text-sm font-black px-3 py-1 rounded-full ${isPositive ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                }`}>
                 {isPositive ? '+' : ''}{adjustment.quantity} {inputUnitLabel}
               </span>
             )}
@@ -302,11 +299,10 @@ function HistoryCard({
                   ₱{adjustment.newUnitCost.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                 </span>
                 {adjustment.newUnitCost !== adjustment.prevUnitCost && (
-                  <span className={`font-bold px-1.5 py-0.5 rounded-full text-[10px] ${
-                    adjustment.newUnitCost > adjustment.prevUnitCost
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-green-100 text-green-700'
-                  }`}>
+                  <span className={`font-bold px-1.5 py-0.5 rounded-full text-[10px] ${adjustment.newUnitCost > adjustment.prevUnitCost
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-green-100 text-green-700'
+                    }`}>
                     {adjustment.newUnitCost > adjustment.prevUnitCost ? '▲' : '▼'}{' '}
                     ₱{Math.abs(adjustment.newUnitCost - adjustment.prevUnitCost).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                   </span>
@@ -326,11 +322,10 @@ function HistoryCard({
                   ₱{adjustment.newSellingPrice.toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                 </span>
                 {adjustment.newSellingPrice !== adjustment.prevSellingPrice && (
-                  <span className={`font-bold px-1.5 py-0.5 rounded-full text-[10px] ${
-                    adjustment.newSellingPrice > adjustment.prevSellingPrice
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-green-100 text-green-700'
-                  }`}>
+                  <span className={`font-bold px-1.5 py-0.5 rounded-full text-[10px] ${adjustment.newSellingPrice > adjustment.prevSellingPrice
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-green-100 text-green-700'
+                    }`}>
                     {adjustment.newSellingPrice > adjustment.prevSellingPrice ? '▲' : '▼'}{' '}
                     ₱{Math.abs(adjustment.newSellingPrice - adjustment.prevSellingPrice).toLocaleString('en-PH', { minimumFractionDigits: 2 })}
                   </span>
@@ -474,33 +469,33 @@ export default function StockAdjustmentsPage() {
   const { } = useSidebar();
   const router = useRouter();
 
-  const [medicines,            setMedicines]            = useState<Medicine[]>([]);
-  const [searchTerm,           setSearchTerm]           = useState('');
-  const [selectedMedicineId,   setSelectedMedicineId]   = useState('');
-  const [quantityInput,        setQuantityInput]        = useState('');
-  const [expirationDate,       setExpirationDate]       = useState('');
-  const [minStockValue,        setMinStockValue]        = useState('');
-  const [adjustmentType,       setAdjustmentType]       = useState<'stock' | 'expiration' | 'both' | 'minstock' | 'price'>('stock');
-  const [unitCostValue,        setUnitCostValue]        = useState('');
-  const [sellingPriceValue,    setSellingPriceValue]    = useState('');
-  const [isSubmitting,         setIsSubmitting]         = useState(false);
-  const [notification,         setNotification]         = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [history,              setHistory]              = useState<StockAdjustment[]>([]);
-  const [originalStock,        setOriginalStock]        = useState<number | null>(null);
-  const [editingId,            setEditingId]            = useState<string | null>(null);
-  const [editData,             setEditData]             = useState<{ quantity: string; expirationDate: string }>({ quantity: '', expirationDate: '' });
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMedicineId, setSelectedMedicineId] = useState('');
+  const [quantityInput, setQuantityInput] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+  const [minStockValue, setMinStockValue] = useState('');
+  const [adjustmentType, setAdjustmentType] = useState<'stock' | 'expiration' | 'both' | 'minstock' | 'price'>('stock');
+  const [unitCostValue, setUnitCostValue] = useState('');
+  const [sellingPriceValue, setSellingPriceValue] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [history, setHistory] = useState<StockAdjustment[]>([]);
+  const [originalStock, setOriginalStock] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editData, setEditData] = useState<{ quantity: string; expirationDate: string }>({ quantity: '', expirationDate: '' });
 
-  const [historyFilter,        setHistoryFilter]        = useState<'all' | 'stock' | 'expiry'>('all');
-  const [historyDateFrom,      setHistoryDateFrom]      = useState('');
-  const [historyDateTo,        setHistoryDateTo]        = useState('');
-  const [historyExpanded,      setHistoryExpanded]      = useState(true);
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'stock' | 'expiry'>('all');
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+  const [historyExpanded, setHistoryExpanded] = useState(true);
 
   const [isDeleteAdjustmentConfirmOpen, setIsDeleteAdjustmentConfirmOpen] = useState(false);
-  const [pendingDeleteAdjustmentId,     setPendingDeleteAdjustmentId]     = useState<string | null>(null);
-  const [isDeleteMedicineConfirmOpen,   setIsDeleteMedicineConfirmOpen]   = useState(false);
-  const [pendingDeleteMedicineId,       setPendingDeleteMedicineId]       = useState<string | null>(null);
-  const [isDeleting,           setIsDeleting]           = useState(false);
-  const [isDeletingMedicine,   setIsDeletingMedicine]   = useState(false);
+  const [pendingDeleteAdjustmentId, setPendingDeleteAdjustmentId] = useState<string | null>(null);
+  const [isDeleteMedicineConfirmOpen, setIsDeleteMedicineConfirmOpen] = useState(false);
+  const [pendingDeleteMedicineId, setPendingDeleteMedicineId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeletingMedicine, setIsDeletingMedicine] = useState(false);
   const [isDeletingAdjustment, setIsDeletingAdjustment] = useState(false);
   const [isUpdatingAdjustment, setIsUpdatingAdjustment] = useState(false);
   const [isAdjustmentConfirmOpen, setIsAdjustmentConfirmOpen] = useState(false);
@@ -529,36 +524,36 @@ export default function StockAdjustmentsPage() {
 
           return {
             id,
-            name:              v.name,
-            baseName:          v.baseName,
-            brandModel:        v.brandModel,
-            unit:              v.unit              || '',
-            category:          v.category          || '',
-            originalUnit:      v.originalUnit      || '',
-            brand:             v.brand             || '',
-            image:             v.image             || '',
-            description:       v.description       || '',
+            name: v.name,
+            baseName: v.baseName,
+            brandModel: v.brandModel,
+            unit: v.unit || '',
+            category: v.category || '',
+            originalUnit: v.originalUnit || '',
+            brand: v.brand || '',
+            image: v.image || '',
+            description: v.description || '',
             // All three stock fields are unified to the canonical value so that
             // getMedicineOverallStatus() always reads the correct number
             // regardless of which field it happens to check internally.
-            quantity:          canonicalStock,
-            stockPerUnit:      canonicalStock,
-            stockPerPieces:    canonicalStock,
+            quantity: canonicalStock,
+            stockPerUnit: canonicalStock,
+            stockPerPieces: canonicalStock,
             // Keep piecesPerUnit for display hints but normalizeMedicineForStatus
             // will strip it before any status comparison.
-            piecesPerUnit:     v.piecesPerUnit,
-            totalPieces:       canonicalStock,
+            piecesPerUnit: v.piecesPerUnit,
+            totalPieces: canonicalStock,
             containerQuantity: v.containerQuantity,
-            unitConversion:    v.unitConversion    ?? null,
-            pricePerUnit:      v.pricePerUnit   ?? v.unitCost      ?? 0,
-            pricePerPieces:    v.pricePerPieces ?? v.sellingPrice  ?? 0,
-            unitCost:          v.unitCost      ?? v.pricePerUnit  ?? 0,
-            sellingPrice:      v.sellingPrice  ?? v.pricePerPieces ?? 0,
-            minStock:          v.minStock          ?? 0,
-            expirationDate:    v.expirationDate    || '',
-            createdAt:         v.createdAt         || new Date().toISOString(),
-            strength:          v.strength,
-            strengths:         v.strengths,
+            unitConversion: v.unitConversion ?? null,
+            pricePerUnit: v.pricePerUnit ?? v.unitCost ?? 0,
+            pricePerPieces: v.pricePerPieces ?? v.sellingPrice ?? 0,
+            unitCost: v.unitCost ?? v.pricePerUnit ?? 0,
+            sellingPrice: v.sellingPrice ?? v.pricePerPieces ?? 0,
+            minStock: v.minStock ?? 0,
+            expirationDate: v.expirationDate || '',
+            createdAt: v.createdAt || new Date().toISOString(),
+            strength: v.strength,
+            strengths: v.strengths,
             prescriptionRequired: v.prescriptionRequired,
           };
         });
@@ -639,32 +634,32 @@ export default function StockAdjustmentsPage() {
     }
   }, [medicines, selectedMedicineId]);
 
-  const selectedMedicine   = medicines.find((m) => m.id === selectedMedicineId);
+  const selectedMedicine = medicines.find((m) => m.id === selectedMedicineId);
 
   /**
    * For display and input purposes, inputUnitLabel is the STORED unit
    * (e.g. "Tablets" when converted, or "Boxes" when not).
    * All arithmetic is done in this same unit — no factor multiplication needed.
    */
-  const inputUnitLabel     = selectedMedicine ? getInputUnitLabel(selectedMedicine)     : 'Unit';
-  const originalUnitLabel  = selectedMedicine ? getOriginalUnitLabel(selectedMedicine)  : null;
-  const conversionFactor   = selectedMedicine ? getConversionFactor(selectedMedicine)   : 1;
-  const hasConversion      = conversionFactor > 1 && !!selectedMedicine?.unitConversion;
+  const inputUnitLabel = selectedMedicine ? getInputUnitLabel(selectedMedicine) : 'Unit';
+  const originalUnitLabel = selectedMedicine ? getOriginalUnitLabel(selectedMedicine) : null;
+  const conversionFactor = selectedMedicine ? getConversionFactor(selectedMedicine) : 1;
+  const hasConversion = conversionFactor > 1 && !!selectedMedicine?.unitConversion;
 
   // Current stock is always in the stored/display unit (Tablets, not Boxes)
   const currentStock = selectedMedicine ? getCurrentStock(selectedMedicine) : 0;
 
-  const inputQty    = Number(quantityInput) || 0;
-  const newStock    = currentStock + inputQty;
+  const inputQty = Number(quantityInput) || 0;
+  const newStock = currentStock + inputQty;
 
   // ── Filtered history ──────────────────────────────────────────────────────
   const filteredHistory = useMemo(() => {
     return history.filter((a) => {
-      if (historyFilter === 'stock'  && a.quantity === 0) return false;
+      if (historyFilter === 'stock' && a.quantity === 0) return false;
       if (historyFilter === 'expiry' && !(a.quantity === 0 && a.expirationDate)) return false;
 
       if (historyDateFrom || historyDateTo) {
-        const ts     = new Date(a.timestamp);
+        const ts = new Date(a.timestamp);
         const tsDate = new Date(ts.getFullYear(), ts.getMonth(), ts.getDate());
         if (historyDateFrom) {
           const [fy, fm, fd] = historyDateFrom.split('-').map(Number);
@@ -680,12 +675,12 @@ export default function StockAdjustmentsPage() {
   }, [history, historyFilter, historyDateFrom, historyDateTo]);
 
   // ── Summary stats ─────────────────────────────────────────────────────────
-  const totalAdded    = history.filter(a => a.quantity > 0).reduce((s, a) => s + a.quantity, 0);
-  const totalRemoved  = history.filter(a => a.quantity < 0).reduce((s, a) => s + Math.abs(a.quantity), 0);
+  const totalAdded = history.filter(a => a.quantity > 0).reduce((s, a) => s + a.quantity, 0);
+  const totalRemoved = history.filter(a => a.quantity < 0).reduce((s, a) => s + Math.abs(a.quantity), 0);
   const expiryUpdates = history.filter(a => a.quantity === 0 && a.expirationDate).length;
 
   const filteredMedicines = medicines.filter((m) =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase())  ||
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
     m.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -703,7 +698,7 @@ export default function StockAdjustmentsPage() {
     }
     if (adjustmentType === 'price') {
       if (
-        (unitCostValue     === '' || isNaN(Number(unitCostValue))     || Number(unitCostValue)     < 0) &&
+        (unitCostValue === '' || isNaN(Number(unitCostValue)) || Number(unitCostValue) < 0) &&
         (sellingPriceValue === '' || isNaN(Number(sellingPriceValue)) || Number(sellingPriceValue) < 0)
       ) return;
     }
@@ -719,20 +714,20 @@ export default function StockAdjustmentsPage() {
       const snap = await get(ref(database, medicinePath));
       if (!snap.exists()) throw new Error('Medicine not found');
       const liveMed = snap.val() as {
-        quantity?:       number;
-        stockPerUnit?:   number;
-        unitCost?:       number;
-        sellingPrice?:   number;
+        quantity?: number;
+        stockPerUnit?: number;
+        unitCost?: number;
+        sellingPrice?: number;
         unitConversion?: { conversionFactor?: number } | null;
-        piecesPerUnit?:  number;
-        [key: string]:   unknown;
+        piecesPerUnit?: number;
+        [key: string]: unknown;
       };
 
       /**
        * Canonical current stock — always in the stored unit (Tablets when
        * converted, original unit otherwise).  Same priority as getCurrentStock().
        */
-      const liveStock  = liveMed.quantity ?? liveMed.stockPerUnit ?? 0;
+      const liveStock = liveMed.quantity ?? liveMed.stockPerUnit ?? 0;
       const liveUnitCost = liveMed.unitCost ?? 0;
 
       if (adjustmentType === 'stock' || adjustmentType === 'both') {
@@ -743,37 +738,37 @@ export default function StockAdjustmentsPage() {
         const newStockValue = liveStock + inputQty;
 
         // Write to both fields so every page stays in sync
-        updates[`${medicinePath}/quantity`]     = newStockValue;
+        updates[`${medicinePath}/quantity`] = newStockValue;
         updates[`${medicinePath}/stockPerUnit`] = newStockValue;
 
         const effectiveUnitCost = unitCostValue !== '' ? Number(unitCostValue) : liveUnitCost;
-        updates[`${medicinePath}/totalCost`]    = newStockValue * effectiveUnitCost;
+        updates[`${medicinePath}/totalCost`] = newStockValue * effectiveUnitCost;
 
         /**
          * totalPieces: since stock IS already in the piece/converted unit,
          * totalPieces === newStockValue. No further multiplication.
          */
-        updates[`${medicinePath}/totalPieces`]  = newStockValue;
+        updates[`${medicinePath}/totalPieces`] = newStockValue;
 
         // Log transaction
         const transactionsPath = getUserPath(user.uid, 'transactions');
         const transRef = push(ref(database, transactionsPath));
         updates[`${transactionsPath}/${transRef.key}`] = {
-          date:          now,
-          type:          'adjustment',
-          medicineId:    selectedMedicineId,
-          quantity:      inputQty,
+          date: now,
+          type: 'adjustment',
+          medicineId: selectedMedicineId,
+          quantity: inputQty,
           previousStock: liveStock,
-          newStock:      newStockValue,
-          unitCost:      liveUnitCost,
-          notes:         `Stock adjusted manually: ${adjustmentType}`,
+          newStock: newStockValue,
+          unitCost: liveUnitCost,
+          notes: `Stock adjusted manually: ${adjustmentType}`,
         };
 
         // Handle batch creation for new restocks
         if (inputQty > 0) {
           // Determine the expiration date for this batch
           let batchExpiration = null;
-          
+
           if (expirationDate) {
             // User explicitly set expiration for this restock
             batchExpiration = expirationDate;
@@ -781,7 +776,7 @@ export default function StockAdjustmentsPage() {
             // Fall back to existing expiration date
             batchExpiration = liveMed.expirationDate;
           }
-          
+
           // Create batch if we have an expiration date
           if (batchExpiration) {
             const batchId = `batch_${Date.now()}`;
@@ -793,7 +788,7 @@ export default function StockAdjustmentsPage() {
 
             // Collect ALL expirations to find earliest
             const allExpirations: string[] = [];
-            
+
             // Add existing batches' expirations
             if (liveMed.batches && typeof liveMed.batches === 'object') {
               Object.values(liveMed.batches).forEach((batch: Record<string, unknown>) => {
@@ -802,17 +797,17 @@ export default function StockAdjustmentsPage() {
                 }
               });
             }
-            
+
             // Add the medicine's current expirationDate (legacy data from before batches)
             if (liveMed.expirationDate && typeof liveMed.expirationDate === 'string' && !allExpirations.includes(liveMed.expirationDate)) {
               allExpirations.push(liveMed.expirationDate);
             }
-            
+
             // Add the new batch's expiration
             if (batchExpiration && typeof batchExpiration === 'string') {
               allExpirations.push(batchExpiration);
             }
-            
+
             // Find earliest expiration from ALL sources
             if (allExpirations.length > 0) {
               // Sort dates properly (converting to Date objects for comparison)
@@ -820,7 +815,7 @@ export default function StockAdjustmentsPage() {
                 return new Date(a).getTime() - new Date(b).getTime();
               }) as string[];
               const earliestExp: string = sortedDates[0];
-              
+
               // Ensure the date is properly formatted when saved
               const normalizedDate = new Date(earliestExp).toISOString().split('T')[0]; // YYYY-MM-DD format
               updates[`${medicinePath}/expirationDate`] = normalizedDate;
@@ -841,7 +836,7 @@ export default function StockAdjustmentsPage() {
       }
 
       if (adjustmentType === 'price') {
-        if (unitCostValue     !== '') updates[`${medicinePath}/unitCost`]     = Number(unitCostValue);
+        if (unitCostValue !== '') updates[`${medicinePath}/unitCost`] = Number(unitCostValue);
         if (sellingPriceValue !== '') updates[`${medicinePath}/sellingPrice`] = Number(sellingPriceValue);
       }
 
@@ -851,16 +846,16 @@ export default function StockAdjustmentsPage() {
       const stockAdjustmentsPath = getUserPath(user.uid, `stockAdjustments/${selectedMedicineId}`);
       const adjustmentRef = push(ref(database, stockAdjustmentsPath));
       updates[`${stockAdjustmentsPath}/${adjustmentRef.key}`] = {
-        type:           adjustmentType,
-        quantity:       (adjustmentType === 'stock' || adjustmentType === 'both') ? inputQty : 0,
+        type: adjustmentType,
+        quantity: (adjustmentType === 'stock' || adjustmentType === 'both') ? inputQty : 0,
         expirationDate: (adjustmentType === 'stock' || adjustmentType === 'expiration' || adjustmentType === 'both') && expirationDate ? expirationDate : null,
-        minStock:       adjustmentType === 'minstock'  ? Number(minStockValue) : null,
-        unitCost:       adjustmentType === 'price'     ? (unitCostValue     !== '' ? Number(unitCostValue)     : liveMed.unitCost)     : null,
-        sellingPrice:   adjustmentType === 'price'     ? (sellingPriceValue !== '' ? Number(sellingPriceValue) : liveMed.sellingPrice) : null,
-        stockBefore:    liveStock,
+        minStock: adjustmentType === 'minstock' ? Number(minStockValue) : null,
+        unitCost: adjustmentType === 'price' ? (unitCostValue !== '' ? Number(unitCostValue) : liveMed.unitCost) : null,
+        sellingPrice: adjustmentType === 'price' ? (sellingPriceValue !== '' ? Number(sellingPriceValue) : liveMed.sellingPrice) : null,
+        stockBefore: liveStock,
         stockAfter: (adjustmentType === 'stock' || adjustmentType === 'both') ? liveStock + inputQty : null,
-        timestamp:      now,
-        note:           `Manual adjustment: ${adjustmentType}`,
+        timestamp: now,
+        note: `Manual adjustment: ${adjustmentType}`,
       };
 
       await update(ref(database), updates);
@@ -873,14 +868,92 @@ export default function StockAdjustmentsPage() {
           'stock_adjusted',
           user.uid,
           user.email || '',
-          `Stock adjusted for ${medicineName}: ${liveStock} → ${newStockValue} (${inputQty > 0 ? '+' : ''}${inputQty} ${inputUnitLabel})`,
+          `Adjusted stock: ${medicineName} — ${liveStock} → ${newStockValue} (${inputQty > 0 ? '+' : ''}${inputQty} ${inputUnitLabel})`,
           {
-            medicineId:    selectedMedicineId,
-            medicineName:  medicineName,
-            quantity:      Math.abs(inputQty),
+            medicineId: selectedMedicineId,
+            medicineName: medicineName,
+            quantity: Math.abs(inputQty),
             previousValue: liveStock,
-            newValue:      newStockValue,
-            reason:        adjustmentType === 'both' ? 'Stock and expiration adjustment' : 'Manual stock adjustment',
+            newValue: newStockValue,
+            reason: 'Stock adjustment',
+          },
+          staffName || adminName || user.email || undefined,
+          role || undefined,
+        );
+      }
+
+      // Log expiration adjustment activity
+      if ((adjustmentType === 'expiration' || adjustmentType === 'both') && expirationDate && user) {
+        const medicineName = selectedMedicine?.baseName || selectedMedicine?.name || 'Unknown';
+        const oldExpirationDate = selectedMedicine?.expirationDate || 'Not set';
+        const newExpirationDateFormatted = new Date(expirationDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        await logActivity(
+          'stock_adjusted',
+          user.uid,
+          user.email || '',
+          `Adjusted expiration: ${medicineName} — ${oldExpirationDate} → ${newExpirationDateFormatted}`,
+          {
+            medicineId: selectedMedicineId,
+            medicineName: medicineName,
+            previousValue: oldExpirationDate,
+            newValue: newExpirationDateFormatted,
+            reason: 'Expiration date adjustment',
+          },
+          staffName || adminName || user.email || undefined,
+          role || undefined,
+        );
+      }
+
+      // Log min stock adjustment activity
+      if (adjustmentType === 'minstock' && user) {
+        const medicineName = selectedMedicine?.baseName || selectedMedicine?.name || 'Unknown';
+        const oldMinStock = selectedMedicine?.minStock || 0;
+        await logActivity(
+          'stock_adjusted',
+          user.uid,
+          user.email || '',
+          `Adjusted minimum stock: ${medicineName} — ${oldMinStock} → ${minStockValue}`,
+          {
+            medicineId: selectedMedicineId,
+            medicineName: medicineName,
+            previousValue: oldMinStock,
+            newValue: Number(minStockValue),
+            reason: 'Minimum stock adjustment',
+          },
+          staffName || adminName || user.email || undefined,
+          role || undefined,
+        );
+      }
+
+      // Log price adjustment activity
+      if (adjustmentType === 'price' && user) {
+        const medicineName = selectedMedicine?.baseName || selectedMedicine?.name || 'Unknown';
+        const oldUnitCost = selectedMedicine?.unitCost || 0;
+        const oldSellingPrice = selectedMedicine?.sellingPrice || 0;
+        const newUnitCost = unitCostValue !== '' ? Number(unitCostValue) : oldUnitCost;
+        const newSellingPrice = sellingPriceValue !== '' ? Number(sellingPriceValue) : oldSellingPrice;
+
+        let description = `Adjusted prices: ${medicineName} — `;
+        if (unitCostValue !== '') {
+          description += `Unit cost ₱${oldUnitCost} → ₱${newUnitCost}`;
+        }
+        if (sellingPriceValue !== '') {
+          description += (unitCostValue !== '' ? ', ' : '') + `Selling ₱${oldSellingPrice} → ₱${newSellingPrice}`;
+        }
+
+        await logActivity(
+          'stock_adjusted',
+          user.uid,
+          user.email || '',
+          description,
+          {
+            medicineId: selectedMedicineId,
+            medicineName: medicineName,
+            unitCostPrev: oldUnitCost,
+            unitCostNew: newUnitCost,
+            sellingPricePrev: oldSellingPrice,
+            sellingPriceNew: newSellingPrice,
+            reason: 'Price adjustment',
           },
           staffName || adminName || user.email || undefined,
           role || undefined,
@@ -995,10 +1068,10 @@ export default function StockAdjustmentsPage() {
   };
 
   const getConfirmMessage = () => {
-    if (adjustmentType === 'minstock')   return `Update minimum stock to ${minStockValue} for "${selectedMedicine?.name}"?`;
+    if (adjustmentType === 'minstock') return `Update minimum stock to ${minStockValue} for "${selectedMedicine?.name}"?`;
     if (adjustmentType === 'expiration') return `Update expiration date for "${selectedMedicine?.name}"?`;
-    if (adjustmentType === 'both')       return `Adjust stock and expiration for "${selectedMedicine?.name}"?`;
-    if (adjustmentType === 'price')      return `Update prices for "${selectedMedicine?.name}"? Unit cost: ₱${unitCostValue || '—'}, Selling price: ₱${sellingPriceValue || '—'}`;
+    if (adjustmentType === 'both') return `Adjust stock and expiration for "${selectedMedicine?.name}"?`;
+    if (adjustmentType === 'price') return `Update prices for "${selectedMedicine?.name}"? Unit cost: ₱${unitCostValue || '—'}, Selling price: ₱${sellingPriceValue || '—'}`;
     return `Adjust stock by ${inputQty > 0 ? '+' : ''}${inputQty} ${inputUnitLabel} for "${selectedMedicine?.name}"?`;
   };
 
@@ -1019,10 +1092,10 @@ export default function StockAdjustmentsPage() {
   return (
     <div className="min-h-screen transition-all duration-300">
 
-      {isDeletingMedicine   && <Processing message="Deleting medicine..."    />}
-      {isDeletingAdjustment && <Processing message="Deleting adjustment..."  />}
-      {isUpdatingAdjustment && <Processing message="Updating adjustment..."  />}
-      {isSubmitting         && <Processing message="Processing adjustment..." />}
+      {isDeletingMedicine && <Processing message="Deleting medicine..." />}
+      {isDeletingAdjustment && <Processing message="Deleting adjustment..." />}
+      {isUpdatingAdjustment && <Processing message="Updating adjustment..." />}
+      {isSubmitting && <Processing message="Processing adjustment..." />}
 
       <ConfirmationModal
         isOpen={isDeleteMedicineConfirmOpen}
@@ -1084,31 +1157,30 @@ export default function StockAdjustmentsPage() {
                 ) : (
                   filteredMedicines.map((medicine) => {
                     // ── FIX: normalize before passing to getMedicineOverallStatus ──
-                    const cardStock         = getCurrentStock(medicine);
-                    const normalizedMed     = normalizeMedicineForStatus(medicine);
-                    const medicineStatus    = getMedicineOverallStatus(normalizedMed);
+                    const cardStock = getCurrentStock(medicine);
+                    const normalizedMed = normalizeMedicineForStatus(medicine);
+                    const medicineStatus = getMedicineOverallStatus(normalizedMed);
 
                     let statusKey: StockStatus = 'in';
-                    if (medicineStatus.expired)       statusKey = 'expired';
+                    if (medicineStatus.expired) statusKey = 'expired';
                     else if (medicineStatus.expiring) statusKey = 'expiring';
-                    else if (medicineStatus.out)      statusKey = 'out';
-                    else if (medicineStatus.low)      statusKey = 'low';
+                    else if (medicineStatus.out) statusKey = 'out';
+                    else if (medicineStatus.low) statusKey = 'low';
                     const statusInfo = statusDisplay(statusKey);
 
-                    const cardUnitLabel    = getInputUnitLabel(medicine);
-                    const cardOrigLabel    = getOriginalUnitLabel(medicine);
-                    const cardFactor       = getConversionFactor(medicine);
-                    const cardHasConv      = cardFactor > 1 && !!medicine.unitConversion;
+                    const cardUnitLabel = getInputUnitLabel(medicine);
+                    const cardOrigLabel = getOriginalUnitLabel(medicine);
+                    const cardFactor = getConversionFactor(medicine);
+                    const cardHasConv = cardFactor > 1 && !!medicine.unitConversion;
 
                     return (
                       <div key={medicine.id} className="relative group">
                         <button
                           onClick={() => setSelectedMedicineId(medicine.id)}
-                          className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
-                            selectedMedicineId === medicine.id
-                              ? 'border-blue-500 bg-blue-50 shadow-md'
-                              : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
-                          }`}
+                          className={`w-full text-left p-3 rounded-xl border-2 transition-all ${selectedMedicineId === medicine.id
+                            ? 'border-blue-500 bg-blue-50 shadow-md'
+                            : 'border-slate-200 bg-white hover:border-blue-300 hover:shadow-sm'
+                            }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
                             <p className="font-bold text-slate-900 truncate text-sm flex-1">{medicine.name}</p>
@@ -1135,11 +1207,10 @@ export default function StockAdjustmentsPage() {
                               <p className="text-slate-600 font-medium text-[10px] truncate" title={cardUnitLabel}>
                                 {cardUnitLabel}
                               </p>
-                              <p className={`font-bold text-sm ${
-                                medicineStatus.out || medicineStatus.expired ? 'text-red-500' :
+                              <p className={`font-bold text-sm ${medicineStatus.out || medicineStatus.expired ? 'text-red-500' :
                                 medicineStatus.low || medicineStatus.expiring ? 'text-amber-500' :
-                                'text-green-600'
-                              }`}>
+                                  'text-green-600'
+                                }`}>
                                 {cardStock}
                               </p>
                             </div>
@@ -1193,7 +1264,7 @@ export default function StockAdjustmentsPage() {
                         {/* ── FIX: normalize for status check in the right panel ── */}
                         <p className={`text-3xl font-black ${(() => {
                           const ns = normalizeMedicineForStatus(selectedMedicine!);
-                          const s  = getMedicineOverallStatus(ns);
+                          const s = getMedicineOverallStatus(ns);
                           return s.out || s.expired ? 'text-red-600' : s.low || s.expiring ? 'text-amber-500' : 'text-green-600';
                         })()}`}>
                           {currentStock}
@@ -1270,11 +1341,11 @@ export default function StockAdjustmentsPage() {
                     <label className="text-base font-bold text-slate-900 block mb-3">Adjustment Type</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                       {[
-                        { key: 'stock',      label: 'Stock Only', activeClass: 'bg-blue-600 text-white border-blue-600',     inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-blue-400 hover:bg-blue-50' },
+                        { key: 'stock', label: 'Stock Only', activeClass: 'bg-blue-600 text-white border-blue-600', inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-blue-400 hover:bg-blue-50' },
                         { key: 'expiration', label: 'Expiration', activeClass: 'bg-orange-600 text-white border-orange-600', inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-orange-400 hover:bg-orange-50' },
-                        { key: 'both',       label: 'Both',       activeClass: 'bg-purple-600 text-white border-purple-600', inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-purple-400 hover:bg-purple-50' },
-                        { key: 'minstock',   label: 'Min Stock',  activeClass: 'bg-teal-600 text-white border-teal-600',     inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-teal-400 hover:bg-teal-50' },
-                        { key: 'price',      label: 'Price',      activeClass: 'bg-rose-600 text-white border-rose-600',     inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-rose-400 hover:bg-rose-50' },
+                        { key: 'both', label: 'Both', activeClass: 'bg-purple-600 text-white border-purple-600', inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-purple-400 hover:bg-purple-50' },
+                        { key: 'minstock', label: 'Min Stock', activeClass: 'bg-teal-600 text-white border-teal-600', inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-teal-400 hover:bg-teal-50' },
+                        { key: 'price', label: 'Price', activeClass: 'bg-rose-600 text-white border-rose-600', inactiveClass: 'bg-white text-slate-900 border-slate-200 hover:border-rose-400 hover:bg-rose-50' },
                       ].map(({ key, label, activeClass, inactiveClass }) => (
                         <button key={key} type="button"
                           onClick={() => setAdjustmentType(key as typeof adjustmentType)}
@@ -1326,11 +1397,11 @@ export default function StockAdjustmentsPage() {
                     </div>
                   )}
 
-                  {(adjustmentType === 'expiration' || adjustmentType === 'stock' || adjustmentType === 'both') && (
+                  {(adjustmentType === 'expiration' || adjustmentType === 'both') && (
                     <div>
                       <label className="block text-base font-bold text-slate-900 mb-2">
                         Expiration Date{' '}
-                        {(adjustmentType === 'stock' || adjustmentType === 'both') && (
+                        {adjustmentType === 'both' && (
                           <span className="text-slate-400 font-normal text-sm">(optional)</span>
                         )}
                       </label>
@@ -1515,10 +1586,10 @@ export default function StockAdjustmentsPage() {
               {history.length > 0 && (
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
-                    { label: 'Original Stock', value: originalStock !== null ? `${originalStock}` : '—', sub: 'at addition',   color: 'text-slate-900',   bg: 'bg-slate-50 border-slate-200'   },
-                    { label: 'Total Added',    value: `+${totalAdded}`,     sub: inputUnitLabel,         color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
-                    { label: 'Total Removed',  value: `-${totalRemoved}`,   sub: inputUnitLabel,         color: 'text-red-600',    bg: 'bg-red-50 border-red-200'         },
-                    { label: 'Expiry Updates', value: String(expiryUpdates), sub: 'date changes',        color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200'   },
+                    { label: 'Original Stock', value: originalStock !== null ? `${originalStock}` : '—', sub: 'at addition', color: 'text-slate-900', bg: 'bg-slate-50 border-slate-200' },
+                    { label: 'Total Added', value: `+${totalAdded}`, sub: inputUnitLabel, color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-200' },
+                    { label: 'Total Removed', value: `-${totalRemoved}`, sub: inputUnitLabel, color: 'text-red-600', bg: 'bg-red-50 border-red-200' },
+                    { label: 'Expiry Updates', value: String(expiryUpdates), sub: 'date changes', color: 'text-orange-600', bg: 'bg-orange-50 border-orange-200' },
                   ].map(({ label, value, sub, color, bg }) => (
                     <div key={label} className={`border rounded-xl px-3 py-2.5 ${bg}`}>
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-0.5">{label}</p>
@@ -1534,21 +1605,19 @@ export default function StockAdjustmentsPage() {
               <div className="px-5 sm:px-6 py-3 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
                 <div className="flex gap-1.5 flex-wrap shrink-0">
                   {([
-                    { key: 'all',    label: 'All',    count: history.length },
-                    { key: 'stock',  label: 'Stock',  count: history.filter(a => a.quantity !== 0).length },
+                    { key: 'all', label: 'All', count: history.length },
+                    { key: 'stock', label: 'Stock', count: history.filter(a => a.quantity !== 0).length },
                     { key: 'expiry', label: 'Expiry', count: expiryUpdates },
                   ] as const).map(({ key, label, count }) => (
                     <button
                       key={key}
                       onClick={() => setHistoryFilter(key)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        historyFilter === key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${historyFilter === key ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
                     >
                       {label}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                        historyFilter === key ? 'bg-white/20 text-white' : 'bg-white text-slate-500'
-                      }`}>{count}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${historyFilter === key ? 'bg-white/20 text-white' : 'bg-white text-slate-500'
+                        }`}>{count}</span>
                     </button>
                   ))}
                 </div>
@@ -1638,7 +1707,7 @@ export default function StockAdjustmentsPage() {
                           onEdit={() => {
                             setEditingId(adjustment.id);
                             setEditData({
-                              quantity:       String(adjustment.quantity),
+                              quantity: String(adjustment.quantity),
                               expirationDate: adjustment.expirationDate || '',
                             });
                           }}
@@ -1659,9 +1728,8 @@ export default function StockAdjustmentsPage() {
       </div>
 
       {notification && (
-        <div className={`fixed top-5 right-5 z-100 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right duration-300 ${
-          notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
-        }`}>
+        <div className={`fixed top-5 right-5 z-100 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right duration-300 ${notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
+          }`}>
           <span className={`w-2 h-2 rounded-full ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
           {notification.message}
         </div>

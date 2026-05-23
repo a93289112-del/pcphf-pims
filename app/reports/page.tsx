@@ -20,26 +20,26 @@ const SalesContent = dynamic(() => import('@/app/reports/sales-content'), { ssr:
 // ─── Transaction Activity Log Types & Helpers ─────────────────────────────────
 
 interface TxRow {
-  date:          string;
-  type:          FirebaseTransaction['type'];
-  medicineId:    string;
-  medicineName:  string;
-  category:      string;
-  strength?:     string;
-  quantity:      number;
+  date: string;
+  type: FirebaseTransaction['type'];
+  medicineId: string;
+  medicineName: string;
+  category: string;
+  strength?: string;
+  quantity: number;
   previousStock: number;
-  newStock:      number;
-  currentStock:  number;
-  notes?:        string;
+  newStock: number;
+  currentStock: number;
+  notes?: string;
 }
 
 const TX_TYPE_META: Record<
   FirebaseTransaction['type'],
   { label: string; color: string; bg: string; sign: string; isDeduction: boolean }
 > = {
-  dispense:   { label: 'Dispensed',  color: 'text-blue-700',    bg: 'bg-blue-50 border-blue-200',       sign: '−', isDeduction: true  },
-  sale:       { label: 'POS Sale',   color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', sign: '−', isDeduction: true  },
-  adjustment: { label: 'Adjustment', color: 'text-violet-700',  bg: 'bg-violet-50 border-violet-200',   sign: '±', isDeduction: false },
+  dispense: { label: 'Dispensed', color: 'text-blue-700', bg: 'bg-blue-50 border-blue-200', sign: '−', isDeduction: true },
+  sale: { label: 'POS Sale', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', sign: '−', isDeduction: true },
+  adjustment: { label: 'Adjustment', color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200', sign: '±', isDeduction: false },
 };
 
 function getQtySign(row: { type: FirebaseTransaction['type']; quantity: number }): string {
@@ -50,8 +50,8 @@ function getQtySign(row: { type: FirebaseTransaction['type']; quantity: number }
 
 function getQtyColor(row: { type: FirebaseTransaction['type']; quantity: number }): string {
   if (row.type === 'adjustment') return 'text-violet-600';
-  if (row.type === 'dispense')   return 'text-blue-600';
-  if (row.type === 'sale')       return 'text-emerald-600';
+  if (row.type === 'dispense') return 'text-blue-600';
+  if (row.type === 'sale') return 'text-emerald-600';
   return 'text-slate-600';
 }
 
@@ -84,8 +84,8 @@ function TxEventRow({
   showMedicine?: boolean;
   showDate?: boolean;
 }) {
-  const meta   = TX_TYPE_META[row.type] ?? TX_TYPE_META.adjustment;
-  const sign   = getQtySign(row);
+  const meta = TX_TYPE_META[row.type] ?? TX_TYPE_META.adjustment;
+  const sign = getQtySign(row);
   const qColor = getQtyColor(row);
 
   return (
@@ -157,21 +157,21 @@ function TransactionDetailsPanel({
   setTxYear,
   years,
 }: {
-  transactions:    FirebaseTransaction[];
-  medicines:       Medicine[];
-  txFilterMode:    'monthly' | 'quarterly' | 'annual';
+  transactions: FirebaseTransaction[];
+  medicines: Medicine[];
+  txFilterMode: 'monthly' | 'quarterly' | 'annual';
   setTxFilterMode: (m: 'monthly' | 'quarterly' | 'annual') => void;
-  txMonth:         string;
-  setTxMonth:      (m: string) => void;
-  txQuarter:       QuarterType;
-  setTxQuarter:    (q: QuarterType) => void;
-  txYear:          number;
-  setTxYear:       (y: number) => void;
-  years:           number[];
+  txMonth: string;
+  setTxMonth: (m: string) => void;
+  txQuarter: QuarterType;
+  setTxQuarter: (q: QuarterType) => void;
+  txYear: number;
+  setTxYear: (y: number) => void;
+  years: number[];
 }) {
-  const [viewMode,     setViewMode]     = useState<TxViewMode>('medicine');
-  const [txSearch,     setTxSearch]     = useState('');
-  const [typeFilter,   setTypeFilter]   = useState<'all' | FirebaseTransaction['type']>('all');
+  const [viewMode, setViewMode] = useState<TxViewMode>('medicine');
+  const [txSearch, setTxSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | FirebaseTransaction['type']>('all');
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   const medMap = useMemo(() => {
@@ -192,12 +192,12 @@ function TransactionDetailsPanel({
       const [sm, em] = qMap[txQuarter];
       return {
         start: new Date(txYear, sm, 1),
-        end:   new Date(txYear, em + 1, 0, 23, 59, 59),
+        end: new Date(txYear, em + 1, 0, 23, 59, 59),
       };
     }
     return {
       start: new Date(txYear, 0, 1),
-      end:   new Date(txYear, 11, 31, 23, 59, 59),
+      end: new Date(txYear, 11, 31, 23, 59, 59),
     };
   }, [txFilterMode, txMonth, txQuarter, txYear]);
 
@@ -211,17 +211,17 @@ function TransactionDetailsPanel({
       .map((t) => {
         const med = medMap.get(t.medicineId);
         return {
-          date:          t.date,
-          type:          t.type,
-          medicineId:    t.medicineId,
-          medicineName:  med ? (med.baseName || med.name || '—') : 'Unknown Medicine',
-          category:      med?.category || 'Uncategorized',
-          strength:      med?.strength,
-          quantity:      t.quantity,
+          date: t.date,
+          type: t.type,
+          medicineId: t.medicineId,
+          medicineName: med ? (med.baseName || med.name || '—') : 'Unknown Medicine',
+          category: med?.category || 'Uncategorized',
+          strength: med?.strength,
+          quantity: t.quantity,
           previousStock: t.previousStock,
-          newStock:      t.newStock,
-          currentStock:  med?.quantity ?? 0,
-          notes:         t.notes,
+          newStock: t.newStock,
+          currentStock: med?.quantity ?? 0,
+          notes: t.notes,
         };
       })
       .filter((r) => {
@@ -242,16 +242,16 @@ function TransactionDetailsPanel({
   }, [transactions, txDateRange, medMap, typeFilter, txSearch]);
 
   const totals = useMemo(() => {
-    const deducted  = enrichedRows
+    const deducted = enrichedRows
       .filter((r) => TX_TYPE_META[r.type]?.isDeduction)
       .reduce((s, r) => s + r.quantity, 0);
-    const adjusted  = enrichedRows
+    const adjusted = enrichedRows
       .filter((r) => r.type === 'adjustment')
       .reduce((s, r) => s + r.quantity, 0);
     const dispensed = enrichedRows
       .filter((r) => r.type === 'dispense')
       .reduce((s, r) => s + r.quantity, 0);
-    const sold      = enrichedRows
+    const sold = enrichedRows
       .filter((r) => r.type === 'sale')
       .reduce((s, r) => s + r.quantity, 0);
     return { total: enrichedRows.length, deducted, adjusted, dispensed, sold };
@@ -309,14 +309,14 @@ function TransactionDetailsPanel({
     return (
       <div className="mt-2 space-y-2">
         {days.map(([dayKey, dayRows]) => {
-          const deducted  = dayRows
+          const deducted = dayRows
             .filter((r) => TX_TYPE_META[r.type]?.isDeduction)
             .reduce((s, r) => s + r.quantity, 0);
-          const adjusted  = dayRows
+          const adjusted = dayRows
             .filter((r) => r.type === 'adjustment')
             .reduce((s, r) => s + r.quantity, 0);
           const firstStock = dayRows[dayRows.length - 1]?.previousStock ?? 0;
-          const lastStock  = dayRows[0]?.newStock ?? 0;
+          const lastStock = dayRows[0]?.newStock ?? 0;
           return (
             <div key={dayKey} className="border border-slate-100 rounded-xl overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b border-slate-100">
@@ -376,11 +376,10 @@ function TransactionDetailsPanel({
               <button
                 key={m}
                 onClick={() => setViewMode(m)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  viewMode === m
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-600'
-                }`}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === m
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-600'
+                  }`}
               >
                 {m}
               </button>
@@ -395,11 +394,10 @@ function TransactionDetailsPanel({
               <button
                 key={m}
                 onClick={() => setTxFilterMode(m)}
-                className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-bold capitalize transition-all ${
-                  txFilterMode === m
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-500'
-                }`}
+                className={`flex-1 px-2 py-1.5 rounded-lg text-[10px] font-bold capitalize transition-all ${txFilterMode === m
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-500'
+                  }`}
               >
                 {m}
               </button>
@@ -482,10 +480,10 @@ function TransactionDetailsPanel({
         {/* Totals strip */}
         <div className="mt-4 flex flex-wrap gap-4 px-1">
           {[
-            { label: 'Total Events',    val: totals.total,     color: 'text-slate-500'   },
-            { label: 'Units Dispensed', val: totals.dispensed, color: 'text-blue-600'    },
-            { label: 'POS Sales',       val: totals.sold,      color: 'text-emerald-600' },
-            { label: 'Adjustments',     val: totals.adjusted,  color: 'text-violet-600'  },
+            { label: 'Total Events', val: totals.total, color: 'text-slate-500' },
+            { label: 'Units Dispensed', val: totals.dispensed, color: 'text-blue-600' },
+            { label: 'POS Sales', val: totals.sold, color: 'text-emerald-600' },
+            { label: 'Adjustments', val: totals.adjusted, color: 'text-violet-600' },
           ].map((t) => (
             <div key={t.label}>
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
@@ -563,9 +561,8 @@ function TransactionDetailsPanel({
                   >
                     <div className="flex items-center gap-4 min-w-0">
                       <div
-                        className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${
-                          isOpen ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
-                        }`}
+                        className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${isOpen ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'
+                          }`}
                       >
                         {rows.length}
                       </div>
@@ -590,9 +587,8 @@ function TransactionDetailsPanel({
                         )}
                       </div>
                       <svg
-                        className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
-                          isOpen ? 'rotate-180' : ''
-                        }`}
+                        className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
+                          }`}
                         fill="none" stroke="currentColor" viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -631,8 +627,8 @@ function TransactionDetailsPanel({
             </div>
             <div className="divide-y divide-slate-50">
               {enrichedRows.map((row, i) => {
-                const meta   = TX_TYPE_META[row.type] ?? TX_TYPE_META.adjustment;
-                const sign   = getQtySign(row);
+                const meta = TX_TYPE_META[row.type] ?? TX_TYPE_META.adjustment;
+                const sign = getQtySign(row);
                 const qColor = getQtyColor(row);
                 return (
                   <div
@@ -693,59 +689,59 @@ interface MedicineBatch {
 }
 
 interface Medicine {
-  id:                   string;
-  name:                 string;
-  baseName?:            string;
-  brandModel?:          string;
-  unit?:                string;
-  category:             string;
-  originalUnit?:        string;
-  brand:                string;
-  image:                string;
-  description:          string;
-  quantity?:            number;
-  stockPerUnit?:        number;
-  stockPerPieces?:      number;
-  piecesPerUnit?:       number;
-  totalPieces?:         number;
-  containerQuantity?:   number;
-  pricePerUnit?:        number;
-  pricePerPieces?:      number;
-  unitCost?:            number;
-  sellingPrice?:        number;
-  minStock?:            number;
-  expirationDate?:      string;
-  batches?:             Record<string, MedicineBatch>;
-  createdAt:            string;
-  strength?:            string;
-  strengths?:           string[] | null;
+  id: string;
+  name: string;
+  baseName?: string;
+  brandModel?: string;
+  unit?: string;
+  category: string;
+  originalUnit?: string;
+  brand: string;
+  image: string;
+  description: string;
+  quantity?: number;
+  stockPerUnit?: number;
+  stockPerPieces?: number;
+  piecesPerUnit?: number;
+  totalPieces?: number;
+  containerQuantity?: number;
+  pricePerUnit?: number;
+  pricePerPieces?: number;
+  unitCost?: number;
+  sellingPrice?: number;
+  minStock?: number;
+  expirationDate?: string;
+  batches?: Record<string, MedicineBatch>;
+  createdAt: string;
+  strength?: string;
+  strengths?: string[] | null;
   prescriptionRequired?: boolean;
 }
 
 interface DispenseItem {
-  medicineId:    string;
-  medicineName:  string;
-  quantity:      number;
-  unitType?:     string;
+  medicineId: string;
+  medicineName: string;
+  quantity: number;
+  unitType?: string;
   quantityType?: string;
 }
 
 interface Dispensing {
-  id:          string;
-  date:        string;
+  id: string;
+  date: string;
   patientName: string;
-  patientId:   string;
-  age?:        string;
-  notes?:      string;
-  items:       DispenseItem[];
+  patientId: string;
+  age?: string;
+  notes?: string;
+  items: DispenseItem[];
   dispensedBy: string;
 }
 
 interface StockAdjustment {
-  quantity:        number;
-  stockType?:      string;
+  quantity: number;
+  stockType?: string;
   expirationDate?: string;
-  timestamp:       string;
+  timestamp: string;
 }
 
 interface StockAdjustmentsByMedicine {
@@ -755,75 +751,75 @@ interface StockAdjustmentsByMedicine {
 }
 
 interface DispensingStats {
-  totalDispensings:          number;
-  totalMedicinesDispensed:   number;
+  totalDispensings: number;
+  totalMedicinesDispensed: number;
   avgMedicinesPerDispensing: number;
-  uniquePatients:            number;
-  topMedicines:              Array<{
-    id:       string;
-    name:     string;
+  uniquePatients: number;
+  topMedicines: Array<{
+    id: string;
+    name: string;
     strength?: string;
     quantity: number;
-    byUnit:   Record<string, number>;
+    byUnit: Record<string, number>;
   }>;
-  dailyDispensings:  Array<{ date: string; count: number; medicines: number }>;
+  dailyDispensings: Array<{ date: string; count: number; medicines: number }>;
   unitTypeBreakdown: Array<{ type: string; quantity: number; percentage: number }>;
-  totalStockAdded:   number;
-  adjustmentCount:   number;
+  totalStockAdded: number;
+  adjustmentCount: number;
 }
 
 const emptyDispensingStats: DispensingStats = {
-  totalDispensings:          0,
-  totalMedicinesDispensed:   0,
+  totalDispensings: 0,
+  totalMedicinesDispensed: 0,
   avgMedicinesPerDispensing: 0,
-  uniquePatients:            0,
-  topMedicines:              [],
-  dailyDispensings:          [],
-  unitTypeBreakdown:         [],
-  totalStockAdded:           0,
-  adjustmentCount:           0,
+  uniquePatients: 0,
+  topMedicines: [],
+  dailyDispensings: [],
+  unitTypeBreakdown: [],
+  totalStockAdded: 0,
+  adjustmentCount: 0,
 };
 
 // ─── Sales interfaces ─────────────────────────────────────────────────────────
 
 interface SaleItem {
-  medicineId:   string;
+  medicineId: string;
   medicineName: string;
-  quantity:     number;
-  unitPrice:    number;
-  subtotal:     number;
-  unit?:        string;
-  category?:    string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  unit?: string;
+  category?: string;
 }
 
 interface Sale {
-  id:            string;
-  date:          string;
-  phDate?:       string;
-  total:         number;
-  amountPaid:    number;
-  change:        number;
+  id: string;
+  date: string;
+  phDate?: string;
+  total: number;
+  amountPaid: number;
+  change: number;
   paymentMethod: string;
-  items:         SaleItem[];
-  itemCount:     number;
+  items: SaleItem[];
+  itemCount: number;
 }
 
 interface DailySalesSummary {
-  date:           string;
-  displayDate:    string;
-  salesCount:     number;
-  totalRevenue:   number;
-  totalItems:     number;
+  date: string;
+  displayDate: string;
+  salesCount: number;
+  totalRevenue: number;
+  totalItems: number;
   paymentMethods: Record<string, number>;
 }
 
 interface MedicineSalesStats {
-  medicineId:    string;
-  medicineName:  string;
-  strength?:     string;
+  medicineId: string;
+  medicineName: string;
+  strength?: string;
   totalQuantity: number;
-  totalRevenue:  number;
-  salesCount:    number;
+  totalRevenue: number;
+  salesCount: number;
 }
 
 // ─── Timezone-safe helpers ────────────────────────────────────────────────────
@@ -841,9 +837,9 @@ function toPhDisplayDate(dateInput: string | Date): string {
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   return d.toLocaleDateString('en-PH', {
     timeZone: 'Asia/Manila',
-    month:    'short',
-    day:      'numeric',
-    year:     'numeric',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 }
 
@@ -871,14 +867,14 @@ function TrendFilter({
   startDate, setStartDate,
   endDate, setEndDate,
 }: {
-  mode:         'preset' | 'custom';
-  setMode:      (v: 'preset' | 'custom') => void;
-  preset:       number;
-  setPreset:    (v: number) => void;
-  startDate:    string;
+  mode: 'preset' | 'custom';
+  setMode: (v: 'preset' | 'custom') => void;
+  preset: number;
+  setPreset: (v: number) => void;
+  startDate: string;
   setStartDate: (v: string) => void;
-  endDate:      string;
-  setEndDate:   (v: string) => void;
+  endDate: string;
+  setEndDate: (v: string) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -887,11 +883,10 @@ function TrendFilter({
           key={m}
           type="button"
           onClick={() => setMode(m)}
-          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
-            mode === m
-              ? 'bg-slate-900 text-white border-slate-900'
-              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-          }`}
+          className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${mode === m
+            ? 'bg-slate-900 text-white border-slate-900'
+            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
         >
           {m === 'preset' ? 'Preset' : 'Custom Date'}
         </button>
@@ -952,7 +947,7 @@ const COLORS = [
 
 export default function ReportsPage() {
   const { user, loading } = useAuth();
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   const activeTab = useMemo<Tab>(() => {
@@ -960,36 +955,36 @@ export default function ReportsPage() {
     return tab === 'sales' || tab === 'dispensing' ? tab : 'dispensing';
   }, [searchParams]);
 
-  const [dispensings,          setDispensings]          = useState<Dispensing[]>([]);
-  const [stockAdjustments,     setStockAdjustments]     = useState<StockAdjustmentsByMedicine>({});
+  const [dispensings, setDispensings] = useState<Dispensing[]>([]);
+  const [stockAdjustments, setStockAdjustments] = useState<StockAdjustmentsByMedicine>({});
   const [isLoadingDispensings, setIsLoadingDispensings] = useState(true);
   const [isLoadingAdjustments, setIsLoadingAdjustments] = useState(true);
-  const [dispensingDateRange,  setDispensingDateRange]  = useState({ start: '', end: '' });
+  const [dispensingDateRange, setDispensingDateRange] = useState({ start: '', end: '' });
 
-  const [isDispensingPrinting,    setIsDispensingPrinting]    = useState(false);
+  const [isDispensingPrinting, setIsDispensingPrinting] = useState(false);
   const [isDispensingDownloading, setIsDispensingDownloading] = useState(false);
 
-  const [trendMode,      setTrendMode]      = useState<'preset' | 'custom'>('preset');
-  const [trendPreset,    setTrendPreset]    = useState(30);
+  const [trendMode, setTrendMode] = useState<'preset' | 'custom'>('preset');
+  const [trendPreset, setTrendPreset] = useState(30);
   const [trendStartDate, setTrendStartDate] = useState('');
-  const [trendEndDate,   setTrendEndDate]   = useState('');
+  const [trendEndDate, setTrendEndDate] = useState('');
 
-  const [medicines,    setMedicines]    = useState<Medicine[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [transactions, setTransactions] = useState<FirebaseTransaction[]>([]);
   const [txFilterMode, setTxFilterMode] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
-  const [txMonth,      setTxMonth]      = useState<string>(new Date().toISOString().slice(0, 7));
-  const [txQuarter,    setTxQuarter]    = useState<QuarterType>('Q1');
-  const [txYear,       setTxYear]       = useState<number>(new Date().getFullYear());
+  const [txMonth, setTxMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [txQuarter, setTxQuarter] = useState<QuarterType>('Q1');
+  const [txYear, setTxYear] = useState<number>(new Date().getFullYear());
 
   const years = useMemo(() => {
-    const startYear   = 2024;
+    const startYear = 2024;
     const currentYear = new Date().getFullYear();
     const list: number[] = [];
     for (let y = currentYear; y >= startYear; y--) list.push(y);
     return list;
   }, []);
 
-  const [sales,          setSales]          = useState<Sale[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [salesDateRange, setSalesDateRange] = useState<{ start: string; end: string }>(
     getInitialSalesDateRange,
@@ -1001,7 +996,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const path  = getUserPath(user.uid, 'dispensings');
+    const path = getUserPath(user.uid, 'dispensings');
     const unsub = onValue(ref(database, path), (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -1019,7 +1014,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const path  = getUserPath(user.uid, 'stockAdjustments');
+    const path = getUserPath(user.uid, 'stockAdjustments');
     const unsub = onValue(ref(database, path), (snapshot) => {
       const data = snapshot.val();
       setStockAdjustments(data ? (data as StockAdjustmentsByMedicine) : {});
@@ -1030,7 +1025,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user) return;
-    const path  = getUserPath(user.uid, 'sales');
+    const path = getUserPath(user.uid, 'sales');
     const unsub = onValue(ref(database, path), (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -1050,7 +1045,7 @@ export default function ReportsPage() {
   useEffect(() => {
     if (!user) return;
     const medicinesPath = getUserPath(user.uid, 'medicines');
-    const unsubscribe   = onValue(ref(database, medicinesPath), (snapshot) => {
+    const unsubscribe = onValue(ref(database, medicinesPath), (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const list = Object.entries(data as Record<string, Omit<Medicine, 'id'>>).map(
@@ -1101,22 +1096,22 @@ export default function ReportsPage() {
     >();
     filtered.forEach((d) => {
       d.items.forEach((item) => {
-        const key      = item.medicineId;
+        const key = item.medicineId;
         const unitType = getItemUnitType(item);
-        const prev     = medicineMap.get(key) ?? {
+        const prev = medicineMap.get(key) ?? {
           name: item.medicineName, quantity: 0, byUnit: {},
         };
 
         let strength = prev.strength;
         if (!strength) {
           const med = medicines.find((m) => m.id === item.medicineId);
-          strength  = med?.strength;
+          strength = med?.strength;
         }
 
         medicineMap.set(key, {
-          name:     prev.name,
+          name: prev.name,
           quantity: prev.quantity + item.quantity,
-          byUnit:   {
+          byUnit: {
             ...prev.byUnit,
             [unitType]: (prev.byUnit[unitType] ?? 0) + item.quantity,
           },
@@ -1133,9 +1128,9 @@ export default function ReportsPage() {
     const dailyMap = new Map<string, { count: number; medicines: number }>();
     filtered.forEach((d) => {
       const dateKey = toPhDateString(d.date);
-      const prev    = dailyMap.get(dateKey) ?? { count: 0, medicines: 0 };
+      const prev = dailyMap.get(dateKey) ?? { count: 0, medicines: 0 };
       dailyMap.set(dateKey, {
-        count:     prev.count + 1,
+        count: prev.count + 1,
         medicines: prev.medicines + d.items.reduce((s, item) => s + item.quantity, 0),
       });
     });
@@ -1195,14 +1190,14 @@ export default function ReportsPage() {
   }, [dispensings, stockAdjustments, dispensingDateRange, medicines]);
 
   const trendChartData = useMemo(() => {
-    const today              = getTodayPH();
-    const dispensingsByDate  = new Map<string, { count: number; medicines: number }>();
+    const today = getTodayPH();
+    const dispensingsByDate = new Map<string, { count: number; medicines: number }>();
 
     dispensings.forEach((d) => {
-      const key  = toPhDateString(d.date);
+      const key = toPhDateString(d.date);
       const prev = dispensingsByDate.get(key) ?? { count: 0, medicines: 0 };
       dispensingsByDate.set(key, {
-        count:     prev.count + 1,
+        count: prev.count + 1,
         medicines: prev.medicines + d.items.reduce((s, it) => s + it.quantity, 0),
       });
     });
@@ -1220,7 +1215,7 @@ export default function ReportsPage() {
 
     return Array.from({ length: trendPreset }, (_, i) => {
       const date = addDays(today, -(trendPreset - 1 - i));
-      const rec  = dispensingsByDate.get(date) ?? { count: 0, medicines: 0 };
+      const rec = dispensingsByDate.get(date) ?? { count: 0, medicines: 0 };
       return { date, ...rec };
     });
   }, [dispensings, trendMode, trendPreset, trendStartDate, trendEndDate]);
@@ -1293,11 +1288,11 @@ export default function ReportsPage() {
 
       if (!summary[dateKey]) {
         summary[dateKey] = {
-          date:           dateKey,
-          displayDate:    toPhDisplayDate(tx.date),
-          salesCount:     0,
-          totalRevenue:   0,
-          totalItems:     0,
+          date: dateKey,
+          displayDate: toPhDisplayDate(tx.date),
+          salesCount: 0,
+          totalRevenue: 0,
+          totalItems: 0,
           paymentMethods: {},
         };
       }
@@ -1330,17 +1325,17 @@ export default function ReportsPage() {
         if (!stats[item.medicineId]) {
           const med = medicines.find((m) => m.id === item.medicineId);
           stats[item.medicineId] = {
-            medicineId:    item.medicineId,
-            medicineName:  item.medicineName,
-            strength:      med?.strength,
+            medicineId: item.medicineId,
+            medicineName: item.medicineName,
+            strength: med?.strength,
             totalQuantity: 0,
-            totalRevenue:  0,
-            salesCount:    0,
+            totalRevenue: 0,
+            salesCount: 0,
           };
         }
         stats[item.medicineId].totalQuantity += item.quantity;
-        stats[item.medicineId].totalRevenue  += item.revenue || 0;
-        stats[item.medicineId].salesCount    += 1;
+        stats[item.medicineId].totalRevenue += item.revenue || 0;
+        stats[item.medicineId].salesCount += 1;
       });
     });
 
@@ -1349,9 +1344,9 @@ export default function ReportsPage() {
 
   const salesOverallStats = useMemo(() => {
     const posTransactions = filteredTransactions.filter((tx) => tx.type === 'pos');
-    const totalSales      = posTransactions.length;
-    const totalRevenue    = posTransactions.reduce((sum, tx) => sum + (tx.totalRevenue || 0), 0);
-    const avgPerSale      = totalSales > 0 ? totalRevenue / totalSales : 0;
+    const totalSales = posTransactions.length;
+    const totalRevenue = posTransactions.reduce((sum, tx) => sum + (tx.totalRevenue || 0), 0);
+    const avgPerSale = totalSales > 0 ? totalRevenue / totalSales : 0;
 
     const paymentMethodBreakdown: Record<string, number> = {};
     const unitMap = new Map<string, number>();
@@ -1612,7 +1607,7 @@ export default function ReportsPage() {
     <div class="header-top">
       <div>
         <div class="report-name">Dispensing Report</div>
-        <div class="report-sub">Pharmacy Management System</div>
+        <div class="report-sub">Passi City Primary Health Facilities</div>
       </div>
       <div class="header-right">
         <div><strong>Period:</strong> ${dateLabel}</div>
@@ -1707,7 +1702,7 @@ export default function ReportsPage() {
 
   <div class="footer">
     <div class="footer-note">
-      <div>Pharmacy Management System</div>
+      <div>Passi City Primary Health Facilities</div>
       <div>Generated ${generatedAt}</div>
     </div>
     <div class="sig-block">
@@ -1727,12 +1722,12 @@ export default function ReportsPage() {
     setIsDispensingPrinting(true);
     setTimeout(() => {
       try {
-        const html        = buildDispensingReportHTML();
+        const html = buildDispensingReportHTML();
         const printWindow = window.open('', '_blank');
         if (!printWindow) { setIsDispensingPrinting(false); return; }
         printWindow.document.write(
           html +
-            `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>`,
+          `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>`,
         );
         printWindow.document.close();
         setTimeout(() => setIsDispensingPrinting(false), 2000);
@@ -1749,9 +1744,9 @@ export default function ReportsPage() {
       try {
         const html = buildDispensingReportHTML();
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
         a.download = `dispensing-report-${getTodayPH()}.html`;
         document.body.appendChild(a);
         a.click();
@@ -1785,7 +1780,7 @@ export default function ReportsPage() {
 
   return (
     <>
-      {isDispensingPrinting    && <Processing message="Preparing PDF..."      />}
+      {isDispensingPrinting && <Processing message="Preparing PDF..." />}
       {isDispensingDownloading && <Processing message="Downloading report..." />}
 
       <div className="min-h-screen bg-slate-50 transition-all duration-300">
@@ -1806,17 +1801,16 @@ export default function ReportsPage() {
             {(
               [
                 { key: 'dispensing', label: 'Dispensing' },
-                { key: 'sales',      label: 'Sales'      },
+                { key: 'sales', label: 'Sales' },
               ] as { key: Tab; label: string }[]
             ).map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => router.push(`?tab=${key}`)}
-                className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
-                  activeTab === key
-                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                className={`px-5 py-2 text-sm font-semibold rounded-lg transition-all ${activeTab === key
+                  ? 'bg-white text-slate-900 shadow-sm border border-slate-200'
+                  : 'text-slate-600 hover:text-slate-900'
+                  }`}
               >
                 {label}
               </button>
@@ -1897,27 +1891,27 @@ export default function ReportsPage() {
                   {
                     label: 'Total Dispensings',
                     value: dispensingStats.totalDispensings.toString(),
-                    sub:   'Patient visits',
+                    sub: 'Patient visits',
                   },
                   {
                     label: 'Medicines Dispensed',
                     value: dispensingStats.totalMedicinesDispensed.toString(),
-                    sub:   'Total qty given',
+                    sub: 'Total qty given',
                   },
                   {
                     label: 'Avg per Dispensing',
                     value: dispensingStats.avgMedicinesPerDispensing.toFixed(1),
-                    sub:   'Items per visit',
+                    sub: 'Items per visit',
                   },
                   {
                     label: 'Unique Patients',
                     value: dispensingStats.uniquePatients.toString(),
-                    sub:   'Distinct patients',
+                    sub: 'Distinct patients',
                   },
                   {
                     label: 'Restocks Done',
                     value: dispensingStats.adjustmentCount.toString(),
-                    sub:   `${dispensingStats.totalStockAdded} units added`,
+                    sub: `${dispensingStats.totalStockAdded} units added`,
                   },
                 ].map(({ label, value, sub }) => (
                   <div
@@ -1946,10 +1940,10 @@ export default function ReportsPage() {
                       Medicines dispensed per day
                     </p>
                     <TrendFilter
-                      mode={trendMode}           setMode={setTrendMode}
-                      preset={trendPreset}       setPreset={setTrendPreset}
+                      mode={trendMode} setMode={setTrendMode}
+                      preset={trendPreset} setPreset={setTrendPreset}
                       startDate={trendStartDate} setStartDate={setTrendStartDate}
-                      endDate={trendEndDate}     setEndDate={setTrendEndDate}
+                      endDate={trendEndDate} setEndDate={setTrendEndDate}
                     />
                   </div>
                   {trendChartData.length > 0 ? (
@@ -1975,11 +1969,11 @@ export default function ReportsPage() {
                         <Tooltip
                           contentStyle={{
                             backgroundColor: '#1f2937',
-                            border:          'none',
-                            borderRadius:    '12px',
-                            fontSize:        '13px',
-                            color:           '#fff',
-                            padding:         '12px 16px',
+                            border: 'none',
+                            borderRadius: '12px',
+                            fontSize: '13px',
+                            color: '#fff',
+                            padding: '12px 16px',
                           }}
                           formatter={(value: unknown): [string, string] =>
                             [String(value), 'Medicines']
@@ -2013,10 +2007,10 @@ export default function ReportsPage() {
                           index === 0
                             ? { text: 'text-yellow-700', icon: '🏆' }
                             : index === 1
-                            ? { text: 'text-slate-700',  icon: '🥈' }
-                            : index === 2
-                            ? { text: 'text-orange-700', icon: '🥉' }
-                            : null;
+                              ? { text: 'text-slate-700', icon: '🥈' }
+                              : index === 2
+                                ? { text: 'text-orange-700', icon: '🥉' }
+                                : null;
                         const unitBreakdown = Object.entries(medicine.byUnit)
                           .sort(([, a], [, b]) => b - a)
                           .map(([unit, qty]) => `${qty} ${unit}`)
@@ -2105,18 +2099,18 @@ export default function ReportsPage() {
                             <Tooltip
                               contentStyle={{
                                 backgroundColor: '#fff',
-                                border:          '1px solid #e5e7eb',
-                                borderRadius:    '8px',
-                                fontSize:        '12px',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                fontSize: '12px',
                               }}
                               formatter={(
                                 value: unknown,
                                 _name: unknown,
                                 props: { payload?: { percentage: number; type: string } },
                               ): [string, string] => [
-                                `${value} (${(props.payload?.percentage ?? 0).toFixed(1)}%)`,
-                                props.payload?.type ?? '',
-                              ]}
+                                  `${value} (${(props.payload?.percentage ?? 0).toFixed(1)}%)`,
+                                  props.payload?.type ?? '',
+                                ]}
                             />
                           </PieChart>
                         </ResponsiveContainer>
@@ -2147,7 +2141,7 @@ export default function ReportsPage() {
                                 <div
                                   className="h-full rounded-full transition-all"
                                   style={{
-                                    width:           `${d.percentage}%`,
+                                    width: `${d.percentage}%`,
                                     backgroundColor: COLORS[index % COLORS.length],
                                   }}
                                 />
@@ -2176,25 +2170,25 @@ export default function ReportsPage() {
                     {[
                       {
                         label: 'Total Dispensings',
-                        sub:   'Number of patient visits',
+                        sub: 'Number of patient visits',
                         value: dispensingStats.totalDispensings,
                         color: 'blue',
                       },
                       {
                         label: 'Unique Patients',
-                        sub:   'Distinct patients served',
+                        sub: 'Distinct patients served',
                         value: dispensingStats.uniquePatients,
                         color: 'emerald',
                       },
                       {
                         label: 'Stock Restocks',
-                        sub:   `${dispensingStats.adjustmentCount} restocks · ${dispensingStats.totalStockAdded} units added`,
+                        sub: `${dispensingStats.adjustmentCount} restocks · ${dispensingStats.totalStockAdded} units added`,
                         value: dispensingStats.adjustmentCount,
                         color: 'amber',
                       },
                       {
                         label: 'Unit Types Used',
-                        sub:   'Distinct medicine unit types',
+                        sub: 'Distinct medicine unit types',
                         value: dispensingStats.unitTypeBreakdown.length,
                         color: 'violet',
                       },

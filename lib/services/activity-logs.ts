@@ -19,8 +19,8 @@ export type ActivityType =
   | 'medicine_added'
   | 'staff_created'
   | 'staff_disabled'
-  | 'session_ended'
-  | 'session_started'
+  | 'staff_enabled'
+  | 'staff_deleted'
   | 'medicine_restocked';
 
 export interface ActivityLogDetails {
@@ -37,7 +37,6 @@ export interface ActivityLogDetails {
   previousValue?: number | string;
   newValue?: number | string;
   reason?: string;
-  // For session_ended activity type
   sessionStartTime?: string;
   sessionEndTime?: string;
   sessionDurationMinutes?: number;

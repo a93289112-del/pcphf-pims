@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PharmaSync - Pharmacy Inventory Management",
+  title: "PCPHF - Pharmacy Inventory Management System",
   description: "Modern pharmacy inventory management system with real-time tracking",
 };
 

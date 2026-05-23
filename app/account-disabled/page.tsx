@@ -2,10 +2,37 @@
 
 import { useAuth } from '@/lib/auth/auth-context';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { database } from '@/lib/services/firebase';
+import { ref, get } from 'firebase/database';
 
 export default function AccountDisabled() {
   const { user, logOut } = useAuth();
   const router = useRouter();
+  const [staffName, setStaffName] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStaffName = async () => {
+      if (!user) return;
+      try {
+        const userRef = ref(database, `users/${user.uid}`);
+        const snapshot = await get(userRef);
+        const userData = snapshot.val();
+        if (userData?.staffName) {
+          setStaffName(userData.staffName);
+        }
+      } catch (err) {
+        console.error('Error fetching staff name:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStaffName();
+  }, [user]);
+
+  const displayName = staffName || user?.email;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -15,8 +42,7 @@ export default function AccountDisabled() {
         </div>
         <h1 className="text-2xl font-black text-slate-900 mb-2">Account Disabled</h1>
         <p className="text-slate-500 mb-8">
-          The account <span className="font-bold text-slate-700">{user?.email}</span> has been disabled by an administrator. 
-          If you believe this is a mistake, please contact support.
+          The account <span className="font-bold text-slate-700">{displayName}</span> has been disabled by the Administrator.
         </p>
         <button
           onClick={() => logOut().then(() => router.push('/login'))}

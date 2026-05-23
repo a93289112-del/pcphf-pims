@@ -14,7 +14,7 @@ interface InventoryOverviewProps {
 }
 
 interface StatusCount {
-  optimal: number;
+  inStock: number;
   low: number;
   out: number;
   expired: number;
@@ -24,14 +24,14 @@ interface StatusCount {
 // Quick stats badge for dashboard
 function StatusCountBadge({ count, status }: { count: number; status: string }) {
   const config: Record<string, { bg: string; text: string; icon: string }> = {
-    optimal: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
+    inStock: { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: '✓' },
     low: { bg: 'bg-yellow-100', text: 'text-yellow-700', icon: '⚠️' },
     out: { bg: 'bg-red-100', text: 'text-red-700', icon: '✕' },
     expiring: { bg: 'bg-orange-100', text: 'text-orange-700', icon: '⏰' },
     expired: { bg: 'bg-slate-800 text-white', text: 'text-white', icon: '✕' },
   };
 
-  const cfg = config[status] || config.optimal;
+  const cfg = config[status] || config.inStock;
 
   if (count === 0) return null;
 
@@ -61,7 +61,7 @@ export default function InventoryOverview({
   // Count statuses
   const statusCounts: StatusCount = React.useMemo(() => {
     return {
-      optimal: medicineList.filter((m) => m.status === 'optimal').length,
+      inStock: medicineList.filter((m) => m.status === 'inStock').length,
       low: medicineList.filter((m) => m.status === 'low').length,
       out: medicineList.filter((m) => m.status === 'out').length,
       expired: medicineList.filter((m) => m.status === 'expired').length,
@@ -151,8 +151,8 @@ export default function InventoryOverview({
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
               <p className="text-sm font-bold text-slate-900 mb-3">Stock Status Summary</p>
               <div className="flex flex-wrap gap-2">
-                {statusCounts.optimal > 0 && (
-                  <StatusCountBadge count={statusCounts.optimal} status="optimal" />
+                {statusCounts.inStock > 0 && (
+                  <StatusCountBadge count={statusCounts.inStock} status="inStock" />
                 )}
                 {statusCounts.low > 0 && (
                   <StatusCountBadge count={statusCounts.low} status="low" />

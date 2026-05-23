@@ -10,7 +10,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import MedicineDispensingMonitor from '@/lib/services/medicine-dispensing-sales-monitor';
 import { type QuarterType } from '@/lib/services/filter-utils';
-import { subscribeToActivityLogs } from '@/lib/services/activity-logs';
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 interface MedicineBatch {
@@ -825,7 +824,7 @@ function PrintReportModal({
 
 // ─── Dashboard ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  const { user, loading, pharmacyName, staffName, role } = useAuth();
+  const { user, loading, pharmacyName, staffName, adminName, role } = useAuth();
   const { isCollapsed } = useSidebar();
   const router = useRouter();
 
@@ -846,54 +845,7 @@ export default function DashboardPage() {
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterType>('Q1');
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
-  const [sessionState, setSessionState] = useState<'active' | 'ended'>('ended');
-  const [currentSessionStartTime, setCurrentSessionStartTime] = useState<Date | null>(null);
-
   useEffect(() => { if (!loading && !user) router.push('/login'); }, [user, loading, router]);
-
-  useEffect(() => {
-    if (!loading && user && role === 'admin') {
-      router.push('/admin-dashboard');
-    }
-  }, [user, loading, role, router]);
-
-  // ── Session state subscription ─────────────────────────────────────────────
-  const todayStart = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
-  useEffect(() => {
-    if (!user) return;
-    const unsubscribe = subscribeToActivityLogs((logs) => {
-      const todayEvents = logs
-        .filter((log) => {
-          const isThisUser = log.staffId === user.uid || log.staffEmail === user.email;
-          const isToday = new Date(log.timestamp) >= todayStart;
-          const isSession = log.type === 'session_ended' || log.type === 'session_started';
-          return isThisUser && isToday && isSession;
-        })
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      const lastEvent = todayEvents[todayEvents.length - 1];
-
-      if (!lastEvent) {
-        setSessionState('ended');
-        setCurrentSessionStartTime(null);
-        return;
-      }
-
-      if (lastEvent.type === 'session_ended') {
-        setSessionState('ended');
-        setCurrentSessionStartTime(null);
-      } else if (lastEvent.type === 'session_started') {
-        setSessionState('active');
-        setCurrentSessionStartTime(new Date(lastEvent.timestamp));
-      }
-    });
-    return () => unsubscribe();
-  }, [user, todayStart]);
 
   useEffect(() => {
     if (!user) return;
@@ -1053,8 +1005,8 @@ export default function DashboardPage() {
   const remainingStock = useMemo(() => medicines.reduce((s, m) => s + getEffectiveStock(m), 0), [medicines]);
 
   const todayTransactions = transactions.filter(t => { const dt = new Date(t.date); return dt >= dateRangeStart && dt < dateRangeEnd; });
-  const todayItemsDispensed = sessionState === 'ended' || !currentSessionStartTime ? 0 : todayTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').filter(t => new Date(t.date) >= currentSessionStartTime).reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
-  const todaySessionCount = sessionState === 'ended' || !currentSessionStartTime ? 0 : new Set(todayTransactions.filter(t => new Date(t.date) >= currentSessionStartTime).map(t => t.referenceId).filter(Boolean)).size;
+  const todayItemsDispensed = todayTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').reduce((s, t) => s + Math.abs(Number(t.quantity) || 0), 0);
+  const todaySessionCount = new Set(todayTransactions.filter(t => t.type === 'dispense' || t.type === 'sale').map(t => t.referenceId).filter(Boolean)).size;
 
   const brandMap = medicines.reduce<Record<string, string | undefined>>((acc, m) => {
     const brand = m.brand || m.brandModel || 'Unknown';
@@ -1066,7 +1018,7 @@ export default function DashboardPage() {
   const defaultStockParam = expiredCount > 0 ? 'expired' : lowStockCount > 0 ? 'low' : 'ok';
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  if (loading || role === 'admin') return (
+  if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto mb-4" />
@@ -1123,7 +1075,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-slate-900 mb-1 sm:mb-2">Dashboard</h1>
               <p className="text-xs sm:text-sm lg:text-base text-slate-500 truncate max-w-[220px] sm:max-w-none">
-                Welcome back, {staffName || user?.email}
+                Welcome back, {adminName || staffName || user?.email}
               </p>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">

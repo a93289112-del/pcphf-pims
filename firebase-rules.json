@@ -1,0 +1,187 @@
+{
+    "rules": {
+        // ─── Users Collection ────────────────────────────────────────────────────────
+        // Only authenticated users can access their own data
+        // Admins can see staff accounts but staff cannot see other staff
+        "users": {
+            "$uid": {
+                // Users can only read their own profile
+                ".read": "auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+                // Users can only write their own profile (except role)
+                ".write": "auth.uid === $uid && (!data.exists() || !newData.child('role').exists() || data.child('role').val() === newData.child('role').val())",
+                // Admin can create new staff accounts
+                ".validate": "auth.uid !== null && (
+          auth.uid === $uid || 
+          root.child('users').child(auth.uid).child('role').val() === 'admin'
+        )",
+                // Validate required fields
+                "email": {
+                    ".validate": "newData.isString() && newData.val().matches(/^.+@.+\\..+$/)"
+                },
+                "role": {
+                    ".validate": "newData.isString() && (newData.val() === 'admin' || newData.val() === 'staff')"
+                },
+                "status": {
+                    ".validate": "newData.isString() && (newData.val() === 'active' || newData.val() === 'disabled')"
+                },
+                "createdAt": {
+                    ".validate": "newData.isString() || newData.isNumber()"
+                },
+                "$other": {
+                    ".validate": "true"
+                }
+            },
+            "$other": {
+                ".validate": "false"
+            }
+        },
+        // ─── Medicines Collection ────────────────────────────────────────────────────
+        // All authenticated users can read medicines
+        // Only admins can create/modify medicines
+        "medicines": {
+            ".read": "auth.uid !== null && root.child('users').child(auth.uid).exists()",
+            ".write": "auth.uid !== null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+            "$medicineId": {
+                ".read": "auth.uid !== null",
+                ".write": "auth.uid !== null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
+                // Validate medicine data
+                "name": {
+                    ".validate": "newData.isString() && newData.val().length > 0"
+                },
+                "quantity": {
+                    ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "sellingPrice": {
+                    ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "unitCost": {
+                    ".validate": "newData.isNumber() && newData.val() >= 0"
+                },
+                "expirationDate": {
+                    ".validate": "newData.isString() || newData.val() === null"
+                },
+                "batches": {
+                    ".read": "auth.uid !== null",
+                    ".write": "auth.uid !== null",
+                    "$batchId": {
+                        ".read": "auth.uid !== null",
+                        ".write": "auth.uid !== null",
+                        "quantity": {
+                            ".validate": "newData.isNumber() && newData.val() >= 0"
+                        },
+                        "expirationDate": {
+                            ".validate": "newData.isString()"
+                        },
+                        "createdAt": {
+                            ".validate": "newData.isString() || newData.isNumber()"
+                        }
+                    }
+                },
+                "$other": {
+                    ".validate": "true"
+                }
+            }
+        },
+        // ─── Patients Collection ─────────────────────────────────────────────────────
+        // Users can only read/write their own patients
+        // Admins can read all patients but typically shouldn't write
+        "userPatients": {
+            "$uid": {
+                ".read": "auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+                ".write": "auth.uid === $uid",
+                "$patientId": {
+                    ".read": "auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin'",
+                    ".write": "auth.uid === $uid",
+                    // Validate patient data
+                    "firstName": {
+                        ".validate": "newData.isString() && newData.val().length > 0"
+                    },
+                    "lastName": {
+                        ".validate": "newData.isString() && newData.val().length > 0"
+                    },
+                    "dateOfBirth": {
+                        ".validate": "newData.isString()"
+                    },
+                    "patientContactNo": {
+                        ".validate": "newData.isString() || newData.val() === null"
+                    },
+                    "$other": {
+                        ".validate": "true"
+                    }
+                }
+            },
+            "$other": {
+                ".validate": "false"
+            }
+        },
+        // ─── Transactions/Activity Logs ──────────────────────────────────────────────
+        // All authenticated users can read transactions
+        // All users can write their own transactions (tracked by userId)
+        "userTransactions": {
+            "$uid": {
+                ".read": "auth.uid !== null",
+                ".write": "auth.uid === $uid",
+                "$transactionId": {
+                    ".read": "auth.uid !== null",
+                    ".write": "auth.uid === $uid",
+                    // Validate transaction fields
+                    "date": {
+                        ".validate": "newData.isString() || newData.isNumber()"
+                    },
+                    "type": {
+                        ".validate": "newData.isString()"
+                    },
+                    "medicineId": {
+                        ".validate": "newData.isString()"
+                    },
+                    "quantity": {
+                        ".validate": "newData.isNumber() && newData.val() !== 0"
+                    },
+                    "previousStock": {
+                        ".validate": "newData.isNumber() && newData.val() >= 0"
+                    },
+                    "newStock": {
+                        ".validate": "newData.isNumber() && newData.val() >= 0"
+                    },
+                    "$other": {
+                        ".validate": "true"
+                    }
+                }
+            },
+            "$other": {
+                ".validate": "false"
+            }
+        },
+        // ─── Activity Logs ──────────────────────────────────────────────────────────
+        // Only admins can read all activity logs
+        // Staff can only read their own logs
+        "activityLogs": {
+            ".read": "root.child('users').child(auth.uid).child('role').val() === 'admin'",
+            ".write": "auth.uid !== null",
+            "$logId": {
+                ".read": "root.child('users').child(auth.uid).child('role').val() === 'admin' || data.child('userId').val() === auth.uid",
+                ".write": "auth.uid !== null",
+                "userId": {
+                    ".validate": "newData.isString()"
+                },
+                "timestamp": {
+                    ".validate": "newData.isString() || newData.isNumber()"
+                },
+                "action": {
+                    ".validate": "newData.isString()"
+                },
+                "details": {
+                    ".validate": "true"
+                },
+                "$other": {
+                    ".validate": "true"
+                }
+            }
+        },
+        // ─── Deny all other paths ───────────────────────────────────────────────────
+        "$other": {
+            ".read": false,
+            ".write": false
+        }
+    }
+}

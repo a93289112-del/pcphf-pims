@@ -97,7 +97,10 @@ const findExistingPatient = async (userId: string, patientData: Record<string, u
         p.dateOfBirth === patientData.dateOfBirth
     );
     return match?.id || null;
-  } catch {
+  } catch (error) {
+    // Log error but allow caller to handle gracefully
+    console.error('[findExistingPatient] Error finding existing patient:', error);
+    // Return null to indicate no match found, but allow operation to continue
     return null;
   }
 };
@@ -120,7 +123,7 @@ export const deletePatientRecord = async (userId: string, patientId: string): Pr
  * Get all patients for a user
  */
 export const getAllPatients = async (userId: string): Promise<PatientRecord[]> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     try {
       const patientsPath = getUserPath(userId, 'patients');
       let unsub: (() => void) | null = null;
@@ -139,14 +142,14 @@ export const getAllPatients = async (userId: string): Promise<PatientRecord[]> =
         },
         (error) => {
           console.error('Error getting all patients:', error);
-          // Resolve with empty array on error to prevent hanging
-          resolve([]);
+          // Reject promise to allow proper error handling
+          reject(error);
           if (unsub) unsub();
         }
       );
     } catch (error) {
       console.error('Error in getAllPatients:', error);
-      resolve([]);
+      reject(error);
     }
   });
 };
@@ -185,8 +188,15 @@ export const getPatientById = async (userId: string, patientId: string): Promise
 
 /**
  * Listen to patients in real-time
+ * @param userId User ID
+ * @param callback Called with patient array on data changes
+ * @param errorCallback Called if error occurs (optional)
  */
-export const listenToPatients = (userId: string, callback: (patients: PatientRecord[]) => void) => {
+export const listenToPatients = (
+  userId: string,
+  callback: (patients: PatientRecord[]) => void,
+  errorCallback?: (error: Error) => void
+) => {
   try {
     // REMOVED: migrateOldPatients(userId).catch(console.error);
 
@@ -211,12 +221,19 @@ export const listenToPatients = (userId: string, callback: (patients: PatientRec
       },
       (error) => {
         console.error('Error listening to patients:', error);
-        callback([]);
+        // Call error callback instead of silently calling with empty array
+        if (errorCallback) {
+          errorCallback(error instanceof Error ? error : new Error(String(error)));
+        }
       }
     );
     return unsub;
   } catch (error) {
     console.error('Error setting up patient listener:', error);
+    // Call error callback for synchronous errors too
+    if (errorCallback) {
+      errorCallback(error instanceof Error ? error : new Error(String(error)));
+    }
     return () => { };
   }
 };

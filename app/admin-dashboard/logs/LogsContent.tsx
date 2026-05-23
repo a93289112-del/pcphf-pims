@@ -1,10 +1,44 @@
 'use client';
 
 import { useAuth } from '@/lib/auth/auth-context';
+import { database } from '@/lib/services/firebase';
 import { useEffect, useState, useMemo } from 'react';
+import { ref, onValue } from 'firebase/database';
 import { subscribeToActivityLogs, type ActivityLog, type ActivityType, type ActivityLogDetails } from '@/lib/services/activity-logs';
-import AdminSessionSummaryModal from '@/lib/components/admin-session-summary-modal';
 import StockAdjustmentSummaryModal from '@/lib/components/stock-adjustment-summary-modal';
+
+// ── All activity types shown in logs (used by both the page and the dashboard card) ──
+export const AUDITABLE_TYPES: ActivityType[] = [
+  'admin_login',
+  'admin_logout',
+  'staff_login',
+  'staff_logout',
+  'medicine_added',
+  'stock_deducted',
+  'stock_adjusted',
+  'medicine_sold',
+  'medicine_dispensed',
+  'medicine_restocked',
+  'staff_created',
+  'staff_disabled',
+  'staff_enabled',
+  'staff_deleted',
+  'password_changed',
+];
+
+// ── Transaction activity types (excludes login/logout for logs page) ──
+export const TRANSACTION_TYPES: ActivityType[] = [
+  'medicine_added',
+  'stock_deducted',
+  'stock_adjusted',
+  'medicine_sold',
+  'medicine_dispensed',
+  'staff_created',
+  'staff_disabled',
+  'staff_enabled',
+  'staff_deleted',
+  'password_changed',
+];
 
 // ── Tiny inline SVG icons ────────────────────────────────────────────────────
 const Icon = {
@@ -91,7 +125,7 @@ const Icon = {
   ),
 };
 
-// ── Mini bar chart (pure CSS/SVG, no library) ──────────────────────────────
+// ── Mini bar chart ──────────────────────────────────────────────────────────
 function MiniBarChart({ data, color = '#3b82f6' }: { data: { label: string; value: number }[]; color?: string }) {
   const max = Math.max(...data.map(d => d.value), 1);
   return (
@@ -122,7 +156,7 @@ function Sparkline({ values, color = '#3b82f6' }: { values: number[]; color?: st
   );
 }
 
-// ── Donut chart (SVG) ───────────────────────────────────────────────────────
+// ── Donut chart ─────────────────────────────────────────────────────────────
 function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
   const total = segments.reduce((s, d) => s + d.value, 0) || 1;
   const r = 36, cx = 44, cy = 44, stroke = 14;
@@ -170,9 +204,9 @@ function StaffComparisonChart({
   if (entries.length === 0) return <p className="text-sm text-slate-400 text-center py-6">No staff data</p>;
   const max = Math.max(...entries.map(([, s]) => s.total), 1);
   const segments = [
-    { key: 'dispense' as const,    color: '#3b82f6', label: 'Dispense' },
-    { key: 'sale' as const,        color: '#10b981', label: 'Sale' },
-    { key: 'adjustment' as const,  color: '#f59e0b', label: 'Adjust' },
+    { key: 'dispense' as const, color: '#3b82f6', label: 'Dispense' },
+    { key: 'sale' as const, color: '#10b981', label: 'Sale' },
+    { key: 'adjustment' as const, color: '#f59e0b', label: 'Adjust' },
   ];
   return (
     <div className="space-y-3">
@@ -213,6 +247,7 @@ function DetailsModal({
   isOpen,
   onClose,
   log,
+  staffLastLogin = {},
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -220,11 +255,17 @@ function DetailsModal({
     action: string;
     details: ActivityLogDetails | undefined;
     staffName: string;
+    staffId?: string;
+    staffEmail?: string;
     timestamp: string;
     type: string;
   } | null;
+  staffLastLogin?: Record<string, { timestamp: string; name: string; email: string }>;
 }) {
   if (!isOpen || !log) return null;
+
+  // Find last login for this staff
+  const lastLogin = log.staffId && staffLastLogin[log.staffId] ? staffLastLogin[log.staffId] : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -242,18 +283,32 @@ function DetailsModal({
         <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600" />
         <div className="px-6 pt-7 pb-6">
           <h2 className="text-xl font-black text-slate-900 mb-4">Activity Details</h2>
-          
+
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1"></p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Staff</p>
               <p className="text-sm font-semibold text-slate-900">{log.staffName}</p>
             </div>
-            
+
+            {lastLogin && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Last Active (Login)</p>
+                <p className="text-sm font-semibold text-slate-900">{new Date(lastLogin.timestamp).toLocaleString()}</p>
+              </div>
+            )}
+
+            {!lastLogin && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Last Active</p>
+                <p className="text-sm text-slate-500">No login data available</p>
+              </div>
+            )}
+
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Date & Time</p>
               <p className="text-sm font-semibold text-slate-900">{new Date(log.timestamp).toLocaleString()}</p>
             </div>
-            
+
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Action</p>
               <p className="text-sm text-slate-700">{log.action}</p>
@@ -292,23 +347,21 @@ export default function LogsContent() {
   const { user } = useAuth();
 
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [staffUsers, setStaffUsers] = useState<{ uid: string; staffName?: string; email?: string; role?: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<'all' | ActivityType>('all');
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'staff'>('all');
   const [filterMonth, setFilterMonth] = useState<string>('');
   const [filterYear, setFilterYear] = useState<string>(new Date().getFullYear().toString());
   const [activeTab, setActiveTab] = useState<'overview' | 'logs'>('logs');
-  const [sessionModalOpen, setSessionModalOpen] = useState(false);
-  const [selectedSessionData, setSelectedSessionData] = useState<{
-    details: ActivityLogDetails;
-    staffName: string;
-    sessionEndTime: string;
-  } | null>(null);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedLogDetails, setSelectedLogDetails] = useState<{
     action: string;
     details: ActivityLogDetails | undefined;
     staffName: string;
+    staffId?: string;
+    staffEmail?: string;
     timestamp: string;
     type: string;
   } | null>(null);
@@ -321,76 +374,96 @@ export default function LogsContent() {
 
   useEffect(() => {
     if (!user) return;
-    
     const unsubscribe = subscribeToActivityLogs((logs) => {
       setActivityLogs(logs);
       setLoading(false);
     });
+    return () => unsubscribe();
+  }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const usersRef = ref(database, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) { setStaffUsers([]); return; }
+      const users = Object.entries(data).map(([uid, value]) => ({
+        uid,
+        ...(value as { staffName?: string; email?: string; role?: string }),
+      })) as { uid: string; staffName?: string; email?: string; role?: string }[];
+      setStaffUsers(users.filter(u => u.role === 'staff'));
+    });
     return () => unsubscribe();
   }, [user]);
 
   // ── Filtered logs ────────────────────────────────────────────────────────
   const filteredLogs = useMemo(() => {
     return activityLogs.filter(log => {
+      // Only show transaction types — exclude login/logout
+      if (!TRANSACTION_TYPES.includes(log.type)) return false;
+
       const matchesType = typeFilter === 'all' || log.type === typeFilter;
       const matchesStaff = selectedStaff === 'all' || log.staffId === selectedStaff;
+      const matchesRole = roleFilter === 'all' || log.userRole === roleFilter;
+
       let matchesDate = true;
       if (filterMonth || filterYear) {
         const d = new Date(log.timestamp);
         if (filterYear && d.getFullYear() !== parseInt(filterYear)) matchesDate = false;
         if (filterMonth && d.getMonth() + 1 !== parseInt(filterMonth)) matchesDate = false;
       }
-      return matchesType && matchesStaff && matchesDate;
+
+      return matchesType && matchesStaff && matchesRole && matchesDate;
     }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [activityLogs, typeFilter, selectedStaff, filterMonth, filterYear]);
+  }, [activityLogs, typeFilter, selectedStaff, roleFilter, filterMonth, filterYear]);
 
   // ── Analytics ────────────────────────────────────────────────────────────
   const analytics = useMemo(() => {
-    const sessionLogs = activityLogs.filter(l => l.type === 'session_ended');
-    
     let totalDispensedUnits = 0;
     let totalSoldUnits = 0;
-    sessionLogs.forEach(log => {
-      const dispensed = typeof log.details?.totalUnitsDispensed === 'number' ? log.details.totalUnitsDispensed : 0;
-      const sold = typeof log.details?.totalUnitsSold === 'number' ? log.details.totalUnitsSold : 0;
-      totalDispensedUnits += dispensed;
-      totalSoldUnits += sold;
+
+    const dispenseLogs = filteredLogs.filter(l => l.type === 'stock_deducted');
+    const saleLogs = filteredLogs.filter(l => l.type === 'medicine_sold');
+
+    dispenseLogs.forEach(log => {
+      totalDispensedUnits += Math.abs(typeof log.details?.quantity === 'number' ? log.details.quantity : 0);
+    });
+    saleLogs.forEach(log => {
+      totalSoldUnits += Math.abs(typeof log.details?.quantity === 'number' ? log.details.quantity : 0);
     });
 
     const staffCreated = filteredLogs.filter(l => l.type === 'staff_created');
-    const staffDisabled = filteredLogs.filter(l => l.type === 'staff_disabled');
-    const adjustments = filteredLogs.filter(l => l.type === 'stock_deducted' || l.type === 'stock_adjusted');
-
+    // ── Track staff last login ──
+    const staffLastLogin: Record<string, { timestamp: string; name: string; email: string }> = {};
+    activityLogs
+      .filter(l => l.type === 'staff_login')
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .forEach(log => {
+        const uid = log.staffId || 'system';
+        if (!staffLastLogin[uid]) {
+          staffLastLogin[uid] = {
+            timestamp: log.timestamp,
+            name: log.staffName || log.staffEmail?.split('@')[0] || uid,
+            email: log.staffEmail || '',
+          };
+        }
+      });
     const staffStats: Record<string, { dispense: number; sale: number; adjustment: number; total: number; email: string; name: string }> = {};
-    
-    sessionLogs.forEach(l => {
-      const logRole = l.userRole || 'staff';
-      if (logRole === 'admin') return;
-      if (user && l.staffId === user.uid) return;
-      if (user && l.staffEmail && l.staffEmail === user.email) return;
-
-      const uid = l.staffId || 'system';
-      const staffName = l.staffName || l.staffEmail || uid;
-      if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: staffName };
-      
-      const dispenseCount = l.details?.totalDispenseTransactions || 0;
-      const saleCount = l.details?.totalSalesTransactions || 0;
-      staffStats[uid].dispense += dispenseCount;
-      staffStats[uid].sale += saleCount;
-      staffStats[uid].total += dispenseCount + saleCount;
-    });
 
     filteredLogs.forEach(l => {
-      if (l.type === 'stock_deducted' || l.type === 'stock_adjusted') {
-        const logRole = l.userRole || 'staff';
-        if (logRole === 'admin') return;
-        if (user && l.staffId === user.uid) return;
-        if (user && l.staffEmail && l.staffEmail === user.email) return;
-
+      if (l.type === 'stock_deducted') {
+        if (l.userRole === 'admin') return;
+        if (user && (l.staffId === user.uid || l.staffEmail === user.email)) return;
         const uid = l.staffId || 'system';
-        const staffName = l.staffName || l.staffEmail || uid;
-        if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: staffName };
+        if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: l.staffName || l.staffEmail || uid };
+        staffStats[uid].dispense++;
+        staffStats[uid].total++;
+      }
+      if (l.type === 'stock_adjusted') {
+        if (l.userRole === 'admin') return;
+        if (user && (l.staffId === user.uid || l.staffEmail === user.email)) return;
+        const uid = l.staffId || 'system';
+        if (!staffStats[uid]) staffStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: l.staffEmail || uid, name: l.staffName || l.staffEmail || uid };
         staffStats[uid].adjustment++;
         staffStats[uid].total++;
       }
@@ -410,36 +483,42 @@ export default function LogsContent() {
       return filteredLogs.filter(l => l.timestamp?.slice(0, 10) === d.toISOString().slice(0, 10)).length;
     });
 
-    return { 
-      dispenses: sessionLogs, 
-      sales: sessionLogs, 
-      staffCreated, 
-      staffDisabled, 
-      staffStats, 
-      dailyVolume, 
-      spark,
-      totalDispensedUnits,
-      totalSoldUnits
-    };
-  }, [filteredLogs, activityLogs, user]);
+    const activeStaffUids = new Set(staffUsers.map(s => s.uid));
+    const filteredStaffStats: typeof staffStats = {};
+    Object.entries(staffStats).forEach(([uid, stats]) => {
+      if (activeStaffUids.has(uid)) filteredStaffStats[uid] = stats;
+    });
 
-  const typeBadge = (type: string) => {
+    return { dispenses: dispenseLogs, sales: saleLogs, staffCreated, staffStats: filteredStaffStats, dailyVolume, spark, totalDispensedUnits, totalSoldUnits, staffLastLogin };
+  }, [filteredLogs, activityLogs, user, staffUsers]);
+
+  const typeBadge = (type: string, action?: string) => {
     const map: Record<string, { cls: string; icon: React.ReactNode; label: string }> = {
       medicine_dispensed: { cls: 'bg-blue-50 text-blue-700 border border-blue-100', icon: <Icon.Dispense />, label: 'Dispensed' },
-      medicine_sold:      { cls: 'bg-emerald-50 text-emerald-700 border border-emerald-100', icon: <Icon.Sale />, label: 'Sold' },
-      medicine_added:     { cls: 'bg-green-50 text-green-700 border border-green-100', icon: <Icon.Pill />, label: 'Medicine Added' },
-      stock_deducted:     { cls: 'bg-amber-50 text-amber-700 border border-amber-100', icon: <Icon.Adjustment />, label: 'Stock Deducted' },
-      stock_adjusted:     { cls: 'bg-orange-50 text-orange-700 border border-orange-100', icon: <Icon.Adjustment />, label: 'Adjusted' },
-      medicine_restocked: { cls: 'bg-teal-50 text-teal-700 border border-teal-100', icon: <Icon.Package />, label: 'Restocked' },
-      staff_created:      { cls: 'bg-purple-50 text-purple-700 border border-purple-100', icon: <Icon.User />, label: 'Staff Created' },
-      staff_disabled:     { cls: 'bg-red-50 text-red-700 border border-red-100', icon: <Icon.User />, label: 'Staff Disabled' },
-      admin_login:        { cls: 'bg-rose-50 text-rose-700 border border-rose-100', icon: <Icon.User />, label: 'Admin Login' },
-      admin_logout:       { cls: 'bg-rose-100 text-rose-800 border border-rose-200', icon: <Icon.User />, label: 'Admin Logout' },
-      staff_login:        { cls: 'bg-cyan-50 text-cyan-700 border border-cyan-100', icon: <Icon.User />, label: 'Staff Login' },
-      staff_logout:       { cls: 'bg-slate-50 text-slate-700 border border-slate-100', icon: <Icon.User />, label: 'Staff Logout' },
-      password_changed:   { cls: 'bg-indigo-50 text-indigo-700 border border-indigo-100', icon: <Icon.Alert />, label: 'Password Changed' },
+      medicine_sold: { cls: 'bg-emerald-50 text-emerald-700 border border-emerald-100', icon: <Icon.Sale />, label: 'Sold' },
+      medicine_added: { cls: 'bg-green-50 text-green-700 border border-green-100', icon: <Icon.Pill />, label: 'Medicine Added' },
+      stock_deducted: { cls: 'bg-amber-50 text-amber-700 border border-amber-100', icon: <Icon.Adjustment />, label: 'Dispensing' },
+      stock_adjusted: { cls: 'bg-orange-50 text-orange-700 border border-orange-100', icon: <Icon.Adjustment />, label: 'Stock Adjustment' },
+      staff_created: { cls: 'bg-purple-50 text-purple-700 border border-purple-100', icon: <Icon.User />, label: 'Staff Created' },
+      staff_disabled: { cls: 'bg-red-50 text-red-700 border border-red-100', icon: <Icon.User />, label: 'Staff Disabled' },
+      staff_enabled: { cls: 'bg-green-50 text-green-700 border border-green-100', icon: <Icon.User />, label: 'Staff Enabled' },
+      staff_deleted: { cls: 'bg-red-100 text-red-800 border border-red-200', icon: <Icon.User />, label: 'Staff Deleted' },
+      password_changed: { cls: 'bg-rose-50 text-rose-700 border border-rose-100', icon: <Icon.Alert />, label: 'Password Changed' },
     };
-    const cfg = map[type] || { cls: 'bg-slate-100 text-slate-600 border border-slate-200', icon: null, label: type };
+    let cfg = map[type] || { cls: 'bg-slate-100 text-slate-600 border border-slate-200', icon: null, label: type };
+
+    // Determine specific adjustment type
+    if (type === 'stock_adjusted' && action) {
+      const actionLower = action.toLowerCase();
+      if (actionLower.includes('expiration') || actionLower.includes('date')) {
+        cfg = { ...cfg, label: 'Adjusted Expiration' };
+      } else if (actionLower.includes('price') || actionLower.includes('cost')) {
+        cfg = { ...cfg, label: 'Adjusted Price' };
+      } else if (actionLower.includes('stock') || actionLower.includes('quantity') || actionLower.includes('sachets')) {
+        cfg = { ...cfg, label: 'Adjusted Stock' };
+      }
+    }
+
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${cfg.cls}`}>
         {cfg.icon}{cfg.label}
@@ -456,43 +535,39 @@ export default function LogsContent() {
     </div>
   );
 
-  const hasFilters = typeFilter !== 'all' || selectedStaff !== 'all' || filterMonth || filterYear !== new Date().getFullYear().toString();
+  const hasFilters = typeFilter !== 'all' || selectedStaff !== 'all' || roleFilter !== 'all' || filterMonth || filterYear !== new Date().getFullYear().toString();
 
   return (
     <div className="min-h-screen bg-[#f8f8f7] w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2">System Activity Logs</h1>
           <p className="text-slate-500">Full audit trail of all inventory and sales transactions</p>
         </div>
 
-        {/* ── Tab bar ── */}
+        {/* Tab bar */}
         <div className="flex gap-1 mb-8 bg-white border border-slate-200 rounded-xl p-1 w-fit shadow-sm">
           {(['overview', 'logs'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all capitalize ${
-                activeTab === tab
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
+              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all capitalize ${activeTab === tab ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
             >
               {tab === 'overview' ? 'Overview & Charts' : 'Activity Logs'}
             </button>
           ))}
         </div>
 
-        {/* ── Filter bar ── */}
+        {/* Filter bar */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-6 overflow-hidden">
           <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-2 text-slate-400">
             <Icon.Filter />
             <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Filters</span>
             {hasFilters && (
               <button
-                onClick={() => { setTypeFilter('all'); setSelectedStaff('all'); setFilterMonth(''); setFilterYear(new Date().getFullYear().toString()); }}
+                onClick={() => { setTypeFilter('all'); setSelectedStaff('all'); setRoleFilter('all'); setFilterMonth(''); setFilterYear(new Date().getFullYear().toString()); }}
                 className="ml-auto flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-800 px-2.5 py-1 border border-slate-200 rounded-lg hover:border-slate-300 transition-all"
               >
                 <Icon.X /> Clear all
@@ -500,28 +575,25 @@ export default function LogsContent() {
             )}
           </div>
           <div className="px-5 py-4 flex flex-wrap gap-3 items-center">
+
             {/* Staff */}
             <div className="relative">
-              <select
-                value={selectedStaff}
-                onChange={(e) => setSelectedStaff(e.target.value)}
-                className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
-              >
+              <select value={selectedStaff} onChange={e => setSelectedStaff(e.target.value)} className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer">
                 <option value="all">All Staff</option>
-                {Array.from(new Set(activityLogs.map(l => l.staffId))).filter(uid => {
-              if (!user) return true;
-              const staffRecord = activityLogs.find(l => l.staffId === uid);
-              return uid !== user.uid && 
-                    staffRecord?.staffEmail !== user.email &&
-                    staffRecord?.userRole !== 'admin';
-            }).map(uid => {
-              const staffRecord = activityLogs.find(l => l.staffId === uid);
-              const rawName = staffRecord?.staffName || '';
-              const staffName = rawName.includes('@') 
-                ? rawName.split('@')[0] 
-                : rawName || staffRecord?.staffEmail?.split('@')[0] || uid;
-              return <option key={uid} value={uid}>{staffName}</option>;
-            })}
+                {staffUsers.sort((a, b) => (a.staffName || a.email || '').localeCompare(b.staffName || b.email || '')).map(s => (
+                  <option key={s.uid} value={s.uid}>{s.staffName || s.email?.split('@')[0] || s.uid}</option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.User /></span>
+              <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
+            </div>
+
+            {/* Role */}
+            <div className="relative">
+              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value as 'all' | 'admin' | 'staff')} className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer">
+                <option value="all">All Roles</option>
+                <option value="admin">Admin Only</option>
+                <option value="staff">Staff Only</option>
               </select>
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.User /></span>
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
@@ -529,18 +601,17 @@ export default function LogsContent() {
 
             {/* Type */}
             <div className="relative">
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as 'all' | ActivityType)}
-                className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
-              >
+              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as 'all' | ActivityType)} className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer">
                 <option value="all">All Types</option>
                 <option value="medicine_added">Medicine Added</option>
-                <option value="stock_deducted">Stock Deducted</option>
-                <option value="stock_adjusted">Stock Adjusted</option>
+                <option value="stock_deducted">Dispensing</option>
+                <option value="stock_adjusted">Stock Adjustment</option>
+                <option value="medicine_sold">Sales</option>
                 <option value="staff_created">Staff Created</option>
                 <option value="staff_disabled">Staff Disabled</option>
-                <option value="session_ended">Session Ended</option>
+                <option value="staff_enabled">Staff Enabled</option>
+                <option value="staff_deleted">Staff Deleted</option>
+                <option value="password_changed">Password Changed</option>
               </select>
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.Activity /></span>
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
@@ -548,13 +619,9 @@ export default function LogsContent() {
 
             {/* Month */}
             <div className="relative">
-              <select
-                value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
-              >
+              <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer">
                 <option value="">All Months</option>
-                {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m, i) => (
+                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => (
                   <option key={m} value={i + 1}>{m}</option>
                 ))}
               </select>
@@ -564,11 +631,7 @@ export default function LogsContent() {
 
             {/* Year */}
             <div className="relative">
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer"
-              >
+              <select value={filterYear} onChange={e => setFilterYear(e.target.value)} className="appearance-none pl-8 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-300 transition-all cursor-pointer">
                 {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
                   <option key={y} value={y}>{y}</option>
                 ))}
@@ -581,48 +644,16 @@ export default function LogsContent() {
           </div>
         </div>
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* OVERVIEW TAB                                                       */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-
-            {/* KPI row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                {
-                  label: 'Total Events',
-                  value: filteredLogs.length,
-                  sub: 'in selected period',
-                  color: 'text-slate-900',
-                  spark: analytics.spark,
-                  sparkColor: '#64748b',
-                },
-                {
-                  label: 'Dispenses',
-                  value: analytics.totalDispensedUnits,
-                  sub: 'total units dispensed',
-                  color: 'text-blue-600',
-                  spark: analytics.spark,
-                  sparkColor: '#3b82f6',
-                },
-                {
-                  label: 'POS Sales',
-                  value: analytics.totalSoldUnits,
-                  sub: 'total units sold',
-                  color: 'text-emerald-600',
-                  spark: analytics.spark,
-                  sparkColor: '#10b981',
-                },
-                {
-                  label: 'Staff Created',
-                  value: analytics.staffCreated.length,
-                  sub: 'new accounts',
-                  color: 'text-purple-600',
-                  spark: [],
-                  sparkColor: '#a855f7',
-                },
-              ].map((kpi) => (
+                { label: 'Total Events', value: filteredLogs.length, sub: 'in selected period', color: 'text-slate-900', spark: analytics.spark, sparkColor: '#64748b' },
+                { label: 'Dispenses', value: analytics.totalDispensedUnits, sub: 'total units dispensed', color: 'text-blue-600', spark: analytics.spark, sparkColor: '#3b82f6' },
+                { label: 'POS Sales', value: analytics.totalSoldUnits, sub: 'total units sold', color: 'text-emerald-600', spark: analytics.spark, sparkColor: '#10b981' },
+                { label: 'Staff Created', value: analytics.staffCreated.length, sub: 'new accounts', color: 'text-purple-600', spark: [], sparkColor: '#a855f7' },
+              ].map(kpi => (
                 <div key={kpi.label} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">{kpi.label}</p>
                   <div className="flex items-end justify-between">
@@ -634,7 +665,6 @@ export default function LogsContent() {
               ))}
             </div>
 
-            {/* Charts row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
@@ -673,7 +703,6 @@ export default function LogsContent() {
               </div>
             </div>
 
-            {/* Staff comparison + Recent activities */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-5">
@@ -711,185 +740,66 @@ export default function LogsContent() {
                 )}
               </div>
             </div>
-
-            {/* Staff breakdown table */}
-            {Object.keys(analytics.staffStats).length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-100">
-                  <p className="text-sm font-bold text-slate-900">Staff Activity Summary</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Breakdown per staff member</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-100">
-                        {['Staff Member', 'Dispenses', 'Sales', 'Adjustments', 'Total', 'Share'].map(h => (
-                          <th key={h} className="px-5 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(analytics.staffStats)
-                        .sort((a, b) => b[1].total - a[1].total)
-                        .map(([uid, s]) => {
-                          const pct = Math.round((s.total / (filteredLogs.length || 1)) * 100);
-                          return (
-                            <tr key={uid} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                              <td className="px-5 py-3">
-                                <div className="flex items-center gap-2.5">
-                                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">
-                                    {s.name[0]?.toUpperCase()}
-                                  </div>
-                                  <span className="text-sm font-medium text-slate-800 truncate shrink-0">{s.name}</span>
-                                </div>
-                              </td>
-                              <td className="px-5 py-3 font-semibold text-blue-600">{s.dispense}</td>
-                              <td className="px-5 py-3 font-semibold text-emerald-600">{s.sale}</td>
-                              <td className="px-5 py-3 font-semibold text-amber-600">{s.adjustment}</td>
-                              <td className="px-5 py-3 font-black text-slate-900">{s.total}</td>
-                              <td className="px-5 py-3">
-                                <div className="flex items-center gap-2">
-                                  <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden w-20">
-                                    <div className="h-full bg-slate-400 rounded-full" style={{ width: `${pct}%` }} />
-                                  </div>
-                                  <span className="text-xs text-slate-400 font-semibold w-8 shrink-0">{pct}%</span>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════ */}
-        {/* LOGS TAB                                                           */}
-        {/* ══════════════════════════════════════════════════════════════════ */}
+        {/* LOGS TAB */}
         {activeTab === 'logs' && (
           <>
-            {/* Desktop table — fixed height with its own scrollbar */}
-            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-              {/* Sticky header sits outside the scroll container */}
+            {/* Desktop table - Simplified */}
+            <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-slate-200">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse table-fixed">
+                <table className="w-full text-sm border-collapse">
+                  <colgroup>
+                    <col className="w-[30%]" />
+                    <col className="w-[50%]" />
+                    <col className="w-[20%]" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      {['Timestamp', 'Type', 'Staff', 'Action', ''].map(h => (
+                      {['Staff', 'Action', ''].map(h => (
                         <th key={h} className="px-5 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
                   </thead>
                 </table>
               </div>
-              {/* Scrollable body */}
               <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
-                <table className="w-full text-sm border-collapse table-fixed">
+                <table className="w-full text-sm border-collapse">
                   <colgroup>
-                    <col className="w-[13%]" />
-                    <col className="w-[14%]" />
+                    <col className="w-[30%]" />
+                    <col className="w-[50%]" />
                     <col className="w-[20%]" />
-                    <col className="w-[40%]" />
-                    <col className="w-[13%]" />
                   </colgroup>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLogs.map((log, i) => {
                       const rawName = log.staffName || '';
-                      const staffName = rawName.includes('@')
-                        ? rawName.split('@')[0]
-                        : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
-                      const isSessionEnded = log.type === 'session_ended';
-                      
+                      const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                       return (
                         <tr key={i} className="hover:bg-slate-50 transition-colors group">
-                          <td className="px-5 py-3.5 whitespace-nowrap">
-                            <p className="text-sm font-semibold text-slate-900">{new Date(log.timestamp).toLocaleDateString()}</p>
-                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            {typeBadge(log.type)}
-                          </td>
-                          <td className="px-5 py-3.5">
+                          <td className="px-5 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0">
-                                <Icon.User />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">{staffName}</p>
+                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 text-sm font-bold">{staffName[0]?.toUpperCase()}</div>
+                              <div>
+                                <p className="text-sm font-semibold text-slate-900">{staffName}</p>
+                                <p className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Manila' })}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-5 py-3.5">
-                            <p className="text-sm text-slate-800 truncate">{log.action}</p>
+                          <td className="px-5 py-4">
+                            <div className="space-y-1">
+                              <p className="text-sm text-slate-800 line-clamp-2">{log.action}</p>
+                              <div className="flex gap-1">{typeBadge(log.type, log.action)}</div>
+                            </div>
                           </td>
-                          <td className="px-5 py-3.5 text-right">
-                            {isSessionEnded && log.details && (
-                              <button
-                                onClick={() => {
-                                  if (log.details) {
-                                    setSelectedSessionData({
-                                      details: log.details,
-                                      staffName: staffName,
-                                      sessionEndTime: log.timestamp,
-                                    });
-                                    setSessionModalOpen(true);
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg border border-purple-200 transition-all whitespace-nowrap"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                                </svg>
-                                View
-                              </button>
-                            )}
-                            {log.type === 'medicine_added' && log.details && (
-                              <button
-                                onClick={() => {
-                                  setSelectedLogDetails({
-                                    action: log.action,
-                                    details: log.details,
-                                    staffName: staffName,
-                                    timestamp: log.timestamp,
-                                    type: log.type,
-                                  });
-                                  setDetailsModalOpen(true);
-                                }}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg border border-green-200 transition-all whitespace-nowrap"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                                </svg>
-                                View
-                              </button>
-                            )}
-                            {(log.type === 'stock_adjusted' || log.type === 'stock_deducted') && log.details && (
-                              <button
-                                onClick={() => {
-                                  if (log.details) {
-                                    setSelectedAdjustmentData({
-                                      details: log.details,
-                                      staffName: staffName,
-                                      timestamp: log.timestamp,
-                                    });
-                                    setAdjustmentModalOpen(true);
-                                  }
-                                }}
-                                className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all whitespace-nowrap ${
-                                  log.type === 'stock_deducted'
-                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                                    : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
-                                }`}
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                                </svg>
-                                View
-                              </button>
-                            )}
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              onClick={() => { setSelectedLogDetails({ action: log.action, details: log.details, staffName, staffId: log.staffId, staffEmail: log.staffEmail, timestamp: log.timestamp, type: log.type }); setDetailsModalOpen(true); }}
+                              className="inline-flex items-center gap-1 px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 transition-all whitespace-nowrap"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                              View
+                            </button>
                           </td>
                         </tr>
                       );
@@ -899,99 +809,33 @@ export default function LogsContent() {
               </div>
             </div>
 
-            {/* Mobile cards */}
+            {/* Mobile cards - Simplified */}
             <div className="lg:hidden space-y-3">
               {filteredLogs.map((log, i) => {
                 const rawName = log.staffName || '';
-                const staffName = rawName.includes('@')
-                  ? rawName.split('@')[0]
-                  : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
-                const isSessionEnded = log.type === 'session_ended';
-                
+                const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                 return (
                   <div key={i} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400"><Icon.User /></div>
+                        <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 text-sm font-bold">{staffName[0]?.toUpperCase()}</div>
                         <div>
                           <p className="text-sm font-bold text-slate-900">{staffName}</p>
+                          <p className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Manila' })}</p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs font-semibold text-slate-800">{new Date(log.timestamp).toLocaleDateString()}</p>
-                        <p className="text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {typeBadge(log.type)}
-                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">{typeBadge(log.type, log.action)}</div>
                     <div className="text-sm text-slate-700 pt-1 border-t border-slate-50">
-                      <p className="font-semibold">{log.action}</p>
+                      <p className="font-semibold line-clamp-2">{log.action}</p>
                     </div>
-                    {isSessionEnded && log.details && (
-                      <button
-                        onClick={() => {
-                          if (log.details) {
-                            setSelectedSessionData({
-                              details: log.details,
-                              staffName: staffName,
-                              sessionEndTime: log.timestamp,
-                            });
-                            setSessionModalOpen(true);
-                          }
-                        }}
-                        className="w-full py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-lg border border-purple-200 transition-all flex items-center justify-center gap-1.5"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                        </svg>
-                        View Session Summary
-                      </button>
-                    )}
-                    {log.type === 'medicine_added' && log.details && (
-                      <button
-                        onClick={() => {
-                          setSelectedLogDetails({
-                            action: log.action,
-                            details: log.details,
-                            staffName: staffName,
-                            timestamp: log.timestamp,
-                            type: log.type,
-                          });
-                          setDetailsModalOpen(true);
-                        }}
-                        className="w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-lg border border-green-200 transition-all flex items-center justify-center gap-1.5"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                        </svg>
-                        View Details
-                      </button>
-                    )}
-                    {(log.type === 'stock_adjusted' || log.type === 'stock_deducted') && log.details && (
-                      <button
-                        onClick={() => {
-                          if (log.details) {
-                            setSelectedAdjustmentData({
-                              details: log.details,
-                              staffName: staffName,
-                              timestamp: log.timestamp,
-                            });
-                            setAdjustmentModalOpen(true);
-                          }
-                        }}
-                        className={`w-full py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1.5 ${
-                          log.type === 'stock_deducted'
-                            ? 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200'
-                            : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200'
-                        }`}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-                        </svg>
-                        {log.type === 'stock_deducted' ? 'View Deduction' : 'View Adjustment'}
-                      </button>
-                    )}
+                    <button
+                      onClick={() => { setSelectedLogDetails({ action: log.action, details: log.details, staffName, staffId: log.staffId, staffEmail: log.staffEmail, timestamp: log.timestamp, type: log.type }); setDetailsModalOpen(true); }}
+                      className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-200 transition-all flex items-center justify-center gap-1.5"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                      View Details
+                    </button>
                   </div>
                 );
               })}
@@ -999,9 +843,7 @@ export default function LogsContent() {
 
             {filteredLogs.length === 0 && (
               <div className="bg-white rounded-2xl py-16 text-center border border-slate-200 shadow-sm">
-                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300 mx-auto mb-4">
-                  <Icon.Activity />
-                </div>
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300 mx-auto mb-4"><Icon.Activity /></div>
                 <p className="text-slate-500 font-medium">No activity logs found</p>
                 <p className="text-sm text-slate-400 mt-1">Try adjusting your filters</p>
               </div>
@@ -1010,38 +852,17 @@ export default function LogsContent() {
         )}
       </div>
 
-      {/* Admin Session Summary Modal */}
-      {selectedSessionData && (
-        <AdminSessionSummaryModal
-          isOpen={sessionModalOpen}
-          onClose={() => {
-            setSessionModalOpen(false);
-            setSelectedSessionData(null);
-          }}
-          sessionData={selectedSessionData.details}
-          staffName={selectedSessionData.staffName}
-          sessionEndTime={selectedSessionData.sessionEndTime}
-        />
-      )}
-
-      {/* Details Modal */}
       <DetailsModal
         isOpen={detailsModalOpen}
-        onClose={() => {
-          setDetailsModalOpen(false);
-          setSelectedLogDetails(null);
-        }}
+        onClose={() => { setDetailsModalOpen(false); setSelectedLogDetails(null); }}
         log={selectedLogDetails}
+        staffLastLogin={analytics.staffLastLogin}
       />
 
-      {/* Stock Adjustment Modal */}
       {selectedAdjustmentData && (
         <StockAdjustmentSummaryModal
           isOpen={adjustmentModalOpen}
-          onClose={() => {
-            setAdjustmentModalOpen(false);
-            setSelectedAdjustmentData(null);
-          }}
+          onClose={() => { setAdjustmentModalOpen(false); setSelectedAdjustmentData(null); }}
           adjustmentData={selectedAdjustmentData.details}
           staffName={selectedAdjustmentData.staffName}
           timestamp={selectedAdjustmentData.timestamp}

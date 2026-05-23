@@ -4,11 +4,14 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
 import { subscribeToActivityLogs, type ActivityLog } from '@/lib/services/activity-logs';
+import { database } from '@/lib/services/firebase';
+import { ref, onValue } from 'firebase/database';
 
 export default function SystemNotificationsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [staffUsers, setStaffUsers] = useState<{ uid: string; staffName?: string; email?: string; role?: string }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStaff, setFilterStaff] = useState<string>('all');
@@ -26,12 +29,34 @@ export default function SystemNotificationsPage() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+
+    const usersRef = ref(database, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      const staffList: { uid: string; staffName?: string; email?: string; role?: string }[] = [];
+      if (data && typeof data === 'object') {
+        Object.entries(data).forEach(([uid, userData]: [string, any]) => {
+          if (userData?.role === 'staff') {
+            staffList.push({ uid, staffName: userData.staffName, email: userData.email, role: userData.role });
+          }
+        });
+      }
+      setStaffUsers(staffList);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
   const filteredLogs = useMemo(() => {
-    const staffNotificationTypes = ['admin_login', 'admin_logout', 'staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
+    const staffNotificationTypes = ['admin_login', 'admin_logout', 'staff_login', 'staff_logout'];
+    const activeStaffUids = new Set(staffUsers.map(s => s.uid));
     return activityLogs
       .filter(log => staffNotificationTypes.includes(log.type))
+      .filter(log => activeStaffUids.has(log.staffId) || ['admin_login', 'admin_logout'].includes(log.type))
       .filter(log => {
-        const matchesType  = filterType  === 'all' || log.type === filterType;
+        const matchesType = filterType === 'all' || log.type === filterType;
         const matchesStaff = filterStaff === 'all' || log.staffId === filterStaff;
         const matchesSearch =
           log.staffEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -39,58 +64,61 @@ export default function SystemNotificationsPage() {
           log.staffName?.toLowerCase().includes(searchTerm.toLowerCase());
         return matchesType && matchesStaff && matchesSearch;
       });
-  }, [activityLogs, filterType, filterStaff, searchTerm]);
+  }, [activityLogs, filterType, filterStaff, searchTerm, staffUsers]);
 
   const uniqueStaff = useMemo(() => {
-    const staffOnlyTypes = ['staff_created', 'staff_disabled', 'staff_login', 'staff_logout', 'password_changed'];
+    const staffOnlyTypes = ['staff_login', 'staff_logout'];
     const staff = new Map<string, { id: string; email: string; name?: string }>();
+    const activeStaffIds = new Set(staffUsers.map(s => s.uid));
+
     activityLogs
       .filter(log => staffOnlyTypes.includes(log.type))
       .filter(log => log.userRole !== 'admin')
       .filter(log => log.staffId !== user?.uid)
       .filter(log => log.staffEmail !== user?.email)
+      .filter(log => activeStaffIds.has(log.staffId)) // Only include staff that still exist in the users list
       .forEach(log => {
         if (!staff.has(log.staffId)) {
           staff.set(log.staffId, { id: log.staffId, email: log.staffEmail, name: log.staffName });
         }
       });
     return Array.from(staff.values());
-  }, [activityLogs, user]);
+  }, [activityLogs, user, staffUsers]);
 
   const getActivityTypeLabel = (type: string): string => {
     const labels: Record<string, string> = {
-      'admin_login':        'Admin Login',
-      'admin_logout':       'Admin Logout',
-      'staff_login':        'Staff Login',
-      'staff_logout':       'Staff Logout',
-      'password_changed':   'Password Changed',
-      'stock_deducted':     'Stock Deducted',
-      'stock_adjusted':     'Stock Adjusted',
+      'admin_login': 'Admin Login',
+      'admin_logout': 'Admin Logout',
+      'staff_login': 'Staff Login',
+      'staff_logout': 'Staff Logout',
+      'password_changed': 'Password Changed',
+      'stock_deducted': 'Stock Deducted',
+      'stock_adjusted': 'Stock Adjusted',
       'medicine_dispensed': 'Medicine Dispensed',
-      'medicine_sold':      'Medicine Sold',
-      'staff_created':      'Staff Created',
-      'staff_disabled':     'Staff Disabled',
-      'session_ended':      'Daily Session Ended',
-      'session_started':    'New Session Started',
+      'medicine_sold': 'Medicine Sold',
+      'staff_created': 'Staff Created',
+      'staff_disabled': 'Staff Disabled',
+      'staff_enabled': 'Staff Enabled',
+      'staff_deleted': 'Staff Deleted',
     };
     return labels[type] || type;
   };
 
   const getActivityTypeColor = (type: string): string => {
     const colors: Record<string, string> = {
-      'admin_login':        'bg-green-50 text-green-700 border-green-200',
-      'admin_logout':       'bg-red-50 text-red-700 border-red-200',
-      'staff_login':        'bg-green-50 text-green-700 border-green-200',
-      'staff_logout':       'bg-red-50 text-red-700 border-red-200',
-      'password_changed':   'bg-blue-50 text-blue-700 border-blue-200',
-      'stock_deducted':     'bg-orange-50 text-orange-700 border-orange-200',
-      'stock_adjusted':     'bg-violet-50 text-violet-700 border-violet-200',
+      'admin_login': 'bg-green-50 text-green-700 border-green-200',
+      'admin_logout': 'bg-red-50 text-red-700 border-red-200',
+      'staff_login': 'bg-green-50 text-green-700 border-green-200',
+      'staff_logout': 'bg-red-50 text-red-700 border-red-200',
+      'password_changed': 'bg-blue-50 text-blue-700 border-blue-200',
+      'stock_deducted': 'bg-orange-50 text-orange-700 border-orange-200',
+      'stock_adjusted': 'bg-violet-50 text-violet-700 border-violet-200',
       'medicine_dispensed': 'bg-sky-50 text-sky-700 border-sky-200',
-      'medicine_sold':      'bg-emerald-50 text-emerald-700 border-emerald-200',
-      'staff_created':      'bg-indigo-50 text-indigo-700 border-indigo-200',
-      'staff_disabled':     'bg-red-50 text-red-700 border-red-200',
-      'session_ended':      'bg-rose-50 text-rose-700 border-rose-200',
-      'session_started':    'bg-teal-50 text-teal-700 border-teal-200',
+      'medicine_sold': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      'staff_created': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      'staff_disabled': 'bg-orange-50 text-orange-700 border-orange-200',
+      'staff_enabled': 'bg-green-50 text-green-700 border-green-200',
+      'staff_deleted': 'bg-red-50 text-red-700 border-red-200',
     };
     return colors[type] || 'bg-slate-50 text-slate-700 border-slate-200';
   };
@@ -128,27 +156,32 @@ export default function SystemNotificationsPage() {
         return <svg {...iconProps}><path d="M7.5 7.5h-.75A2.25 2.25 0 0 0 4.5 9.75v7.5a2.25 2.25 0 0 0 2.25 2.25h7.5a2.25 2.25 0 0 0 2.25-2.25v-7.5a2.25 2.25 0 0 0-2.25-2.25h-.75" /></svg>;
       case 'medicine_sold':
         return <svg {...iconProps}><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>;
-      case 'session_ended':
-        return <svg {...iconProps}><path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>;
-      case 'session_started':
-        return <svg {...iconProps}><path d="M12 4v16m8-8H4" /></svg>;
       default:
         return <svg {...iconProps}><circle cx="12" cy="12" r="10" /></svg>;
     }
   };
 
   const formatTime = (timestamp: string): string => {
-    const date      = new Date(timestamp);
-    const now       = new Date();
-    const diffMs    = now.getTime() - date.getTime();
-    const diffMins  = Math.floor(diffMs / 60000);
+    const date = new Date(timestamp);
+    const now = new Date();
+
+    // Convert both dates to PST for accurate comparison
+    const pstDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+    const pstNow = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+
+    const diffMs = pstNow.getTime() - pstDate.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays  = Math.floor(diffMs / 86400000);
-    if (diffMins  < 1)  return 'Just now';
-    if (diffMins  < 60) return `${diffMins}m ago`;
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays  < 7)  return `${diffDays}d ago`;
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    // Format with Philippine Standard Time (UTC+8)
+    return pstDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' }) + ' ' +
+      pstDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
   if (!user || isLoading) {
@@ -169,7 +202,7 @@ export default function SystemNotificationsPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-black tracking-tight text-slate-900 mb-2">Staff Notifications</h1>
-          <p className="text-slate-500">Staff account activities, login/logout events, and password changes</p>
+          <p className="text-slate-500">Admin and staff login/logout activity logs</p>
         </div>
 
         {/* Filters */}
@@ -195,11 +228,8 @@ export default function SystemNotificationsPage() {
                 <option value="all">All Types</option>
                 <option value="admin_login">Admin Login</option>
                 <option value="admin_logout">Admin Logout</option>
-                <option value="staff_created">Staff Created</option>
-                <option value="staff_disabled">Staff Disabled</option>
                 <option value="staff_login">Staff Login</option>
                 <option value="staff_logout">Staff Logout</option>
-                <option value="password_changed">Password Changed</option>
               </select>
             </div>
             <div>
@@ -265,87 +295,7 @@ export default function SystemNotificationsPage() {
                     {/* Details */}
                     {log.details && Object.keys(log.details).length > 0 && (
                       <>
-                        {log.type === 'session_ended' ? (
-                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 text-xs">
-                            {log.details.sessionDurationMinutes !== undefined && (
-                              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                                <p className="text-slate-600 font-medium mb-1">Session Duration</p>
-                                <p className="text-slate-900 font-semibold">
-                                  {Math.floor(log.details.sessionDurationMinutes / 60)}h {log.details.sessionDurationMinutes % 60}m
-                                </p>
-                              </div>
-                            )}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                              {log.details.totalUnitsDispensed !== undefined && (
-                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                                  <p className="text-blue-600 font-medium text-[10px] mb-1">Units Dispensed</p>
-                                  <p className="text-blue-900 font-black text-lg">{log.details.totalUnitsDispensed}</p>
-                                </div>
-                              )}
-                              {log.details.totalTransactions !== undefined && (
-                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2">
-                                  <p className="text-emerald-600 font-medium text-[10px] mb-1">Transactions</p>
-                                  <p className="text-emerald-900 font-black text-lg">{log.details.totalTransactions}</p>
-                                </div>
-                              )}
-                              {log.details.totalDispenseTransactions !== undefined && (
-                                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
-                                  <p className="text-indigo-600 font-medium text-[10px] mb-1">Dispense Transaction</p>
-                                  <p className="text-indigo-900 font-black text-lg">{log.details.totalDispenseTransactions}</p>
-                                </div>
-                              )}
-                              {log.details.totalSalesTransactions !== undefined && (
-                                <div className="bg-violet-50 border border-violet-200 rounded-lg p-2">
-                                  <p className="text-violet-600 font-medium text-[10px] mb-1">Sales Transaction</p>
-                                  <p className="text-violet-900 font-black text-lg">{log.details.totalSalesTransactions}</p>
-                                </div>
-                              )}
-                            </div>
-                            {((log.details.lowStockCount ?? 0) > 0 ||
-                              (log.details.expiredCount ?? 0) > 0 ||
-                              (log.details.outOfStockCount ?? 0) > 0) && (
-                              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                                <p className="text-red-700 font-medium mb-2 text-[10px] uppercase tracking-wide">⚠️ Inventory Alerts</p>
-                                <div className="space-y-1 text-red-800">
-                                  {(log.details.outOfStockCount ?? 0) > 0 && <p className="text-[11px]">• {log.details.outOfStockCount} out of stock</p>}
-                                  {(log.details.expiredCount ?? 0) > 0 && <p className="text-[11px]">• {log.details.expiredCount} expired</p>}
-                                  {(log.details.lowStockCount ?? 0) > 0 && <p className="text-[11px]">• {log.details.lowStockCount} low stock</p>}
-                                  {log.details.totalCriticalAlerts !== undefined && (
-                                    <p className="text-[11px] font-semibold mt-1">Total Critical: {log.details.totalCriticalAlerts}</p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                            {log.details.sessionSummary && (
-                              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                                <p className="text-slate-600 font-medium mb-1 text-[10px] uppercase tracking-wide">Summary</p>
-                                <p className="text-slate-700 text-[11px] leading-relaxed">{log.details.sessionSummary}</p>
-                              </div>
-                            )}
-                            {log.details.detailedBreakdown && (
-                              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-                                <p className="text-slate-600 font-medium mb-1 text-[10px] uppercase tracking-wide">Details</p>
-                                <p className="text-slate-700 text-[10px] leading-relaxed">{log.details.detailedBreakdown}</p>
-                              </div>
-                            )}
-                          </div>
-
-                        ) : log.type === 'session_started' ? (
-                          <div className="mt-3 pt-3 border-t border-slate-100 text-xs">
-                            <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                              <p className="text-teal-700 font-medium mb-1 text-[10px] uppercase tracking-wide">Session Started</p>
-                              {log.details.sessionStartTime && (
-                                <p className="text-teal-800 text-[11px]">
-                                  Started at: {new Date(log.details.sessionStartTime).toLocaleString('en-PH', {
-                                    dateStyle: 'medium',
-                                    timeStyle: 'short',
-                                  })}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                        ) : (
+                        <>
                           <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                             {log.details.medicineName && (
                               <div>
@@ -378,15 +328,16 @@ export default function SystemNotificationsPage() {
                               </div>
                             )}
                           </div>
-                        )}
+                        </>
+
                       </>
                     )}
                   </div>
 
                   {/* Timestamp */}
                   <div className="text-right text-xs text-slate-400 shrink-0">
-                    <p>{new Date(log.timestamp).toLocaleDateString()}</p>
-                    <p>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p>{new Date(log.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Manila' })}</p>
+                    <p>{new Date(log.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                   </div>
                 </div>
               </div>
@@ -394,37 +345,7 @@ export default function SystemNotificationsPage() {
           )}
         </div>
 
-        {/* Summary cards */}
-        {filteredLogs.length > 0 && (
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Activities</p>
-              <p className="text-3xl font-black text-slate-900">{filteredLogs.length}</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Active Staff</p>
-              <p className="text-3xl font-black text-emerald-600">{filteredLogs.filter(l => l.isActive).length}</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Sessions Ended Today</p>
-              <p className="text-3xl font-black text-rose-600">
-                {filteredLogs.filter(
-                  l => l.type === 'session_ended' &&
-                  new Date(l.timestamp).toDateString() === new Date().toDateString()
-                ).length}
-              </p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-4 text-center">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">New Sessions Today</p>
-              <p className="text-3xl font-black text-teal-600">
-                {filteredLogs.filter(
-                  l => l.type === 'session_started' &&
-                  new Date(l.timestamp).toDateString() === new Date().toDateString()
-                ).length}
-              </p>
-            </div>
-          </div>
-        )}
+
 
       </div>
     </div>

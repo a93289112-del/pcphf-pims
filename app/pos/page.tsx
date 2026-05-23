@@ -15,8 +15,6 @@ import {
 import dynamic from 'next/dynamic';
 import { getEffectiveStock, deductStockBatch, getTrueEarliestExpiration } from '@/lib/services/stock-management';
 import { logActivity } from '@/lib/services/activity-logs';
-import { useSession } from '@/lib/hooks/useSession';
-import { startSession } from '@/lib/services/session-management';
 import Processing from '@/lib/components/processing';
 
 const Receipt = dynamic(() => import('@/lib/components/receipt'), { ssr: false });
@@ -58,17 +56,17 @@ interface Sale {
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
-const getDisplayName  = (m: Medicine) => m.baseName || m.name || '—';
+const getDisplayName = (m: Medicine) => m.baseName || m.name || '—';
 const getDisplayBrand = (m: Medicine) => m.brandModel || m.brand || '';
-const getMinStock     = (m: Medicine) => m.minStock ?? 0;
+const getMinStock = (m: Medicine) => m.minStock ?? 0;
 
 const getMedicineStatus = (medicine: Medicine) => {
-  const stock    = getEffectiveStock(medicine);
+  const stock = getEffectiveStock(medicine);
   const minStock = getMinStock(medicine);
-  const exp      = medicine.expirationDate ? new Date(medicine.expirationDate) : null;
-  const now      = new Date();
-  if (stock === 0)       return { label: 'Out of Stock', variant: 'out'      as const };
-  if (exp && exp < now)  return { label: 'Expired',      variant: 'expired'  as const };
+  const exp = medicine.expirationDate ? new Date(medicine.expirationDate) : null;
+  const now = new Date();
+  if (stock === 0) return { label: 'Out of Stock', variant: 'out' as const };
+  if (exp && exp < now) return { label: 'Expired', variant: 'expired' as const };
   if (exp) {
     const days = Math.floor((exp.getTime() - now.getTime()) / 86400000);
     if (days <= 30) return { label: `Exp. ${days}d`, variant: 'expiring' as const };
@@ -89,42 +87,39 @@ const getExpirationDisplay = (expirationDate?: string): string | null => {
 };
 
 const statusConfig: Record<string, { dot: string; text: string; bg: string }> = {
-  out:      { dot: 'bg-slate-400',   text: 'text-slate-500',   bg: 'bg-slate-100'  },
-  expired:  { dot: 'bg-red-500',     text: 'text-red-600',     bg: 'bg-red-50'     },
-  expiring: { dot: 'bg-amber-500',   text: 'text-amber-600',   bg: 'bg-amber-50'   },
-  low:      { dot: 'bg-yellow-500',  text: 'text-yellow-700',  bg: 'bg-yellow-50'  },
-  in:       { dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
+  out: { dot: 'bg-slate-400', text: 'text-slate-500', bg: 'bg-slate-100' },
+  expired: { dot: 'bg-red-500', text: 'text-red-600', bg: 'bg-red-50' },
+  expiring: { dot: 'bg-amber-500', text: 'text-amber-600', bg: 'bg-amber-50' },
+  low: { dot: 'bg-yellow-500', text: 'text-yellow-700', bg: 'bg-yellow-50' },
+  in: { dot: 'bg-emerald-500', text: 'text-emerald-700', bg: 'bg-emerald-50' },
 };
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 export default function POSPage() {
   const { user, role, loading, staffName, adminName } = useAuth();
-  const router            = useRouter();
-  const { hasActiveSession } = useSession({ userId: user?.uid });
+  const router = useRouter();
 
-  const [medicines,          setMedicines]          = useState<Medicine[]>([]);
-  const [loadingMedicines,   setLoadingMedicines]   = useState(true);
-  const [searchQuery,        setSearchQuery]         = useState('');
-  const [cart,               setCart]                = useState<CartItem[]>([]);
-  const [lastSale,           setLastSale]            = useState<Sale | null>(null);
-  const [showReceipt,        setShowReceipt]         = useState(false);
-  const [viewMode,           setViewMode]            = useState<'grid' | 'table'>('grid');
-  const [amountPaid,         setAmountPaid]          = useState('');
-  const [isProcessing,       setIsProcessing]        = useState(false);
-  const [paymentError,       setPaymentError]        = useState('');
-  const [panel,              setPanel]               = useState<'cart' | 'payment'>('cart');
-  const [cartMinimized,      setCartMinimized]       = useState(false);
-  const [qtyInputs,          setQtyInputs]           = useState<Record<string, string>>({});
-  const [filterUnit,         setFilterUnit]          = useState<'all' | string>('all');
-  const [filterStock,        setFilterStock]         = useState<'all' | 'in' | 'low' | 'expiring' | 'expired' | 'out'>('all');
-  const [filterAgeGroup,      setFilterAgeGroup]      = useState<'all' | string>('all');
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loadingMedicines, setLoadingMedicines] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [lastSale, setLastSale] = useState<Sale | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [amountPaid, setAmountPaid] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+  const [panel, setPanel] = useState<'cart' | 'payment'>('cart');
+  const [cartMinimized, setCartMinimized] = useState(false);
+  const [qtyInputs, setQtyInputs] = useState<Record<string, string>>({});
+  const [filterUnit, setFilterUnit] = useState<'all' | string>('all');
+  const [filterStock, setFilterStock] = useState<'all' | 'in' | 'low' | 'expiring' | 'expired' | 'out'>('all');
+  const [filterAgeGroup, setFilterAgeGroup] = useState<'all' | string>('all');
   const [quickSelectBaseName, setQuickSelectBaseName] = useState('');
   const [quickSelectStrength, setQuickSelectStrength] = useState('');
-  const [availableUnits,     setAvailableUnits]      = useState<string[]>([]);
-  const [availableAgeGroups, setAvailableAgeGroups]  = useState<string[]>([]);
-  const [availableStrengths, setAvailableStrengths]  = useState<Array<{ strength: string | undefined; medicine: Medicine }>>([]);
-  const [showNoSessionModal, setShowNoSessionModal]  = useState(false);
-  const [isStartingSession,  setIsStartingSession]   = useState(false);
+  const [availableUnits, setAvailableUnits] = useState<string[]>([]);
+  const [availableAgeGroups, setAvailableAgeGroups] = useState<string[]>([]);
+  const [availableStrengths, setAvailableStrengths] = useState<Array<{ strength: string | undefined; medicine: Medicine }>>([]);
 
   /* Load medicines from user scope */
   useEffect(() => {
@@ -140,29 +135,6 @@ export default function POSPage() {
       return () => unsub();
     }
   }, [user, loading, router]);
-
-  const handleStartSessionFromModal = async () => {
-    if (!user) return;
-    try {
-      setIsStartingSession(true);
-      const sessionStarterName = staffName || adminName || undefined;
-      await startSession(user.uid, sessionStarterName);
-      await logActivity(
-        'session_started',
-        user.uid,
-        user.email || '',
-        `Session started at ${new Date().toLocaleTimeString('en-PH')}`,
-        { sessionStartTime: new Date().toISOString() },
-        sessionStarterName,
-        role || undefined,
-      );
-      setShowNoSessionModal(false);
-    } catch (error) {
-      console.error('Failed to start session:', error);
-    } finally {
-      setIsStartingSession(false);
-    }
-  };
 
   const medicinesByBaseName = useMemo(() => {
     const map = new Map<string, Medicine[]>();
@@ -182,7 +154,7 @@ export default function POSPage() {
   useEffect(() => {
     const units = new Set<string>();
     medicines.forEach((m) => {
-      if (m.unit)     units.add(m.unit);
+      if (m.unit) units.add(m.unit);
       if (m.category) units.add(m.category);
     });
     setAvailableUnits(Array.from(units).sort());
@@ -210,18 +182,18 @@ export default function POSPage() {
         [m.baseName, m.name, m.brand, m.strength, m.category].some((v) => v?.toLowerCase().includes(q)),
       );
     }
-    if (filterUnit  !== 'all') f = f.filter((m) => (m.unit || m.category) === filterUnit);
+    if (filterUnit !== 'all') f = f.filter((m) => (m.unit || m.category) === filterUnit);
     if (filterStock !== 'all') f = f.filter((m) => getMedicineStatus(m).variant === filterStock);
     if (filterAgeGroup !== 'all') f = f.filter((m) => m.ageGroup === filterAgeGroup);
-    if (quickSelectBaseName)   f = f.filter((m) => (m.baseName || m.name) === quickSelectBaseName);
-    if (quickSelectStrength)   f = f.filter((m) => (m.strength || 'Standard') === quickSelectStrength);
+    if (quickSelectBaseName) f = f.filter((m) => (m.baseName || m.name) === quickSelectBaseName);
+    if (quickSelectStrength) f = f.filter((m) => (m.strength || 'Standard') === quickSelectStrength);
     return f;
   }, [medicines, searchQuery, filterUnit, filterStock, filterAgeGroup, quickSelectBaseName, quickSelectStrength]);
 
-  const cartTotal  = useMemo(() => cart.reduce((s, i) => s + (i.medicine.sellingPrice || 0) * i.quantity, 0), [cart]);
-  const paidNum    = parseFloat(amountPaid || '0');
-  const change     = Math.max(0, paidNum - cartTotal);
-  const canPay     = paidNum >= cartTotal && cart.length > 0;
+  const cartTotal = useMemo(() => cart.reduce((s, i) => s + (i.medicine.sellingPrice || 0) * i.quantity, 0), [cart]);
+  const paidNum = parseFloat(amountPaid || '0');
+  const change = Math.max(0, paidNum - cartTotal);
+  const canPay = paidNum >= cartTotal && cart.length > 0;
   const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
 
   /* Cart operations */
@@ -267,7 +239,7 @@ export default function POSPage() {
       const med = medicines.find((m) => m.id === id);
       if (!med) return prev;
       const maxStock = getEffectiveStock(med);
-      const clamped  = Math.min(parsed, maxStock);
+      const clamped = Math.min(parsed, maxStock);
       if (clamped !== parsed) setQtyInputs((qi) => ({ ...qi, [id]: String(clamped) }));
       return prev.map((i) => i.medicine.id === id ? { ...i, quantity: clamped } : i);
     });
@@ -275,7 +247,7 @@ export default function POSPage() {
 
   const handleQtyInputBlur = useCallback((id: string, currentQty: number) => {
     setQtyInputs((qi) => {
-      const raw    = qi[id];
+      const raw = qi[id];
       const parsed = parseInt(raw, 10);
       if (!raw || isNaN(parsed) || parsed < 1) return { ...qi, [id]: String(currentQty) };
       return qi;
@@ -289,35 +261,31 @@ export default function POSPage() {
       setPaymentError('Authentication error. Please re-login.');
       return;
     }
-    if (!hasActiveSession) {
-      setShowNoSessionModal(true);
-      return;
-    }
     setIsProcessing(true);
     setPaymentError('');
     try {
       const salesPath = getUserPath(user.uid, 'sales');
-      const saleRef   = push(ref(database, salesPath));
-      const saleId    = saleRef.key!;
-      const now       = new Date();
+      const saleRef = push(ref(database, salesPath));
+      const saleId = saleRef.key!;
+      const now = new Date();
 
       const saleData = {
-        date:          now.toISOString(),
+        date: now.toISOString(),
         // ▼ Store the PH date explicitly so reports always group correctly
-        phDate:        now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }),
-        total:         cartTotal,
-        amountPaid:    paidNum,
+        phDate: now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }),
+        total: cartTotal,
+        amountPaid: paidNum,
         change,
         paymentMethod: 'over-the-counter',
-        itemCount:     cart.length,
+        itemCount: cart.length,
         items: cart.map((i) => ({
-          medicineId:   i.medicine.id,
+          medicineId: i.medicine.id,
           medicineName: (i.medicine.baseName || i.medicine.name || 'Unknown') as string,
-          quantity:     i.quantity,
-          unitPrice:    i.medicine.sellingPrice || 0,
-          subtotal:     (i.medicine.sellingPrice || 0) * i.quantity,
-          unit:         i.medicine.unit || '',
-          category:     i.medicine.category || '',
+          quantity: i.quantity,
+          unitPrice: i.medicine.sellingPrice || 0,
+          subtotal: (i.medicine.sellingPrice || 0) * i.quantity,
+          unit: i.medicine.unit || '',
+          category: i.medicine.category || '',
         })),
         createdAt: now.toISOString(),
         userId: user.uid, // Add userId to sale data
@@ -332,12 +300,12 @@ export default function POSPage() {
 
       const result = await deductStockBatch(
         cart.map((i) => ({
-          medicineId:  i.medicine.id,
-          quantity:    i.quantity,
-          type:        'sale' as const,
+          medicineId: i.medicine.id,
+          quantity: i.quantity,
+          type: 'sale' as const,
           referenceId: saleId,
-          unitPrice:   i.medicine.sellingPrice || 0,
-          userId:      user.uid, // Pass userId for stock management
+          unitPrice: i.medicine.sellingPrice || 0,
+          userId: user.uid, // Pass userId for stock management
         })),
         saleId,
       );
@@ -623,14 +591,14 @@ export default function POSPage() {
               ) : viewMode === 'grid' ? (
                 <div className="stagger grid gap-4 grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {filteredMedicines.map((medicine) => {
-                    const stock      = getEffectiveStock(medicine);
-                    const status     = getMedicineStatus(medicine);
-                    const sc         = statusConfig[status.variant];
-                    const inCart     = cart.some((d) => d.medicine.id === medicine.id);
-                    const cartQty    = cart.find((d) => d.medicine.id === medicine.id)?.quantity || 0;
+                    const stock = getEffectiveStock(medicine);
+                    const status = getMedicineStatus(medicine);
+                    const sc = statusConfig[status.variant];
+                    const inCart = cart.some((d) => d.medicine.id === medicine.id);
+                    const cartQty = cart.find((d) => d.medicine.id === medicine.id)?.quantity || 0;
                     const outOfStock = status.variant === 'out';
-                    const isExpired  = status.variant === 'expired';
-                    const cannotAdd  = outOfStock || isExpired;
+                    const isExpired = status.variant === 'expired';
+                    const cannotAdd = outOfStock || isExpired;
                     return (
                       <div
                         key={medicine.id}
@@ -658,7 +626,7 @@ export default function POSPage() {
                             {getDisplayBrand(medicine) && <p className="text-[11px] text-slate-400 mt-0.5 truncate">{getDisplayBrand(medicine)}</p>}
                           </div>
                           <div className="flex flex-wrap gap-1">
-                            {medicine.unit     && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-semibold rounded-md border border-blue-100">{medicine.unit}</span>}
+                            {medicine.unit && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-semibold rounded-md border border-blue-100">{medicine.unit}</span>}
                             {medicine.strength && <span className="px-1.5 py-0.5 bg-violet-50 text-violet-700 text-[10px] font-semibold rounded-md border border-violet-100">{medicine.strength}</span>}
                             {medicine.ageGroup && <span className="px-1.5 py-0.5 bg-green-50 text-green-700 text-[10px] font-semibold rounded-md border border-green-100">{medicine.ageGroup}</span>}
                           </div>
@@ -681,11 +649,10 @@ export default function POSPage() {
                               )}
                             </div>
                             {getExpirationDisplay(getTrueEarliestExpiration(medicine)) && (
-                              <p className={`text-[9px] font-medium ${
-                                getTrueEarliestExpiration(medicine) && new Date(getTrueEarliestExpiration(medicine)!) < new Date() ? 'text-red-600' :
+                              <p className={`text-[9px] font-medium ${getTrueEarliestExpiration(medicine) && new Date(getTrueEarliestExpiration(medicine)!) < new Date() ? 'text-red-600' :
                                 getTrueEarliestExpiration(medicine) && Math.floor((new Date(getTrueEarliestExpiration(medicine)!).getTime() - new Date().getTime()) / 86400000) <= 30 ? 'text-amber-600' :
-                                'text-slate-500'
-                              }`}>Exp: {getExpirationDisplay(getTrueEarliestExpiration(medicine))}</p>
+                                  'text-slate-500'
+                                }`}>Exp: {getExpirationDisplay(getTrueEarliestExpiration(medicine))}</p>
                             )}
                           </div>
                         </div>
@@ -705,10 +672,10 @@ export default function POSPage() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredMedicines.map((medicine) => {
-                        const stock   = getEffectiveStock(medicine);
-                        const status  = getMedicineStatus(medicine);
-                        const sc      = statusConfig[status.variant];
-                        const inCart  = cart.some((d) => d.medicine.id === medicine.id);
+                        const stock = getEffectiveStock(medicine);
+                        const status = getMedicineStatus(medicine);
+                        const sc = statusConfig[status.variant];
+                        const inCart = cart.some((d) => d.medicine.id === medicine.id);
                         const cartQty = cart.find((d) => d.medicine.id === medicine.id)?.quantity || 0;
                         return (
                           <tr key={medicine.id} className={`hover:bg-slate-50/80 transition-colors ${inCart ? 'bg-blue-50/40' : ''}`}>
@@ -725,7 +692,7 @@ export default function POSPage() {
                             </td>
                             <td className="px-4 py-3 text-xs text-slate-600">
                               <div className="flex gap-1 flex-wrap">
-                                {medicine.unit     && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">{medicine.unit}</span>}
+                                {medicine.unit && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-semibold">{medicine.unit}</span>}
                                 {medicine.strength && <span className="px-1.5 py-0.5 bg-violet-50 text-violet-700 rounded text-[10px] font-semibold">{medicine.strength}</span>}
                                 {medicine.ageGroup && <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-semibold">{medicine.ageGroup}</span>}
                               </div>
@@ -1027,34 +994,6 @@ export default function POSPage() {
 
       {isProcessing && <Processing />}
       {showReceipt && lastSale && <Receipt sale={lastSale as Sale} onClose={() => setShowReceipt(false)} />}
-
-      {/* No Session Modal */}
-      {showNoSessionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in" style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.5)' }}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl slide-up">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-                <div><h3 className="text-lg font-bold text-slate-900">Session Required</h3><p className="text-xs text-slate-400">Start a session before selling</p></div>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-900 font-medium mb-2">⚠️ No Active Session</p>
-                <p className="text-sm text-amber-800">You must start a session before selling medicines. This ensures accurate inventory tracking for your session.</p>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-xs font-semibold text-blue-900 mb-2">💡 TIP:</p>
-                <p className="text-xs text-blue-800">Click &quot;Start Session&quot; below to begin, then you can complete your sale.</p>
-              </div>
-            </div>
-            <div className="px-6 pb-6 flex gap-3">
-              <button onClick={() => setShowNoSessionModal(false)} className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">Dismiss</button>
-              <button onClick={handleStartSessionFromModal} disabled={isStartingSession} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition text-sm shadow-lg shadow-emerald-200">{isStartingSession ? 'Starting...' : 'Start Session'}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

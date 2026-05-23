@@ -11,10 +11,9 @@ import logoSrc from '@/app/assets/Logo/pharmacylogo.jpeg.png';
 import Processing from '@/lib/components/processing';
 import { deductStockBatch, getTrueEarliestExpiration } from '@/lib/services/stock-management';
 import { logActivity } from '@/lib/services/activity-logs';
+import { validateQuantity, validatePatientName } from '@/lib/utils/validation';
 import { Plus, Minus, X, CheckCircle2 } from 'lucide-react';
 import { listenToPatients, savePatientRecord, getPatientDisplayName, type PatientRecord } from '@/lib/services/patient-management';
-import { useSession } from '@/lib/hooks/useSession';
-import { startSession } from '@/lib/services/session-management';
 
 type DispensableUnit = string;
 
@@ -520,7 +519,6 @@ export default function DispensePage() {
   const { user, role, loading, staffName, adminName } = useAuth();
   const { isCollapsed } = useSidebar();
   const router = useRouter();
-  const { recordDispense: recordSessionDispense, hasActiveSession } = useSession({ userId: user?.uid });
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [isLoadingMedicines, setIsLoadingMedicines] = useState(true);
@@ -548,43 +546,12 @@ export default function DispensePage() {
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [showNoSessionModal, setShowNoSessionModal] = useState(false);
-  const [isStartingSession, setIsStartingSession] = useState(false);
   const patientScrollRef = useRef<HTMLDivElement>(null);
   void isCollapsed;
-
-  const handleStartSessionFromModal = async () => {
-    if (!user) return;
-    try {
-      setIsStartingSession(true);
-      const sessionStarterName = staffName || adminName || undefined;
-      await startSession(user.uid, sessionStarterName);
-      await logActivity(
-        'session_started',
-        user.uid,
-        user.email || '',
-        `Session started at ${new Date().toLocaleTimeString('en-PH')}`,
-        { sessionStartTime: new Date().toISOString() },
-        sessionStarterName,
-        role || undefined,
-      );
-      setShowNoSessionModal(false);
-      setNotification({ message: 'Session started successfully', type: 'success' });
-    } catch (error) {
-      console.error('Failed to start session:', error);
-      setNotification({ message: 'Failed to start session', type: 'error' });
-    } finally {
-      setIsStartingSession(false);
-    }
-  };
 
   const handleDispenseClick = async () => {
     if (!user) {
       setNotification({ message: 'Authentication required. Please login again.', type: 'error' });
-      return;
-    }
-    if (!hasActiveSession) {
-      setShowNoSessionModal(true);
       return;
     }
     setShowConfirmModal(true);
@@ -763,20 +730,41 @@ export default function DispensePage() {
       return;
     }
 
-    if (!hasActiveSession) {
-      setShowConfirmModal(false);
-      setIsProcessing(false);
-      setShowNoSessionModal(true);
-      setNotification({
-        message: 'Session ended. Please start a new session to continue dispensing.',
-        type: 'error',
-      });
+    // Validate patient information
+    const firstNameValidation = validatePatientName(patientInfo.firstName);
+    if (!firstNameValidation.valid) {
+      setNotification({ message: firstNameValidation.error || 'Invalid first name', type: 'error' });
       return;
     }
 
-    if (!patientInfo.firstName || !patientInfo.lastName) {
-      setNotification({ message: 'Please enter patient first and last name', type: 'error' }); return;
+    const lastNameValidation = validatePatientName(patientInfo.lastName);
+    if (!lastNameValidation.valid) {
+      setNotification({ message: lastNameValidation.error || 'Invalid last name', type: 'error' });
+      return;
     }
+
+    // Validate dispense quantities
+    for (const item of dispensList) {
+      const quantityValidation = validateQuantity(item.quantity);
+      if (!quantityValidation.valid) {
+        setNotification({
+          message: `Invalid quantity for ${getDisplayName(item.medicine)}: ${quantityValidation.error || 'Unknown error'}`,
+          type: 'error',
+        });
+        return;
+      }
+
+      // Check if quantity exceeds stock
+      const availableStock = getEffectiveStock(item.medicine);
+      if (item.quantity > availableStock) {
+        setNotification({
+          message: `Insufficient stock for ${getDisplayName(item.medicine)}. Available: ${availableStock}, Requested: ${item.quantity}`,
+          type: 'error',
+        });
+        return;
+      }
+    }
+
     setShowConfirmModal(false);
     setIsProcessing(true);
 
@@ -835,18 +823,6 @@ export default function DispensePage() {
       );
 
       if (!deductResult.success) throw new Error(deductResult.error || 'Failed to deduct stock');
-
-      if (hasActiveSession) {
-        for (const item of dispensList) {
-          await recordSessionDispense(
-            getDisplayName(item.medicine),
-            item.medicine.id,
-            item.quantity,
-            item.unitType,
-            fullName,
-          );
-        }
-      }
 
       for (let i = 0; i < dispensList.length; i++) {
         const item = dispensList[i];
@@ -1527,34 +1503,6 @@ export default function DispensePage() {
             <div className="px-6 pb-6 flex gap-3">
               <button onClick={() => setShowConfirmModal(false)} className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">Cancel</button>
               <button onClick={handleDispense} disabled={isProcessing} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition text-sm shadow-lg shadow-emerald-200">{isProcessing ? 'Processing...' : 'Confirm'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── No Active Session Modal ── */}
-      {showNoSessionModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 fade-in" style={{ backdropFilter: 'blur(8px)', background: 'rgba(15,23,42,0.5)' }}>
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl slide-up">
-            <div className="p-6 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-amber-100 rounded-xl flex items-center justify-center"><svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
-                <div><h3 className="text-lg font-bold text-slate-900">Session Required</h3><p className="text-xs text-slate-400">Start a session before dispensing</p></div>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="text-sm text-amber-900 font-medium mb-2">⚠️ No Active Session</p>
-                <p className="text-sm text-amber-800">You must start a session before dispensing medicines. This ensures accurate inventory tracking for your session.</p>
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-xs font-semibold text-blue-900 mb-2">💡 TIP:</p>
-                <p className="text-xs text-blue-800">Click &quot;Start Session&quot; below to begin, then you can dispense medicines.</p>
-              </div>
-            </div>
-            <div className="px-6 pb-6 flex gap-3">
-              <button onClick={() => setShowNoSessionModal(false)} className="flex-1 py-2.5 border-2 border-slate-200 text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition text-sm">Dismiss</button>
-              <button onClick={handleStartSessionFromModal} disabled={isStartingSession} className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-bold rounded-xl transition text-sm shadow-lg shadow-emerald-200">{isStartingSession ? 'Starting...' : 'Start Session'}</button>
             </div>
           </div>
         </div>

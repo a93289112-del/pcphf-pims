@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { FirebaseError } from 'firebase/app';
 import { auth, database } from '@/lib/services/firebase';
 import { ref, set, get } from 'firebase/database';
@@ -17,6 +17,8 @@ export default function AdminInitPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [adminName, setAdminName] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successAdminName, setSuccessAdminName] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -100,8 +102,10 @@ export default function AdminInitPage() {
         createdAt: new Date().toISOString(),
       });
 
-      // Redirect to admin dashboard
-      router.push('/admin-dashboard');
+      // Show success modal instead of redirecting
+      setSuccessAdminName(adminName.trim());
+      setShowSuccessModal(true);
+      setIsLoading(false);
     } catch (err) {
       if (err instanceof FirebaseError) {
         if (err.code === 'auth/email-already-in-use') {
@@ -256,6 +260,47 @@ export default function AdminInitPage() {
           </button>
         </form>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md bg-white rounded-3xl p-8 shadow-2xl border border-slate-100 text-center">
+            {/* Success Icon */}
+            <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            {/* Title and Message */}
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Admin Account Created</h2>
+            <p className="text-slate-500 mb-2">Welcome, {successAdminName}!</p>
+            <p className="text-sm text-slate-400 mb-8">
+              Your admin account has been successfully created. Please log in to access the admin dashboard.
+            </p>
+
+            {/* Login Button */}
+            <button
+              onClick={async () => {
+                try {
+                  await signOut(auth);
+                  router.push('/login');
+                } catch (err) {
+                  console.error('Error signing out:', err);
+                  router.push('/login');
+                }
+              }}
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+              </svg>
+              Go to Login
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

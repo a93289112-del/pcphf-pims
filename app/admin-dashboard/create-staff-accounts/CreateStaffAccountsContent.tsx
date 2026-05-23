@@ -25,7 +25,7 @@ export default function CreateStaffAccountsContent() {
   const [error, setError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
-  
+
   // Form states
   const [formEmail, setFormEmail] = useState('');
   const [formPassword, setFormPassword] = useState('');
@@ -83,7 +83,7 @@ export default function CreateStaffAccountsContent() {
     if (!validateForm()) return;
 
     setIsCreating(true);
-    
+
     try {
       // Create user in Firebase Auth using secondary auth instance
       // This keeps the admin's primary session untouched
@@ -127,7 +127,7 @@ export default function CreateStaffAccountsContent() {
             address: formAddress.trim(),
           },
           formStaffName.trim(),
-          'staff',
+          role || 'admin',
         );
       }
 

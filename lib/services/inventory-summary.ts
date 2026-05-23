@@ -11,52 +11,53 @@ import { getEffectiveStock } from './stock-management';
 
 export interface InventorySummary {
   // Stock Overview
-  totalMedicines:        number;
-  totalStockUnits:       number;
-  totalStockValue:       number;
-  avgStockPerMedicine:   number;
+  totalMedicines: number;
+  totalStockUnits: number;
+  totalStockValue: number;
+  avgStockPerMedicine: number;
 
   // Transaction History
-  totalUnitsDispensed:   number;
-  totalUnitsSold:        number;
-  totalUnitsAdjusted:    number;
-  netUnitsRemoved:       number;
-  totalTransactions:     number;
+  totalUnitsDispensed: number;
+  totalUnitsSold: number;
+  totalUnitsAdjusted: number;
+  netUnitsRemoved: number;
+  totalTransactions: number;
 
   // Stock Status
-  lowStockCount:         number;
-  outOfStockCount:       number;
-  expiringCount:         number;
-  expiredCount:          number;
-  optimalStockCount:     number;
+  lowStockCount: number;
+  outOfStockCount: number;
+  expiringCount: number;
+  expiredCount: number;
+  inStockCount: number;
+  criticalCount: number;
 
   // Time-based Metrics
-  dispensingRate:        number; // units per day (if data available)
-  salesRate:             number; // units per day (if data available)
-  estimatedDaysSupply:   number; // estimated days of supply based on consumption
+  dispensingRate: number; // units per day (if data available)
+  salesRate: number; // units per day (if data available)
+  estimatedDaysSupply: number; // estimated days of supply based on consumption
 
   // Categories
-  stockByCategory:       Record<string, number>;
-  valueByCategory:       Record<string, number>;
+  stockByCategory: Record<string, number>;
+  valueByCategory: Record<string, number>;
 }
 
 export interface MedicineInventoryStatus {
-  id:              string;
-  name:            string;
-  baseName?:       string;
-  category:        string;
-  strength?:       string;
-  currentStock:    number;
-  minStock:        number;
+  id: string;
+  name: string;
+  baseName?: string;
+  category: string;
+  strength?: string;
+  currentStock: number;
+  minStock: number;
   maxRecommended?: number;
-  status:          'optimal' | 'low' | 'out' | 'expired' | 'expiring';
-  unitCost:        number;
-  totalValue:      number;
+  status: 'inStock' | 'low' | 'out' | 'expired' | 'expiring' | 'critical';
+  unitCost: number;
+  totalValue: number;
   expirationDate?: string;
-  daysToExpiry?:   number;
-  dispensedQty:    number;
-  soldQty:         number;
-  adjustedQty:     number;
+  daysToExpiry?: number;
+  dispensedQty: number;
+  soldQty: number;
+  adjustedQty: number;
 }
 
 // ─── Helper Functions ─────────────────────────────────────────────────────────
@@ -93,14 +94,17 @@ function getDaysToExpiry(expirationDate?: string): number | undefined {
   return days >= 0 ? days : undefined;
 }
 
-function getMedicineStatus(medicine: Medicine): 'optimal' | 'low' | 'out' | 'expired' | 'expiring' {
+function getMedicineStatus(medicine: Medicine): 'inStock' | 'low' | 'out' | 'expired' | 'expiring' | 'critical' {
   const stock = getEffectiveStock(medicine);
   const minStock = medicine.minStock ?? 0;
   if (checkExpired(medicine.expirationDate)) return 'expired';
-  if (checkExpiringSoon(medicine.expirationDate)) return 'expiring';
+  const isExpiring = checkExpiringSoon(medicine.expirationDate);
+  const isLowStock = minStock > 0 && stock <= minStock;
+  if (isExpiring && isLowStock) return 'critical';
+  if (isExpiring) return 'expiring';
   if (stock === 0) return 'out';
-  if (minStock > 0 && stock <= minStock) return 'low';
-  return 'optimal';
+  if (isLowStock) return 'low';
+  return 'inStock';
 }
 
 function parseTransactionDate(dateValue: string | number): Date {
@@ -108,23 +112,23 @@ function parseTransactionDate(dateValue: string | number): Date {
   if (typeof dateValue === 'number') {
     return new Date(dateValue);
   }
-  
+
   // Handle ISO format or YYYY-MM-DD format
   if (typeof dateValue === 'string') {
     // Try to parse as ISO format first (with or without time)
     if (dateValue.includes('T') || dateValue.includes('Z')) {
       return new Date(dateValue);
     }
-    
+
     // Parse as local date string (YYYY-MM-DD)
     if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return parseLocalDate(dateValue);
     }
-    
+
     // Fallback to Date constructor
     return new Date(dateValue);
   }
-  
+
   return new Date();
 }
 
@@ -138,13 +142,13 @@ export function calculateInventorySummary(
 ): InventorySummary {
   // Safety check for undefined or invalid medicines array
   const validMedicines = Array.isArray(medicines) ? medicines : [];
-  
+
   // Filter transactions by date range if provided
   const filteredTx = dateRangeStart && dateRangeEnd
     ? transactions.filter(tx => {
-        const txDate = parseTransactionDate(tx.date);
-        return txDate >= dateRangeStart && txDate <= dateRangeEnd;
-      })
+      const txDate = parseTransactionDate(tx.date);
+      return txDate >= dateRangeStart && txDate <= dateRangeEnd;
+    })
     : transactions;
 
   // When date filter is active, only include medicines that have transactions in that range
@@ -162,7 +166,8 @@ export function calculateInventorySummary(
   let outOfStockCount = 0;
   let expiringCount = 0;
   let expiredCount = 0;
-  let optimalStockCount = 0;
+  let inStockCount = 0;
+  let criticalCount = 0;
 
   const stockByCategory: Record<string, number> = {};
   const valueByCategory: Record<string, number> = {};
@@ -176,11 +181,12 @@ export function calculateInventorySummary(
     totalStockUnits += stock;
     totalStockValue += value;
 
+    if (status === 'critical') criticalCount += 1;
     if (status === 'low') lowStockCount += 1;
     if (status === 'out') outOfStockCount += 1;
     if (status === 'expiring') expiringCount += 1;
     if (status === 'expired') expiredCount += 1;
-    if (status === 'optimal') optimalStockCount += 1;
+    if (status === 'inStock') inStockCount += 1;
 
     // By category
     const cat = med.category || 'Uncategorized';
@@ -231,7 +237,8 @@ export function calculateInventorySummary(
     outOfStockCount,
     expiringCount,
     expiredCount,
-    optimalStockCount,
+    inStockCount,
+    criticalCount,
     dispensingRate,
     salesRate,
     estimatedDaysSupply,
@@ -250,13 +257,13 @@ export function getMedicineStatusList(
 ): MedicineInventoryStatus[] {
   // Safety check for undefined or invalid medicines array
   const validMedicines = Array.isArray(medicines) ? medicines : [];
-  
+
   // Filter transactions by date range if provided
   const filteredTx = dateRangeStart && dateRangeEnd
     ? transactions.filter(tx => {
-        const txDate = parseTransactionDate(tx.date);
-        return txDate >= dateRangeStart && txDate <= dateRangeEnd;
-      })
+      const txDate = parseTransactionDate(tx.date);
+      return txDate >= dateRangeStart && txDate <= dateRangeEnd;
+    })
     : transactions;
 
   const txByMedicine = new Map<string, { dispensed: number; sold: number; adjusted: number }>();
@@ -317,7 +324,7 @@ export function sortMedicinesByStatus(
     expiring: 1,
     out: 2,
     low: 3,
-    optimal: 4,
+    inStock: 4,
   };
 
   let sorted = [...medicines].sort(
@@ -325,7 +332,7 @@ export function sortMedicinesByStatus(
   );
 
   if (order === 'critical') {
-    sorted = sorted.filter((m) => m.status !== 'optimal');
+    sorted = sorted.filter((m) => m.status !== 'inStock');
   }
 
   return sorted;
@@ -333,11 +340,11 @@ export function sortMedicinesByStatus(
 
 export function filterMedicinesByStatus(
   medicines: MedicineInventoryStatus[],
-  status: 'all' | 'optimal' | 'low' | 'out' | 'expired' | 'expiring',
+  status: 'all' | 'inStock' | 'low' | 'out' | 'expired' | 'expiring',
 ): MedicineInventoryStatus[] {
   // Safety check for undefined or invalid medicines array
   const validMedicines = Array.isArray(medicines) ? medicines : [];
-  
+
   if (status === 'all') return validMedicines;
   return validMedicines.filter((m) => m.status === status);
 }
@@ -345,11 +352,11 @@ export function filterMedicinesByStatus(
 // ─── Category Breakdown ───────────────────────────────────────────────────────
 
 export interface CategoryBreakdown {
-  category:     string;
+  category: string;
   medicineCount: number;
-  totalStock:   number;
-  totalValue:   number;
-  avgUnitCost:  number;
+  totalStock: number;
+  totalValue: number;
+  avgUnitCost: number;
   criticalCount: number;
 }
 
@@ -358,7 +365,7 @@ export function getCategoryBreakdown(
 ): CategoryBreakdown[] {
   // Safety check for undefined or invalid medicines array
   const validMedicines = Array.isArray(medicines) ? medicines : [];
-  
+
   const categoryMap = new Map<string, CategoryBreakdown>();
 
   validMedicines.forEach((med) => {
@@ -377,15 +384,15 @@ export function getCategoryBreakdown(
     cat.medicineCount += 1;
     cat.totalStock += med.currentStock;
     cat.totalValue += med.totalValue;
-    if (med.status !== 'optimal') cat.criticalCount += 1;
+    if (med.status !== 'inStock') cat.criticalCount += 1;
   });
 
   return Array.from(categoryMap.values()).map((cat) => ({
     ...cat,
     avgUnitCost: cat.medicineCount > 0
       ? validMedicines
-          .filter((m) => m.category === cat.category)
-          .reduce((sum, m) => sum + m.unitCost, 0) / cat.medicineCount
+        .filter((m) => m.category === cat.category)
+        .reduce((sum, m) => sum + m.unitCost, 0) / cat.medicineCount
       : 0,
   }));
 }

@@ -9,45 +9,45 @@ import {
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
 interface DailySalesSummary {
-  date:           string;
-  displayDate:    string;
-  salesCount:     number;
-  totalRevenue:   number;
-  totalItems:     number;
+  date: string;
+  displayDate: string;
+  salesCount: number;
+  totalRevenue: number;
+  totalItems: number;
   paymentMethods: Record<string, number>;
 }
 
 interface MedicineSalesStats {
-  medicineId:    string;
-  medicineName:  string;
-  strength?:     string;
+  medicineId: string;
+  medicineName: string;
+  strength?: string;
   totalQuantity: number;
-  totalRevenue:  number;
-  salesCount:    number;
+  totalRevenue: number;
+  salesCount: number;
 }
 
 interface UnitBreakdownItem {
-  type:       string;
-  quantity:   number;
+  type: string;
+  quantity: number;
   percentage: number;
 }
 
 interface SalesOverallStats {
-  totalSales:             number;
-  totalRevenue:           number;
-  totalItems:             number;
-  avgPerSale:             number;
+  totalSales: number;
+  totalRevenue: number;
+  totalItems: number;
+  avgPerSale: number;
   paymentMethodBreakdown: Record<string, number>;
-  unitTypeBreakdown:      UnitBreakdownItem[]; // no longer optional — always provided
+  unitTypeBreakdown: UnitBreakdownItem[]; // no longer optional — always provided
 }
 
 interface SalesContentProps {
-  isLoadingSales:      boolean;
-  salesDateRange:      { start: string; end: string };
-  setSalesDateRange:   (r: { start: string; end: string }) => void;
+  isLoadingSales: boolean;
+  salesDateRange: { start: string; end: string };
+  setSalesDateRange: (r: { start: string; end: string }) => void;
   dailySalesSummaries: DailySalesSummary[];
-  medicineSalesStats:  MedicineSalesStats[];
-  salesOverallStats:   SalesOverallStats;
+  medicineSalesStats: MedicineSalesStats[];
+  salesOverallStats: SalesOverallStats;
 }
 
 // ─── Colors & Helpers ─────────────────────────────────────────────────────────
@@ -68,10 +68,10 @@ function getTodayPH(): string {
 // ─── Report HTML Builder ──────────────────────────────────────────────────────
 
 function buildSalesReportHTML(
-  salesOverallStats:   SalesOverallStats,
+  salesOverallStats: SalesOverallStats,
   dailySalesSummaries: DailySalesSummary[],
-  medicineSalesStats:  MedicineSalesStats[],
-  salesDateRange:      { start: string; end: string },
+  medicineSalesStats: MedicineSalesStats[],
+  salesDateRange: { start: string; end: string },
 ): string {
   const dateLabel =
     salesDateRange.start && salesDateRange.end
@@ -126,8 +126,8 @@ function buildSalesReportHTML(
     )
     .join('');
 
-  const generatedAt  = new Date().toLocaleString('en-PH',     { timeZone: 'Asia/Manila' });
-  const generatedDay = new Date().toLocaleDateString('en-PH',  { timeZone: 'Asia/Manila' });
+  const generatedAt = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila' });
+  const generatedDay = new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' });
 
   return `<!DOCTYPE html>
 <html>
@@ -254,7 +254,7 @@ function buildSalesReportHTML(
 <body>
   <!-- Organization Header -->
   <div class="org-header">
-    <div class="org-name">Pharmacy Management System</div>
+    <div class="org-name">Passi City Primary Health Facilities</div>
     <div class="org-dept">PHARMACY OPERATIONS</div>
     <div class="org-title">Sales & Dispensing Report</div>
   </div>
@@ -284,19 +284,17 @@ function buildSalesReportHTML(
   </table>
 
   <!-- Payment Methods -->
-  ${
-    Object.keys(paymentBreakdown).length > 0
+  ${Object.keys(paymentBreakdown).length > 0
       ? `<div class="section-title">PAYMENT METHODS</div>
          <table>
            <thead><tr><th style="width: 70%;">Payment Method</th><th class="amount-right" style="width: 30%;">Amount</th></tr></thead>
            <tbody>${paymentRows}</tbody>
          </table>`
       : ''
-  }
+    }
 
   <!-- Top Medicines -->
-  ${
-    sortedMeds.length > 0
+  ${sortedMeds.length > 0
       ? `<div class="section-title">TOP 10 MEDICINES BY REVENUE</div>
          <table>
            <thead>
@@ -311,11 +309,10 @@ function buildSalesReportHTML(
            <tbody>${topMedRows}</tbody>
          </table>`
       : ''
-  }
+    }
 
   <!-- Daily Summary -->
-  ${
-    dailySalesSummaries.length > 0
+  ${dailySalesSummaries.length > 0
       ? `<div class="section-title">DAILY TRANSACTION SUMMARY</div>
          <table>
            <thead>
@@ -330,10 +327,10 @@ function buildSalesReportHTML(
            <tbody>${dailyRows}</tbody>
          </table>`
       : `<p class="empty">No data available for the selected period.</p>`
-  }
+    }
 
   <div class="footer">
-    <p style="margin-bottom: 3px;">Pharmacy Management System | Confidential</p>
+    <p style="margin-bottom: 3px;">Passi City Primary Health Facilities | Confidential</p>
     <p style="margin: 0;">${generatedDay}</p>
   </div>
 </body>
@@ -366,26 +363,26 @@ export default function SalesContent({
   medicineSalesStats,
   salesOverallStats,
 }: SalesContentProps) {
-  const [activeTab,     setActiveTab]     = useState<'overview' | 'medicines' | 'daily'>('overview');
-  const [isPrinting,    setIsPrinting]    = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'medicines' | 'daily'>('overview');
+  const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
   // ── Today stats ───────────────────────────────────────────────────────────
   const todayStats = useMemo(() => {
     const found = dailySalesSummaries.find((d) => d.date === getTodayPH());
     return {
-      revenue:      found?.totalRevenue ?? 0,
-      transactions: found?.salesCount   ?? 0,
-      items:        found?.totalItems   ?? 0,
+      revenue: found?.totalRevenue ?? 0,
+      transactions: found?.salesCount ?? 0,
+      items: found?.totalItems ?? 0,
     };
   }, [dailySalesSummaries]);
 
   // ── Period totals for chart header pills ─────────────────────────────────
   const periodTotals = useMemo(() => {
-    const revenue      = dailySalesSummaries.reduce((s, d) => s + d.totalRevenue, 0);
-    const transactions = dailySalesSummaries.reduce((s, d) => s + d.salesCount,   0);
-    const items        = dailySalesSummaries.reduce((s, d) => s + d.totalItems,    0);
-    const peak         = [...dailySalesSummaries].sort(
+    const revenue = dailySalesSummaries.reduce((s, d) => s + d.totalRevenue, 0);
+    const transactions = dailySalesSummaries.reduce((s, d) => s + d.salesCount, 0);
+    const items = dailySalesSummaries.reduce((s, d) => s + d.totalItems, 0);
+    const peak = [...dailySalesSummaries].sort(
       (a, b) => b.totalRevenue - a.totalRevenue,
     )[0];
     return { revenue, transactions, items, peakDate: peak?.displayDate ?? '—' };
@@ -406,7 +403,7 @@ export default function SalesContent({
         if (!printWindow) { setIsPrinting(false); return; }
         printWindow.document.write(
           html +
-            `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>`,
+          `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>`,
         );
         printWindow.document.close();
         setTimeout(() => setIsPrinting(false), 2000);
@@ -429,12 +426,11 @@ export default function SalesContent({
           salesDateRange,
         );
         const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = `sales-report-${salesDateRange.start || 'all'}-to-${
-          salesDateRange.end || 'all'
-        }.html`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `sales-report-${salesDateRange.start || 'all'}-to-${salesDateRange.end || 'all'
+          }.html`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -461,8 +457,8 @@ export default function SalesContent({
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const safeMedicineSalesStats = medicineSalesStats ?? [];
-  const safePaymentBreakdown   = salesOverallStats.paymentMethodBreakdown ?? {};
-  const sortedMeds             = [...safeMedicineSalesStats].sort(
+  const safePaymentBreakdown = salesOverallStats.paymentMethodBreakdown ?? {};
+  const sortedMeds = [...safeMedicineSalesStats].sort(
     (a, b) => b.totalRevenue - a.totalRevenue,
   );
 
@@ -479,10 +475,10 @@ export default function SalesContent({
 
   const todayLabel = new Date().toLocaleDateString('en-PH', {
     timeZone: 'Asia/Manila',
-    weekday:  'short',
-    month:    'short',
-    day:      'numeric',
-    year:     'numeric',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 
   return (
@@ -569,7 +565,7 @@ export default function SalesContent({
           <div className="flex gap-3 flex-wrap">
             {[
               { label: 'Transactions', value: todayStats.transactions.toString() },
-              { label: 'Items Sold',   value: todayStats.items.toString() },
+              { label: 'Items Sold', value: todayStats.items.toString() },
               {
                 label: 'Avg / Sale',
                 value:
@@ -593,10 +589,10 @@ export default function SalesContent({
       {/* ── Key Metrics Grid ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Revenue',      value: peso(salesOverallStats.totalRevenue),           sub: 'Period total'    },
-          { label: 'Total Transactions', value: salesOverallStats.totalSales.toString(),         sub: 'Sales completed' },
-          { label: 'Items Sold',         value: salesOverallStats.totalItems.toString(),         sub: 'Units sold'      },
-          { label: 'Avg per Sale',       value: peso(salesOverallStats.avgPerSale),              sub: 'Per transaction' },
+          { label: 'Total Revenue', value: peso(salesOverallStats.totalRevenue), sub: 'Period total' },
+          { label: 'Total Transactions', value: salesOverallStats.totalSales.toString(), sub: 'Sales completed' },
+          { label: 'Items Sold', value: salesOverallStats.totalItems.toString(), sub: 'Units sold' },
+          { label: 'Avg per Sale', value: peso(salesOverallStats.avgPerSale), sub: 'Per transaction' },
         ].map(({ label, value, sub }) => (
           <div
             key={label}
@@ -617,11 +613,10 @@ export default function SalesContent({
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`pb-3 px-1 text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
+            className={`pb-3 px-1 text-sm font-medium transition-colors ${activeTab === tab
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-slate-500 hover:text-slate-700'
+              }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
@@ -645,9 +640,9 @@ export default function SalesContent({
                 {/* Legend */}
                 <div className="flex items-center gap-4 flex-wrap">
                   {[
-                    { color: '#3b82f6', label: 'Revenue'     },
+                    { color: '#3b82f6', label: 'Revenue' },
                     { color: '#10b981', label: 'Transactions' },
-                    { color: '#f59e0b', label: 'Items Sold'   },
+                    { color: '#f59e0b', label: 'Items Sold' },
                   ].map(({ color, label }) => (
                     <div key={label} className="flex items-center gap-1.5">
                       <span
@@ -665,31 +660,31 @@ export default function SalesContent({
                 <div className="flex gap-2 flex-wrap mt-4">
                   {[
                     {
-                      label:  'Total Revenue',
-                      value:  peso(periodTotals.revenue),
-                      bg:     'bg-blue-50',
-                      text:   'text-blue-700',
+                      label: 'Total Revenue',
+                      value: peso(periodTotals.revenue),
+                      bg: 'bg-blue-50',
+                      text: 'text-blue-700',
                       border: 'border-blue-100',
                     },
                     {
-                      label:  'Transactions',
-                      value:  periodTotals.transactions.toLocaleString(),
-                      bg:     'bg-emerald-50',
-                      text:   'text-emerald-700',
+                      label: 'Transactions',
+                      value: periodTotals.transactions.toLocaleString(),
+                      bg: 'bg-emerald-50',
+                      text: 'text-emerald-700',
                       border: 'border-emerald-100',
                     },
                     {
-                      label:  'Items Sold',
-                      value:  periodTotals.items.toLocaleString(),
-                      bg:     'bg-amber-50',
-                      text:   'text-amber-700',
+                      label: 'Items Sold',
+                      value: periodTotals.items.toLocaleString(),
+                      bg: 'bg-amber-50',
+                      text: 'text-amber-700',
                       border: 'border-amber-100',
                     },
                     {
-                      label:  'Peak Day',
-                      value:  periodTotals.peakDate,
-                      bg:     'bg-slate-50',
-                      text:   'text-slate-700',
+                      label: 'Peak Day',
+                      value: periodTotals.peakDate,
+                      bg: 'bg-slate-50',
+                      text: 'text-slate-700',
                       border: 'border-slate-200',
                     },
                   ].map(({ label, value, bg, text, border }) => (
@@ -722,15 +717,15 @@ export default function SalesContent({
                     >
                       <defs>
                         <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#3b82f6" stopOpacity={1}    />
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
                           <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.85} />
                         </linearGradient>
                         <linearGradient id="txGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#10b981" stopOpacity={1}    />
+                          <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
                           <stop offset="100%" stopColor="#34d399" stopOpacity={0.85} />
                         </linearGradient>
                         <linearGradient id="itemsGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#f59e0b" stopOpacity={1}    />
+                          <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
                           <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.85} />
                         </linearGradient>
                       </defs>
@@ -782,33 +777,33 @@ export default function SalesContent({
                       <Tooltip
                         contentStyle={{
                           backgroundColor: '#0f172a',
-                          border:          'none',
-                          borderRadius:    '14px',
-                          fontSize:        '12px',
-                          color:           '#fff',
-                          padding:         '14px 18px',
-                          boxShadow:       '0 20px 40px -8px rgba(0,0,0,0.4)',
+                          border: 'none',
+                          borderRadius: '14px',
+                          fontSize: '12px',
+                          color: '#fff',
+                          padding: '14px 18px',
+                          boxShadow: '0 20px 40px -8px rgba(0,0,0,0.4)',
                         }}
                         labelStyle={{
-                          color:        '#94a3b8',
-                          fontWeight:   700,
-                          fontSize:     '11px',
+                          color: '#94a3b8',
+                          fontWeight: 700,
+                          fontSize: '11px',
                           marginBottom: 8,
                         }}
                         // FIX: cast cursor props correctly
                         cursor={{ fill: 'rgba(148,163,184,0.06)' } as React.SVGProps<SVGRectElement>}
                         formatter={(value: unknown, name: unknown): [string, string] => {
                           const num = Number(value ?? 0);
-                          if (name === 'totalRevenue') return [peso(num),     'Revenue'];
-                          if (name === 'salesCount')   return [String(num),   'Transactions'];
-                          if (name === 'totalItems')   return [String(num),   'Items Sold'];
+                          if (name === 'totalRevenue') return [peso(num), 'Revenue'];
+                          if (name === 'salesCount') return [String(num), 'Transactions'];
+                          if (name === 'totalItems') return [String(num), 'Items Sold'];
                           return [String(value), String(name ?? '')];
                         }}
                       />
 
                       <Bar yAxisId="revenue" dataKey="totalRevenue" fill="url(#revenueGrad)" radius={[5, 5, 0, 0]} maxBarSize={32} />
-                      <Bar yAxisId="count"   dataKey="salesCount"   fill="url(#txGrad)"      radius={[5, 5, 0, 0]} maxBarSize={32} />
-                      <Bar yAxisId="count"   dataKey="totalItems"   fill="url(#itemsGrad)"   radius={[5, 5, 0, 0]} maxBarSize={32} />
+                      <Bar yAxisId="count" dataKey="salesCount" fill="url(#txGrad)" radius={[5, 5, 0, 0]} maxBarSize={32} />
+                      <Bar yAxisId="count" dataKey="totalItems" fill="url(#itemsGrad)" radius={[5, 5, 0, 0]} maxBarSize={32} />
                     </BarChart>
                   </ResponsiveContainer>
                 </ChartWrapper>
@@ -827,156 +822,7 @@ export default function SalesContent({
             </div>
           </div>
 
-          {/* Payment Methods & Unit Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            {/* Payment Methods */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-1">Payment Methods</h2>
-              <p className="text-xs text-slate-500 mb-4">Distribution by method</p>
-              {paymentData.length > 0 ? (
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div style={{ width: 180, height: 180, flexShrink: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={paymentData}
-                          cx="50%" cy="50%"
-                          innerRadius="50%" outerRadius="78%"
-                          paddingAngle={3}
-                          dataKey="value"
-                          labelLine={false}
-                        >
-                          {paymentData.map((_, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[index % COLORS.length]}
-                              stroke="white"
-                              strokeWidth={2}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#fff',
-                            border:          '1px solid #e5e7eb',
-                            borderRadius:    '8px',
-                            fontSize:        '12px',
-                          }}
-                          formatter={(value: unknown): [string, string] =>
-                            [peso(Number(value ?? 0)), 'Amount']
-                          }
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 w-full flex flex-col gap-2">
-                    {paymentData.map(({ name, value }, index) => (
-                      <div
-                        key={name}
-                        className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2"
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                        />
-                        <span className="text-sm text-slate-700 font-medium flex-1 truncate">
-                          {name}
-                        </span>
-                        <p className="text-xs font-bold text-slate-800 flex-shrink-0">
-                          ₱{value.toFixed(0)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center justify-center text-slate-400 text-sm"
-                  style={{ height: 180 }}
-                >
-                  No payment data available
-                </div>
-              )}
-            </div>
-
-            {/* Unit Breakdown */}
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-              <h2 className="text-lg font-bold text-slate-900 mb-1">Items by Unit Type</h2>
-              <p className="text-xs text-slate-500 mb-4">Distribution of items sold</p>
-              {/* FIX: use safeUnitBreakdown — never undefined */}
-              {safeUnitBreakdown.length > 0 ? (
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                  <div style={{ width: 180, height: 180, flexShrink: 0 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={safeUnitBreakdown}
-                          cx="50%" cy="50%"
-                          innerRadius="50%" outerRadius="78%"
-                          paddingAngle={3}
-                          dataKey="quantity"
-                          labelLine={false}
-                        >
-                          {safeUnitBreakdown.map((_, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={COLORS[(index + 2) % COLORS.length]}
-                              stroke="white"
-                              strokeWidth={2}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: '#fff',
-                            border:          '1px solid #e5e7eb',
-                            borderRadius:    '8px',
-                            fontSize:        '12px',
-                          }}
-                          // FIX: properly typed formatter — no more cast needed
-                          formatter={(value: unknown, _name: unknown, props: { payload?: UnitBreakdownItem }): [string, string] => {
-                            const p = props.payload;
-                            return [
-                              `${Number(value ?? 0)} units (${(p?.percentage ?? 0).toFixed(1)}%)`,
-                              p?.type ?? '',
-                            ];
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex-1 w-full flex flex-col gap-2">
-                    {safeUnitBreakdown.map((item, index) => (
-                      <div
-                        key={item.type}
-                        className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2"
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: COLORS[(index + 2) % COLORS.length] }}
-                        />
-                        <span className="text-sm text-slate-700 font-medium flex-1 truncate">
-                          {item.type}
-                        </span>
-                        <p className="text-xs font-bold text-slate-800 flex-shrink-0">
-                          {item.quantity}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="flex items-center justify-center text-slate-400 text-sm"
-                  style={{ height: 180 }}
-                >
-                  No unit data available
-                </div>
-              )}
-            </div>
-
-          </div>
         </div>
       )}
 
@@ -992,10 +838,10 @@ export default function SalesContent({
                     index === 0
                       ? { text: 'text-yellow-700', icon: '🏆' }
                       : index === 1
-                      ? { text: 'text-slate-700',  icon: '🥈' }
-                      : index === 2
-                      ? { text: 'text-orange-700', icon: '🥉' }
-                      : null;
+                        ? { text: 'text-slate-700', icon: '🥈' }
+                        : index === 2
+                          ? { text: 'text-orange-700', icon: '🥉' }
+                          : null;
                   return (
                     <div
                       key={medicine.medicineId}
@@ -1126,11 +972,10 @@ export default function SalesContent({
                   return (
                     <tr
                       key={day.date}
-                      className={`border-b border-slate-100 transition ${
-                        isToday
-                          ? 'bg-blue-50 hover:bg-blue-100'
-                          : 'hover:bg-slate-50'
-                      }`}
+                      className={`border-b border-slate-100 transition ${isToday
+                        ? 'bg-blue-50 hover:bg-blue-100'
+                        : 'hover:bg-slate-50'
+                        }`}
                     >
                       <td className="px-4 py-3 font-medium flex items-center gap-2">
                         <span className={isToday ? 'text-blue-700' : 'text-slate-900'}>
@@ -1149,9 +994,8 @@ export default function SalesContent({
                         {day.totalItems}
                       </td>
                       <td
-                        className={`px-4 py-3 font-semibold ${
-                          isToday ? 'text-blue-700' : 'text-slate-900'
-                        }`}
+                        className={`px-4 py-3 font-semibold ${isToday ? 'text-blue-700' : 'text-slate-900'
+                          }`}
                       >
                         {peso(day.totalRevenue)}
                       </td>
