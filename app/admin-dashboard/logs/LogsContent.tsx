@@ -338,7 +338,7 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
   if (!isOpen || !log) return null;
 
   const initials = log.staffName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const HIDDEN_FIELDS = new Set(['medicineId', 'patientId', 'dispensId', 'saleId']);
+  const HIDDEN_FIELDS = new Set(['medicineId', 'patientId', 'dispensId', 'saleId', 'patientName']);
 
   const renderDetailCards = () => {
     if (log._grouped && log._grouped.length > 0) {
@@ -363,12 +363,6 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
             </div>
             <p className="text-sm font-bold text-slate-900 mb-2">{name}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-              {patient && (
-                <div>
-                  <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Patient</p>
-                  <p className="text-xs font-medium text-slate-800">{patient}</p>
-                </div>
-              )}
               {visibleEntries.map(([key, value]) => (
                 <div key={key}>
                   <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{key}</p>
@@ -398,12 +392,6 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
               <div>
                 <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Quantity</p>
                 <p className="text-xs font-medium text-slate-800">{qty} {unit}</p>
-              </div>
-            )}
-            {patient && (
-              <div>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Patient</p>
-                <p className="text-xs font-medium text-slate-800">{patient}</p>
               </div>
             )}
             {visibleEntries.map(([key, value]) => (
@@ -471,13 +459,11 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
             })}
           </div>
           {(log.details?.patientName || log._grouped?.[0]?.details?.patientName) && (
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-full">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
               </svg>
-              <span className="font-medium text-slate-700">
-                {log.details?.patientName || log._grouped?.[0]?.details?.patientName}
-              </span>
+              {log.details?.patientName || log._grouped?.[0]?.details?.patientName}
             </div>
           )}
           {log._grouped && (
