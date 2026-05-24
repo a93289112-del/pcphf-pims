@@ -1000,8 +1000,6 @@ export default function DashboardPage() {
 
   const lowStockCount = useMemo(() => medicines.filter(isLowStock).length, [medicines]);
 
-  const expiredCount = useMemo(() => medicines.filter(isExpired).length, [medicines]);
-
   const remainingStock = useMemo(() => medicines.reduce((s, m) => s + getEffectiveStock(m), 0), [medicines]);
 
   const todayTransactions = transactions.filter(t => { const dt = new Date(t.date); return dt >= dateRangeStart && dt < dateRangeEnd; });
@@ -1015,7 +1013,7 @@ export default function DashboardPage() {
   }, {});
   const uniqueBrands = Object.entries(brandMap);
   const marqueeSpeed = Math.max(uniqueBrands.length * (isCollapsed ? 1 : 1.2), 8);
-  const defaultStockParam = expiredCount > 0 ? 'expired' : lowStockCount > 0 ? 'low' : 'ok';
+  const defaultStockParam = lowStockCount > 0 ? 'low' : 'ok';
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
   if (loading) return (
@@ -1157,21 +1155,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Expired alert card */}
-          {expiredCount > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 lg:gap-4 mb-6 sm:mb-8">
-              <div className="fade-up fade-up-6">
-                <StatCard
-                  label="Expired Items"
-                  value={expiredCount}
-                  sub="Remove from stock immediately"
-                  accent="#ef4444"
-                  alert
-                  icon={<svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
-                />
-              </div>
-            </div>
-          )}
+
 
           {/* ── Charts ── */}
           <div className="my-6 sm:my-8 pt-6 sm:pt-8 border-t border-slate-200">

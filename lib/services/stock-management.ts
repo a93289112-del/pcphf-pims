@@ -6,6 +6,7 @@
 import { database, getUserPath } from './firebase';
 import { ref, get, update, push, set } from 'firebase/database';
 import { type Medicine, type MedicineBatch, type FirebaseTransaction as TransactionData, type TransactionType } from '../types';
+import { getCurrentDateISO } from '../utils/date-timezone';
 
 interface DeductStockParams {
   medicineId: string;
@@ -72,9 +73,9 @@ export async function deductStock(
     const updates: Record<string, number | undefined> = {
       stockPerUnit: newStock,
       totalCost: newStock * unitCost,
-      ...(ppu !== undefined ? { 
+      ...(ppu !== undefined ? {
         totalPieces: newStock * ppu,
-        stockPerPieces: newStock * ppu 
+        stockPerPieces: newStock * ppu
       } : {}),
     };
 
@@ -93,7 +94,7 @@ export async function deductStock(
 
     // Log transaction (for audit trail)
     const transactionData: TransactionData = {
-      date: new Date().toISOString(),
+      date: getCurrentDateISO(),
       type,
       medicineId,
       quantity,
@@ -282,11 +283,11 @@ export async function deductStockFEFO(
         const batchDate = new Date(batch.expirationDate);
         return batchDate < earliest ? batchDate : earliest;
       }, new Date(remainingBatches[0].expirationDate));
-      
+
       // Format as YYYY-MM-DD to match stock adjustment format for consistency
       const normalizedDate = earliestExpiration.toISOString().split('T')[0];
       updates[`${medicinesBasePath}/${medicineId}/expirationDate`] = normalizedDate;
-      
+
       console.log(`🔵 After FEFO deduction - Medicine ${medicineId}:`, {
         remainingBatches: remainingBatches.length,
         newExpirationDate: normalizedDate,
@@ -304,7 +305,7 @@ export async function deductStockFEFO(
 
     // Log transaction
     const transactionData: TransactionData = {
-      date: new Date().toISOString(),
+      date: getCurrentDateISO(),
       type,
       medicineId,
       quantity,
@@ -344,7 +345,7 @@ export function getExpirationAlerts(
 ): { expired: MedicineBatch[]; expiring: MedicineBatch[] } {
   const now = new Date();
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  
+
   const expired: MedicineBatch[] = [];
   const expiring: MedicineBatch[] = [];
 
@@ -370,14 +371,14 @@ export function getEarliestExpirationFromBatches(
   batches?: Record<string, MedicineBatch>
 ): string | null {
   if (!batches || Object.keys(batches).length === 0) return null;
-  
+
   const expirationDates = Object.values(batches).map(b => b.expirationDate);
   if (expirationDates.length === 0) return null;
-  
+
   const earliest = expirationDates.reduce((min, current) => {
     return new Date(current) < new Date(min) ? current : min;
   });
-  
+
   return earliest;
 }
 
@@ -387,7 +388,7 @@ export function getEarliestExpirationFromBatches(
  */
 export function getTrueEarliestExpiration(medicine: Medicine): string | undefined {
   const allExpirations: string[] = [];
-  
+
   // Include batches' expirations
   if (medicine.batches && typeof medicine.batches === 'object') {
     Object.values(medicine.batches).forEach((batch: MedicineBatch) => {
@@ -396,7 +397,7 @@ export function getTrueEarliestExpiration(medicine: Medicine): string | undefine
       }
     });
   }
-  
+
   // Include medicine's expirationDate (legacy data or current record)
   if (medicine.expirationDate && typeof medicine.expirationDate === 'string') {
     // Add it if not already included
@@ -404,22 +405,22 @@ export function getTrueEarliestExpiration(medicine: Medicine): string | undefine
       allExpirations.push(medicine.expirationDate);
     }
   }
-  
+
   if (allExpirations.length === 0) {
     console.warn('⚠️ No expiration dates found for medicine:', medicine.id, medicine.name);
     return undefined;
   }
-  
+
   // Find earliest
   const earliest = allExpirations.reduce((min, current) => {
     return new Date(current) < new Date(min) ? current : min;
   });
-  
+
   console.log(`📅 getTrueEarliestExpiration for ${medicine.name}:`, {
     allExpirations,
     earliest,
     batchCount: medicine.batches ? Object.keys(medicine.batches).length : 0,
   });
-  
+
   return earliest;
 }

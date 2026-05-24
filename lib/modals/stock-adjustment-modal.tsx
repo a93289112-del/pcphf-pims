@@ -5,6 +5,7 @@ import { database, getUserPath } from '../services/firebase';
 import { ref, update, push, get, remove, onValue } from 'firebase/database';
 import Button from '../components/button';
 import { useAuth } from '../auth/auth-context';
+import { formatDateInManilaTimezone } from '../utils/date-timezone';
 
 // Format number with commas for display
 const formatNumberWithCommas = (value: string) => {
@@ -246,10 +247,10 @@ export default function StockAdjustmentModal({
        * Write the updated count to BOTH `quantity` and `stockPerUnit` so that
        * every page that reads either field sees the correct converted-unit count.
        */
-      updates[`${medicinePath}/quantity`]     = updatedStock;
+      updates[`${medicinePath}/quantity`] = updatedStock;
       updates[`${medicinePath}/stockPerUnit`] = updatedStock;
-      updates[`${medicinePath}/totalCost`]    = updatedStock * unitCost;
-      updates[`${medicinePath}/updatedAt`]    = now;
+      updates[`${medicinePath}/totalCost`] = updatedStock * unitCost;
+      updates[`${medicinePath}/updatedAt`] = now;
 
       // If piecesPerUnit exists it means `updatedStock` IS already in the piece
       // unit, so totalPieces === updatedStock.
@@ -435,11 +436,10 @@ export default function StockAdjustmentModal({
                       key={type}
                       type="button"
                       onClick={() => setAdjustmentType(type)}
-                      className={`p-3 rounded-lg border-2 font-semibold transition-all ${
-                        adjustmentType === type
+                      className={`p-3 rounded-lg border-2 font-semibold transition-all ${adjustmentType === type
                           ? 'border-blue-600 bg-blue-50 text-blue-900'
                           : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       {type === 'add' && '➕ Add'}
                       {type === 'remove' && '➖ Remove'}
@@ -579,13 +579,12 @@ export default function StockAdjustmentModal({
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`text-sm font-bold px-2.5 py-1 rounded-full ${
-                                item.type === 'add'
+                              className={`text-sm font-bold px-2.5 py-1 rounded-full ${item.type === 'add'
                                   ? 'bg-green-100 text-green-800'
                                   : item.type === 'remove'
                                     ? 'bg-red-100 text-red-800'
                                     : 'bg-blue-100 text-blue-800'
-                              }`}
+                                }`}
                             >
                               {item.type === 'add' && '➕ +'}
                               {item.type === 'remove' && '➖ -'}
@@ -613,7 +612,7 @@ export default function StockAdjustmentModal({
                           </div>
                         </div>
                         <p className="text-xs text-gray-500">
-                          {new Date(item.timestamp).toLocaleString()}
+                          {formatDateInManilaTimezone(item.timestamp, { includeTime: true, format: '12-hour' })}
                         </p>
                       </div>
                     )}
@@ -626,9 +625,8 @@ export default function StockAdjustmentModal({
       </div>
 
       {notification && (
-        <div className={`fixed top-5 right-5 z-100 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right duration-300 ${
-          notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
-        }`}>
+        <div className={`fixed top-5 right-5 z-100 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg border text-sm font-medium animate-in slide-in-from-right duration-300 ${notification.type === 'success' ? 'bg-white border-emerald-200 text-emerald-800' : 'bg-white border-red-200 text-red-700'
+          }`}>
           <span className={`w-2 h-2 rounded-full ${notification.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'} animate-pulse`} />
           {notification.message}
         </div>

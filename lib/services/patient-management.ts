@@ -1,5 +1,6 @@
 import { database, getUserPath } from './firebase';
 import { ref, onValue, push, set, get, remove } from 'firebase/database';
+import { getCurrentDateISO } from '../utils/date-timezone';
 
 export interface PatientRecord {
   id?: string;
@@ -48,7 +49,7 @@ export const savePatientRecord = async (userId: string, patientData: Record<stri
       sex,
       patientContactNo,
       fullPatientData: patientData,
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: getCurrentDateISO(),
     };
 
     // Check if patient already exists (by name + DOB + contact)
@@ -59,7 +60,7 @@ export const savePatientRecord = async (userId: string, patientData: Record<stri
       console.log('[savePatientRecord] Updating existing patient:', existingPatientId);
       await set(ref(database, `${patientsPath}/${existingPatientId}`), {
         ...patientRecord,
-        createdAt: (await getPatientById(userId, existingPatientId))?.createdAt || new Date().toISOString(),
+        createdAt: (await getPatientById(userId, existingPatientId))?.createdAt || getCurrentDateISO(),
       });
       return existingPatientId;
     } else {
@@ -71,7 +72,7 @@ export const savePatientRecord = async (userId: string, patientData: Record<stri
 
       await set(patientRef, {
         ...patientRecord,
-        createdAt: new Date().toISOString(),
+        createdAt: getCurrentDateISO(),
       });
       console.log('[savePatientRecord] Created patient with ID:', patientId);
       return patientId;

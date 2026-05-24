@@ -826,7 +826,12 @@ interface MedicineSalesStats {
 
 function toPhDateString(dateInput: string | Date): string {
   const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const formatted = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  // Ensure YYYY-MM-DD format
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(formatted)) {
+    console.error('[toPhDateString] Invalid format output:', { input: dateInput, output: formatted });
+  }
+  return formatted;
 }
 
 function getTodayPH(): string {
@@ -844,7 +849,13 @@ function toPhDisplayDate(dateInput: string | Date): string {
 }
 
 function addDays(dateStr: string, days: number): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
+  // Parse YYYY-MM-DD format and add days in Manila timezone
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) {
+    console.error('[addDays] Invalid date format:', dateStr);
+    return dateStr;
+  }
+  const [y, m, d] = parts.map(Number);
   const date = new Date(y, m - 1, d + days);
   return toPhDateString(date);
 }
@@ -1003,8 +1014,10 @@ export default function ReportsPage() {
         const list = Object.entries(data as Record<string, Omit<Dispensing, 'id'>>)
           .map(([id, values]) => ({ id, ...values } as Dispensing))
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        console.log('[Reports] Loaded dispensings:', { count: list.length, sample: list.slice(0, 2) });
         setDispensings(list);
       } else {
+        console.log('[Reports] No dispensings data found');
         setDispensings([]);
       }
       setIsLoadingDispensings(false);
@@ -1193,31 +1206,55 @@ export default function ReportsPage() {
     const today = getTodayPH();
     const dispensingsByDate = new Map<string, { count: number; medicines: number }>();
 
+    // Build map of dispensings grouped by date
     dispensings.forEach((d) => {
+      if (!d.date || !d.items) {
+        console.warn('[TrendChart] Invalid dispensing record:', d);
+        return;
+      }
+
       const key = toPhDateString(d.date);
+      const medicinesCount = d.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
       const prev = dispensingsByDate.get(key) ?? { count: 0, medicines: 0 };
+
       dispensingsByDate.set(key, {
         count: prev.count + 1,
-        medicines: prev.medicines + d.items.reduce((s, it) => s + it.quantity, 0),
+        medicines: prev.medicines + medicinesCount,
       });
     });
 
+    let chartData: { date: string; count: number; medicines: number }[] = [];
+
     if (trendMode === 'custom' && trendStartDate && trendEndDate) {
-      const days: { date: string; count: number; medicines: number }[] = [];
+      // Custom date range
       let cursor = trendStartDate;
       while (cursor <= trendEndDate) {
         const rec = dispensingsByDate.get(cursor) ?? { count: 0, medicines: 0 };
-        days.push({ date: cursor, ...rec });
+        chartData.push({ date: cursor, ...rec });
         cursor = addDays(cursor, 1);
       }
-      return days;
+    } else {
+      // Preset mode: generate last N days
+      for (let i = 0; i < trendPreset; i++) {
+        const date = addDays(today, -(trendPreset - 1 - i));
+        const rec = dispensingsByDate.get(date) ?? { count: 0, medicines: 0 };
+        chartData.push({ date, ...rec });
+      }
     }
 
-    return Array.from({ length: trendPreset }, (_, i) => {
-      const date = addDays(today, -(trendPreset - 1 - i));
-      const rec = dispensingsByDate.get(date) ?? { count: 0, medicines: 0 };
-      return { date, ...rec };
-    });
+    // Debug log
+    if (chartData.length > 0) {
+      const hasData = chartData.some(d => d.medicines > 0 || d.count > 0);
+      console.log('[TrendChart] Data:', {
+        dataPoints: chartData.length,
+        totalMedicines: chartData.reduce((s, d) => s + d.medicines, 0),
+        totalDispensings: chartData.reduce((s, d) => s + d.count, 0),
+        hasData,
+        sample: chartData.slice(0, 3),
+      });
+    }
+
+    return chartData;
   }, [dispensings, trendMode, trendPreset, trendStartDate, trendEndDate]);
 
   const unifiedTransactions = useMemo(() => {
@@ -1946,7 +1983,14 @@ export default function ReportsPage() {
                       endDate={trendEndDate} setEndDate={setTrendEndDate}
                     />
                   </div>
-                  {trendChartData.length > 0 ? (
+                  {isLoadingDispensings ? (
+                    <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
+                      <div className="text-center">
+                        <div className="w-6 h-6 border-3 border-slate-200 border-t-slate-600 rounded-full animate-spin mx-auto mb-2" />
+                        Loading dispensing data...
+                      </div>
+                    </div>
+                  ) : trendChartData && trendChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart
                         data={trendChartData}
@@ -1990,8 +2034,12 @@ export default function ReportsPage() {
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="h-64 flex items-center justify-center text-slate-500 text-sm">
-                      No data for selected range
+                    <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-sm gap-2">
+                      <svg className="w-10 h-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      <span>No dispensing records for the selected period</span>
                     </div>
                   )}
                 </div>

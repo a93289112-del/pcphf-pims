@@ -11,6 +11,7 @@ import Image from 'next/image';
 import logoSrc from '@/app/assets/Logo/pharmacylogo.jpeg.png';
 import Processing from '@/lib/components/processing';
 import { deletePatientRecord, PatientRecord } from '@/lib/services/patient-management';
+import { formatDateInManilaTimezone, formatDateShortInManilaTimezone } from '@/lib/utils/date-timezone';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 interface DispensingItem {
@@ -69,13 +70,12 @@ function dedupeById<T extends { id: string }>(list: T[]): T[] {
   const seen = new Set<string>();
   return list.filter((item) => { if (seen.has(item.id)) return false; seen.add(item.id); return true; });
 }
+// Timezone-aware formatting functions
 function formatDate(iso: string): string {
-  try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }); }
-  catch { return iso; }
+  return formatDateInManilaTimezone(iso, { includeTime: true, format: '12-hour' });
 }
 function formatDateShort(iso: string): string {
-  try { return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-  catch { return iso; }
+  return formatDateShortInManilaTimezone(iso);
 }
 function resolveQtyType(item: DispensingItem): string {
   const raw = (item.quantityType || item.unitType || '').toLowerCase().trim();
@@ -273,7 +273,7 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
               <div className="space-y-2">
                 <div className="flex justify-between items-start">
                   <span className="text-[10px] text-slate-400">Date</span>
-                  <span className="text-xs font-semibold text-slate-700 text-right">{formatDate(record.date)}</span>
+                  <span className="text-xs font-semibold text-slate-700 text-right" title="Timezone: Asia/Manila (UTC+8)">{formatDate(record.date)}</span>
                 </div>
                 <div className="flex justify-between items-start">
                   <span className="text-[10px] text-slate-400">Dispensed By</span>
@@ -374,6 +374,9 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                   reader.onloadend = () => resolve(reader.result as string);
                   reader.readAsDataURL(logoBlob);
                 });
+
+                // Use timezone-aware formatting for print timestamp
+                const printTimestamp = formatDateInManilaTimezone(new Date().toISOString(), { includeTime: true, format: '24-hour' });
 
                 const receiptHtml = `
                   <!DOCTYPE html>
@@ -642,7 +645,7 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                         <div class="header-title">Patient Dispensing Record</div>
                       </div>
                       <div class="header-meta">
-                        <div><strong>Date:</strong> ${formatDate(record.date)}</div>
+                        <div><strong>Date:</strong> ${formatDate(record.date)} <em style="font-size: 10px; color: #666;">(Asia/Manila timezone)</em></div>
                         <div><strong>Dispensed by:</strong> ${record.dispensedBy}</div>
                         ${record.patientId ? `<div><strong>Patient ID:</strong> ${record.patientId}</div>` : ''}
                       </div>
@@ -745,8 +748,8 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                         </thead>
                         <tbody>
                           ${record.items.map((item) => {
-                            const stockAfter = (item.stockBeforeDispense ?? 0) - item.quantity;
-                            return `
+                  const stockAfter = (item.stockBeforeDispense ?? 0) - item.quantity;
+                  return `
                             <tr>
                               <td>
                                 <div class="med-name">${item.medicineName}</div>
@@ -758,7 +761,7 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                               <td>${item.stockBeforeDispense !== undefined ? stockAfter : '—'}</td>
                               <td>${item.prescriptionRequired ? '<span class="rx-pill">RX</span>' : '—'}</td>
                             </tr>`;
-                          }).join('')}
+                }).join('')}
                         </tbody>
                       </table>
                       <div class="totals-bar">
@@ -791,7 +794,7 @@ function PatientEnrollmentModal({ record, onClose }: { record: Dispensing; onClo
                     <div class="footer">
                       <div class="footer-id">Record ID: ${record.id}</div>
                       <div class="footer-conf">CONFIDENTIAL — For authorized personnel only</div>
-                      <div class="footer-print">Printed: ${new Date().toLocaleString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</div>
+                      <div class="footer-print">Printed: ${printTimestamp} (Asia/Manila timezone)</div>
                     </div>
 
                   </div>

@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/auth/auth-context';
 import { useSidebar } from '@/lib/contexts/sidebar-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { database, getUserPath } from '@/lib/services/firebase';
 import { ref, onValue, push, update, remove, get } from 'firebase/database';
@@ -13,6 +13,7 @@ import { type StockStatus, getMedicineOverallStatus, statusDisplay } from '@/lib
 import Processing from '@/lib/components/processing';
 import { logActivity } from '@/lib/services/activity-logs';
 import { type FirebaseTransaction } from '@/lib/types';
+import { formatDateInManilaTimezone } from '@/lib/utils/date-timezone';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -94,13 +95,9 @@ function normalizeMedicineForStatus(medicine: Medicine): Medicine {
   };
 }
 
-/** Format a timestamp into a readable date+time string */
+/** Format a timestamp into a readable date+time string using Asia/Manila timezone */
 function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString('en-PH', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: true,
-  });
+  return formatDateInManilaTimezone(iso, { includeTime: true, format: '12-hour' });
 }
 
 /** How long ago (relative label) */
@@ -114,6 +111,73 @@ function timeAgo(iso: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ─── Status helpers for filtering ──────────────────────────────────────────────
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function getTodayMidnight(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getDaysUntilExpiry(expirationDate: string): number {
+  return Math.floor(
+    (parseLocalDate(expirationDate).getTime() - getTodayMidnight().getTime()) / 86400000
+  );
+}
+
+type MedicineStatus = 'out' | 'expired' | 'expiring' | 'low' | 'urgent' | 'in';
+
+function getMedicineStatusForFilter(medicine: Medicine): MedicineStatus {
+  const stock = getCurrentStock(medicine);
+  const minStock = medicine.minStock ?? 0;
+  const exp = medicine.expirationDate ? parseLocalDate(medicine.expirationDate) : null;
+  const today = getTodayMidnight();
+
+  if (stock === 0) return 'out';
+  if (exp && exp < today) return 'expired';
+
+  const isLowStock = minStock > 0 && stock <= minStock;
+  let isExpiringSoon = false;
+  if (exp) {
+    const days = Math.floor((exp.getTime() - today.getTime()) / 86400000);
+    if (days <= 30) isExpiringSoon = true;
+  }
+
+  if (isLowStock && isExpiringSoon) return 'urgent';
+  if (isExpiringSoon) return 'expiring';
+  if (isLowStock) return 'low';
+
+  return 'in';
+}
+
+interface StatusCounts {
+  urgent: number;
+  all: number;
+  in: number;
+  low: number;
+  expiring: number;
+  expired: number;
+  out: number;
+}
+
+function computeStatusCounts(medicines: Medicine[]): StatusCounts {
+  let urgent = 0, inStock = 0, low = 0, expiring = 0, expired = 0, out = 0;
+  for (const m of medicines) {
+    const status = getMedicineStatusForFilter(m);
+    if (status === 'urgent') urgent++;
+    else if (status === 'in') inStock++;
+    else if (status === 'low') low++;
+    else if (status === 'expiring') expiring++;
+    else if (status === 'expired') expired++;
+    else if (status === 'out') out++;
+  }
+  return { urgent, all: medicines.length, in: inStock, low, expiring, expired, out };
 }
 
 // ---------------------------------------------------------------------------
@@ -468,6 +532,11 @@ export default function StockAdjustmentsPage() {
   const { user, role, loading, staffName, adminName } = useAuth();
   const { } = useSidebar();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Status filter for medicines list
+  type StatusFilterTab = 'urgent' | 'all' | 'in' | 'low' | 'expiring' | 'expired' | 'out';
+  const [statusFilter, setStatusFilter] = useState<StatusFilterTab>('all');
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -564,6 +633,17 @@ export default function StockAdjustmentsPage() {
     });
     return () => unsubscribe();
   }, [user, loading, router]);
+
+  // ── Auto-select medicine from URL parameter ───────────────────────────────
+  useEffect(() => {
+    const medicineParam = searchParams.get('medicine');
+    if (medicineParam && medicines.length > 0) {
+      const medicine = medicines.find((m) => m.id === medicineParam);
+      if (medicine) {
+        setSelectedMedicineId(medicineParam);
+      }
+    }
+  }, [medicines, searchParams]);
 
   // ── Load adjustment history ───────────────────────────────────────────────
   const loadHistory = useCallback(async () => {
@@ -674,16 +754,26 @@ export default function StockAdjustmentsPage() {
     });
   }, [history, historyFilter, historyDateFrom, historyDateTo]);
 
-  // ── Summary stats ─────────────────────────────────────────────────────────
+  // ── Summary stats and status counts ───────────────────────────────────────
   const totalAdded = history.filter(a => a.quantity > 0).reduce((s, a) => s + a.quantity, 0);
   const totalRemoved = history.filter(a => a.quantity < 0).reduce((s, a) => s + Math.abs(a.quantity), 0);
   const expiryUpdates = history.filter(a => a.quantity === 0 && a.expirationDate).length;
 
-  const filteredMedicines = medicines.filter((m) =>
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    m.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const statusCounts = computeStatusCounts(medicines);
+
+  const filteredMedicines = medicines.filter((m) => {
+    // Search filter
+    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.category.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    // Status filter
+    if (statusFilter === 'all') return true;
+    const status = getMedicineStatusForFilter(m);
+    return status === statusFilter;
+  });
 
   // ── Execute adjustment ────────────────────────────────────────────────────
   const executeAdjustment = async () => {
@@ -1136,6 +1226,48 @@ export default function StockAdjustmentsPage() {
           <BackButton href="/medicines" label="Back to Medicines" position="right" />
         </div>
 
+        {/* ── STATUS FILTER SECTION (CARD WITH BORDER) ──────────────────────── */}
+        <div className="surface-card surface-card-hover p-4 sm:p-5 mb-6 sm:mb-8 border-2 border-slate-200 rounded-2xl">
+          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide mb-3">Filter by Status</h3>
+          <div className="overflow-x-auto pb-2">
+            <div className="flex gap-1.5 min-w-max">
+              {(['urgent', 'all', 'in', 'low', 'expiring', 'expired', 'out'] as const).map((tab) => {
+                const count = statusCounts[tab];
+                const isActive = statusFilter === tab;
+                const tabLabels: Record<string, string> = {
+                  urgent: 'Urgent',
+                  all: 'All',
+                  in: 'In Stock',
+                  low: 'Low',
+                  expiring: 'Expiring',
+                  expired: 'Expired',
+                  out: 'Out',
+                };
+                const tabColors: Record<string, { active: string; inactive: string }> = {
+                  urgent: { active: 'bg-red-600 text-white border-red-600', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-red-300' },
+                  all: { active: 'bg-slate-900 text-white border-slate-900', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-slate-300' },
+                  in: { active: 'bg-emerald-600 text-white border-emerald-600', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300' },
+                  low: { active: 'bg-yellow-500 text-white border-yellow-500', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-yellow-300' },
+                  expiring: { active: 'bg-orange-500 text-white border-orange-500', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-orange-300' },
+                  expired: { active: 'bg-red-700 text-white border-red-700', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-red-300' },
+                  out: { active: 'bg-slate-600 text-white border-slate-600', inactive: 'bg-white text-slate-700 border-slate-200 hover:border-slate-300' },
+                };
+                const colors = tabColors[tab];
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setStatusFilter(tab)}
+                    className={`whitespace-nowrap px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all ${isActive ? colors.active + ' shadow-sm' : colors.inactive}`}
+                  >
+                    <span>{tabLabels[tab]}</span>
+                    <span className={`ml-1.5 ${isActive ? 'font-bold' : 'font-medium'}`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 mb-6 sm:mb-8">
 
           {/* ── LEFT: Medicine list ──────────────────────────────────────── */}
@@ -1183,7 +1315,7 @@ export default function StockAdjustmentsPage() {
                             }`}
                         >
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className="font-bold text-slate-900 truncate text-sm flex-1">{medicine.name}</p>
+                            <p className="font-bold text-slate-900 text-sm flex-1 break-words leading-tight">{medicine.name}</p>
                             <span className={`text-xs font-bold px-2 py-1 rounded-lg whitespace-nowrap shrink-0 ${statusInfo.color}`}>
                               {statusInfo.label}
                             </span>
@@ -1245,20 +1377,22 @@ export default function StockAdjustmentsPage() {
             {selectedMedicineId ? (
               <div className="surface-card surface-card-hover p-6 sm:p-8 transition-all">
 
+                {/* ── Medicine Title at Top ──────────────────────────────── */}
+                <div className="mb-6 pb-6 border-b-2 border-slate-200">
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 break-words">{selectedMedicine?.name}</h2>
+                  <p className="text-sm text-slate-600 mt-2">{selectedMedicine?.brand} • {selectedMedicine?.category}</p>
+                </div>
+
                 {/* Medicine info header */}
                 <div className="bg-linear-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-2xl p-5 sm:p-6 mb-6">
                   <div className="flex items-start justify-between mb-4 gap-3">
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
+                    <div className="grid grid-cols-2 gap-4 flex-1">
                       <div>
-                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Name</p>
-                        <p className="font-bold text-slate-900 text-base truncate">{selectedMedicine?.name}</p>
+                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Min Stock</p>
+                        <p className="font-bold text-slate-900 text-base">{selectedMedicine?.minStock || 0}</p>
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1">Category</p>
-                        <p className="font-bold text-slate-900 text-base">{selectedMedicine?.category}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-1 truncate" title={inputUnitLabel}>
+                        <p className="text-xs font-bold text-blue-700 uppercase tracking-wide mb-1 truncate" title={inputUnitLabel}>
                           Stock ({inputUnitLabel})
                         </p>
                         {/* ── FIX: normalize for status check in the right panel ── */}

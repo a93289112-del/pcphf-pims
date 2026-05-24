@@ -14,6 +14,7 @@ import { logActivity } from '@/lib/services/activity-logs';
 import { validateQuantity, validatePatientName } from '@/lib/utils/validation';
 import { Plus, Minus, X, CheckCircle2 } from 'lucide-react';
 import { listenToPatients, savePatientRecord, getPatientDisplayName, type PatientRecord } from '@/lib/services/patient-management';
+import { getCurrentDateISO } from '@/lib/utils/date-timezone';
 
 type DispensableUnit = string;
 
@@ -785,7 +786,7 @@ export default function DispensePage() {
       const patientRecordId = await savePatientRecord(user.uid, { ...patientInfo });
 
       await set(dispensRef, {
-        date: new Date().toISOString(),
+        date: getCurrentDateISO(),
         patientName: fullName,
         patientId,
         patientRecordId,

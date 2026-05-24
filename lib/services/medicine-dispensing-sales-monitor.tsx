@@ -212,8 +212,8 @@ const MetricCard = ({
     <p className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">{value.toLocaleString()}</p>
     {change !== undefined && (
       <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${isPositive === undefined ? 'bg-slate-100 text-slate-600'
-          : isPositive ? 'bg-green-100 text-green-700'
-            : 'bg-red-100 text-red-700'
+        : isPositive ? 'bg-green-100 text-green-700'
+          : 'bg-red-100 text-red-700'
         }`}>
         {isPositive !== undefined && <span>{isPositive ? '↑' : '↓'}</span>}
         <span>{Math.abs(change).toLocaleString()}</span>
@@ -234,7 +234,7 @@ function filterTransactions(txs: FirebaseTransaction[], start: Date, end: Date):
 
 function aggregateByMedicine(transactions: FirebaseTransaction[]) {
   const map = new Map<string, {
-    dispensedQty: number; posSalesQty: number; adjustmentsIn: number;
+    dispensedQty: number; posSalesQty: number; adjustmentsIn: number; adjustmentsOut: number;
     latestNewStock: number; originalStock: number; hasTransactions: boolean;
   }>();
 
@@ -245,7 +245,7 @@ function aggregateByMedicine(transactions: FirebaseTransaction[]) {
   sortedAsc.forEach(tx => {
     if (!map.has(tx.medicineId)) {
       map.set(tx.medicineId, {
-        dispensedQty: 0, posSalesQty: 0, adjustmentsIn: 0,
+        dispensedQty: 0, posSalesQty: 0, adjustmentsIn: 0, adjustmentsOut: 0,
         latestNewStock: 0,
         originalStock: tx.previousStock === 0 ? tx.newStock : tx.previousStock,
         hasTransactions: true,
@@ -259,8 +259,12 @@ function aggregateByMedicine(transactions: FirebaseTransaction[]) {
     } else if (tx.type === 'sale') {
       entry.posSalesQty += qty;
     } else if (tx.type === 'adjustment') {
-      if (tx.quantity > 0) entry.adjustmentsIn += tx.quantity;
-      else entry.dispensedQty += Math.abs(tx.quantity);
+      // Adjustments: positive = stock added, negative = stock removed
+      if (tx.quantity > 0) {
+        entry.adjustmentsIn += tx.quantity;
+      } else {
+        entry.adjustmentsOut += Math.abs(tx.quantity);
+      }
     }
     entry.latestNewStock = tx.newStock;
   });
@@ -289,7 +293,8 @@ function buildDetailedTransactions(
       return;
     }
 
-    const totalOutflow = agg.dispensedQty + agg.posSalesQty;
+    // Count all outflows: dispense + sale + adjustments out
+    const totalOutflow = agg.dispensedQty + agg.posSalesQty + agg.adjustmentsOut;
     data.push({
       medicineId,
       medicineName: medicine.baseName || medicine.name || '—',
@@ -305,7 +310,7 @@ function buildDetailedTransactions(
 
   aggregated.forEach((agg, medicineId) => {
     if (!medicinesMap.has(medicineId)) {
-      const totalOutflow = agg.dispensedQty + agg.posSalesQty;
+      const totalOutflow = agg.dispensedQty + agg.posSalesQty + agg.adjustmentsOut;
       data.push({
         medicineId,
         medicineName: 'Unknown Medicine',
@@ -340,6 +345,7 @@ function MonthlyChartPanel({
       if (d >= 0 && d < arr.length) {
         if (tx.type === 'dispense') arr[d].dispensedQty += Math.abs(tx.quantity);
         else if (tx.type === 'sale') arr[d].posSalesQty += Math.abs(tx.quantity);
+        else if (tx.type === 'adjustment' && tx.quantity < 0) arr[d].dispensedQty += Math.abs(tx.quantity);
       }
     });
     return arr.map(d => ({ ...d, totalUsed: d.dispensedQty + d.posSalesQty }));
@@ -371,8 +377,8 @@ function MonthlyChartPanel({
             {(['daily', 'weekly'] as const).map(v => (
               <button key={v} onClick={() => setSubView(v)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${subView === v
-                    ? 'bg-slate-900 text-white border-slate-900'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  ? 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                   }`}>
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
@@ -425,6 +431,7 @@ function QuarterlyChartPanel({
       if (idx >= 0 && idx < arr.length) {
         if (tx.type === 'dispense') arr[idx].dispensedQty += Math.abs(tx.quantity);
         else if (tx.type === 'sale') arr[idx].posSalesQty += Math.abs(tx.quantity);
+        else if (tx.type === 'adjustment' && tx.quantity < 0) arr[idx].dispensedQty += Math.abs(tx.quantity);
       }
     });
     return arr.map(d => ({ ...d, totalUsed: d.dispensedQty + d.posSalesQty }));
@@ -528,6 +535,7 @@ function AnnualChartPanel({
       const m = new Date(tx.date).getMonth();
       if (tx.type === 'dispense') arr[m].dispensedQty += Math.abs(tx.quantity);
       else if (tx.type === 'sale') arr[m].posSalesQty += Math.abs(tx.quantity);
+      else if (tx.type === 'adjustment' && tx.quantity < 0) arr[m].dispensedQty += Math.abs(tx.quantity);
     });
     return arr.map(d => ({ ...d, totalUsed: d.dispensedQty + d.posSalesQty }));
   }, [filteredByDate, selectedYear]);
@@ -565,8 +573,8 @@ function AnnualChartPanel({
             {(['monthly', 'quarterly'] as const).map(v => (
               <button key={v} onClick={() => setSubView(v)}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${subView === v
-                    ? 'bg-violet-600 text-white border-violet-600'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  ? 'bg-violet-600 text-white border-violet-600'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                   }`}>
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
@@ -800,7 +808,7 @@ export default function MedicineDispensingMonitor({
     let medsReady = false;
     let transReady = false;
     const checkDone = () => {
-      if (medsReady && transReady) Promise.resolve().then(() => setLoading(false));
+      if (medsReady && transReady) setLoading(false);
     };
 
     const unsubMeds = onValue(ref(database, medsPath), snap => {
@@ -1019,8 +1027,8 @@ export default function MedicineDispensingMonitor({
           ] as const).map(opt => (
             <button key={opt.key} type="button" onClick={() => onFilterRangeChange(opt.key)}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap ${dashboardFilterRange === opt.key
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}>
               {opt.label}
             </button>
@@ -1104,10 +1112,10 @@ export default function MedicineDispensingMonitor({
               {(['monthly', 'quarterly', 'annual'] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
                   className={`px-5 py-2 rounded-lg font-semibold text-sm transition-all ${activeTab === tab
-                      ? tab === 'monthly' ? 'bg-blue-600 text-white shadow-sm'
-                        : tab === 'quarterly' ? 'bg-emerald-600 text-white shadow-sm'
-                          : 'bg-violet-600 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ? tab === 'monthly' ? 'bg-blue-600 text-white shadow-sm'
+                      : tab === 'quarterly' ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'bg-violet-600 text-white shadow-sm'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}>
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
