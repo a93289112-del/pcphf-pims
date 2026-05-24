@@ -14,6 +14,9 @@ export type ActivityType =
   | 'password_changed'
   | 'stock_deducted'
   | 'stock_adjusted'
+  | 'adjust_expiration'
+  | 'adjust_price'
+  | 'adjust_min_stock'
   | 'medicine_dispensed'
   | 'medicine_sold'
   | 'medicine_added'
@@ -51,6 +54,7 @@ export interface ActivityLogDetails {
   totalCriticalAlerts?: number;
   sessionSummary?: string;
   detailedBreakdown?: string;
+  adjustmentType?: 'expiration' | 'price' | 'min_stock' | 'quantity'; // ← explicit subtype field
   [key: string]: unknown;
 }
 
@@ -87,6 +91,49 @@ export function removeUndefinedProperties<T extends Record<string, unknown>>(obj
   return clean as T;
 }
 
+// ─── Subtype detector (used by both logActivity and the UI filter) ────────────
+
+/**
+ * Derive the precise adjustment subtype from the action string + details.
+ * Returns one of the four subtypes, or 'quantity' as the fallback.
+ */
+export function detectAdjustmentSubtype(
+  action: string,
+  details?: ActivityLogDetails,
+): 'expiration' | 'price' | 'min_stock' | 'quantity' {
+  // 1. Trust an explicit stored field first
+  if (details?.adjustmentType) return details.adjustmentType;
+
+  const a = action.toLowerCase();
+  const prev = String(details?.previousValue ?? '').toLowerCase();
+  const next = String(details?.newValue ?? '').toLowerCase();
+
+  // ISO date pattern in values → expiration
+  const isoDate = /^\d{4}-\d{2}-\d{2}/;
+  if (
+    a.includes('expir') ||
+    a.includes('expiry') ||
+    isoDate.test(prev) ||
+    isoDate.test(next)
+  ) return 'expiration';
+
+  if (
+    a.includes('price') ||
+    a.includes('cost') ||
+    a.includes('₱') ||
+    a.includes('php')
+  ) return 'price';
+
+  if (
+    a.includes('minimum') ||
+    a.includes('min stock') ||
+    a.includes('min_stock') ||
+    a.includes('reorder')
+  ) return 'min_stock';
+
+  return 'quantity';
+}
+
 // ─── Core logging function ────────────────────────────────────────────────────
 
 /**
@@ -94,6 +141,9 @@ export function removeUndefinedProperties<T extends Record<string, unknown>>(obj
  *
  * The path is intentionally at the root level (not under a user's path)
  * so the admin dashboard can read all staff activity in one place.
+ *
+ * For stock_adjusted logs, pass `details.adjustmentType` so the UI filter
+ * never has to guess from the action string alone.
  */
 export async function logActivity(
   type: ActivityType,
@@ -108,13 +158,22 @@ export async function logActivity(
     const logsRef = ref(database, 'activityLogs');
     const newLogRef = push(logsRef);
 
+    // Auto-stamp the adjustmentType for stock_adjusted logs that don't already have it
+    let enrichedDetails = details ?? {};
+    if (type === 'stock_adjusted' && !enrichedDetails.adjustmentType) {
+      enrichedDetails = {
+        ...enrichedDetails,
+        adjustmentType: detectAdjustmentSubtype(action, enrichedDetails),
+      };
+    }
+
     const logEntry = removeUndefinedProperties({
       type,
       staffId,
       staffEmail,
       staffName: staffName ?? staffEmail,
       action,
-      details: details ?? {},
+      details: enrichedDetails,
       timestamp: new Date().toISOString(),
       isActive: false,
       userRole,

@@ -314,9 +314,14 @@ export default function StaffListContent() {
 
       <ConfirmationModal
         isOpen={showStatusConfirm}
-        title={`${newStatus === 'approved' ? 'Enable' : 'Disable'} User?`}
-        message={`Are you sure you want to change ${selectedUser?.email}'s status to ${newStatus}?`}
-        confirmText="Confirm"
+        title={`${newStatus === 'approved' ? 'Enable' : 'Disable'} Staff Account?`}
+        message={
+          <span>
+            Do you want to {newStatus === 'approved' ? 'enable' : 'disable'}{' '}
+            <span className="font-bold text-slate-900">{selectedUser?.staffName || selectedUser?.email}</span>?
+          </span>
+        }
+        confirmText={newStatus === 'approved' ? 'Enable' : 'Disable'}
         onConfirm={handleUpdateStatus}
         onCancel={() => { setShowStatusConfirm(false); setSelectedUser(null); }}
       />

@@ -4,10 +4,16 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { database } from '@/lib/services/firebase';
 import { useEffect, useState, useMemo } from 'react';
 import { ref, onValue } from 'firebase/database';
-import { subscribeToActivityLogs, type ActivityLog, type ActivityType, type ActivityLogDetails } from '@/lib/services/activity-logs';
+import {
+  subscribeToActivityLogs,
+  detectAdjustmentSubtype,
+  type ActivityLog,
+  type ActivityType,
+  type ActivityLogDetails,
+} from '@/lib/services/activity-logs';
 import StockAdjustmentSummaryModal from '@/lib/components/stock-adjustment-summary-modal';
 
-// ── All activity types shown in logs (used by both the page and the dashboard card) ──
+// ── All activity types shown in logs ──────────────────────────────────────────
 export const AUDITABLE_TYPES: ActivityType[] = [
   'admin_login',
   'admin_logout',
@@ -16,25 +22,47 @@ export const AUDITABLE_TYPES: ActivityType[] = [
   'medicine_added',
   'stock_deducted',
   'stock_adjusted',
+  'adjust_expiration',
+  'adjust_price',
+  'adjust_min_stock',
   'medicine_sold',
   'medicine_dispensed',
-  'medicine_restocked',
   'staff_created',
   'staff_disabled',
-  'staff_enabled',
   'staff_deleted',
   'password_changed',
 ];
 
-// ── Transaction activity types (excludes login/logout and staff management for logs page) ──
+// ── Transaction activity types (shown in logs filter) ─────────────────────────
 export const TRANSACTION_TYPES: ActivityType[] = [
   'medicine_added',
+  'stock_deducted',
+  'stock_adjusted',
+  'adjust_expiration',
+  'adjust_price',
+  'adjust_min_stock',
+  'medicine_sold',
+  'medicine_dispensed',
+  'password_changed',
+  'staff_created',
+  'staff_disabled',
+  'staff_deleted',
+];
+
+// ── Stored types that count as "transaction" (never virtual subtypes) ─────────
+const STORED_TRANSACTION_TYPES: ActivityType[] = [
+  'medicine_added',
+  'stock_deducted',
   'stock_adjusted',
   'medicine_sold',
   'medicine_dispensed',
+  'password_changed',
+  'staff_created',
+  'staff_disabled',
+  'staff_deleted',
 ];
 
-// ── Tiny inline SVG icons ────────────────────────────────────────────────────
+// ── Tiny inline SVG icons ─────────────────────────────────────────────────────
 const Icon = {
   Activity: () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -119,12 +147,11 @@ const Icon = {
   ),
 };
 
-// ── Mini bar chart with hover tooltip ────────────────────────────────────
+// ── Mini bar chart with hover tooltip ────────────────────────────────────────
 function MiniBarChart({
   data,
   color = '#3b82f6',
   dates,
-  staffNames,
   activityBreakdown = [],
 }: {
   data: { label: string; value: number }[];
@@ -181,7 +208,7 @@ function MiniBarChart({
   );
 }
 
-// ── Sparkline SVG ──────────────────────────────────────────────────────────
+// ── Sparkline SVG ─────────────────────────────────────────────────────────────
 function Sparkline({ values, color = '#3b82f6' }: { values: number[]; color?: string }) {
   if (values.length < 2) return null;
   const max = Math.max(...values, 1);
@@ -194,7 +221,7 @@ function Sparkline({ values, color = '#3b82f6' }: { values: number[]; color?: st
   );
 }
 
-// ── Donut chart ─────────────────────────────────────────────────────────────
+// ── Donut chart ───────────────────────────────────────────────────────────────
 function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
   const total = segments.reduce((s, d) => s + d.value, 0) || 1;
   const r = 36, cx = 44, cy = 44, stroke = 14;
@@ -232,7 +259,7 @@ function DonutChart({ segments }: { segments: { label: string; value: number; co
   );
 }
 
-// ── Staff comparison bar chart ─────────────────────────────────────────────
+// ── Staff comparison bar chart ────────────────────────────────────────────────
 function StaffComparisonChart({
   staffStats,
 }: {
@@ -285,32 +312,34 @@ function StaffComparisonChart({
   );
 }
 
-// ── Type badge helper ──────────────────────────────────────────────────────
-const typeBadge = (type: string, action?: string) => {
+// ── Type badge helper ─────────────────────────────────────────────────────────
+const typeBadge = (type: string, action?: string, details?: ActivityLogDetails) => {
+  // Resolve the display label for stock_adjusted subtypes
+  let resolvedLabel = type;
+  if (type === 'stock_adjusted' || type === 'stock_deducted') {
+    const subtype = detectAdjustmentSubtype(action ?? '', details);
+    if (subtype === 'expiration') resolvedLabel = 'adjust_expiration';
+    else if (subtype === 'price') resolvedLabel = 'adjust_price';
+    else if (subtype === 'min_stock') resolvedLabel = 'adjust_min_stock';
+    else resolvedLabel = 'stock_adjusted';
+  }
+
   const map: Record<string, { cls: string; icon: React.ReactNode; label: string }> = {
     medicine_dispensed: { cls: 'bg-blue-50 text-blue-700 border border-blue-100', icon: <Icon.Dispense />, label: 'Dispensed' },
     medicine_sold: { cls: 'bg-emerald-50 text-emerald-700 border border-emerald-100', icon: <Icon.Sale />, label: 'Sold' },
     medicine_added: { cls: 'bg-green-50 text-green-700 border border-green-100', icon: <Icon.Pill />, label: 'Medicine Added' },
     stock_deducted: { cls: 'bg-amber-50 text-amber-700 border border-amber-100', icon: <Icon.Adjustment />, label: 'Dispensing' },
     stock_adjusted: { cls: 'bg-orange-50 text-orange-700 border border-orange-100', icon: <Icon.Adjustment />, label: 'Stock Adjustment' },
+    adjust_expiration: { cls: 'bg-orange-50 text-orange-700 border border-orange-100', icon: <Icon.Adjustment />, label: 'Adjusted Expiration' },
+    adjust_price: { cls: 'bg-amber-50 text-amber-700 border border-amber-100', icon: <Icon.Adjustment />, label: 'Adjusted Price' },
+    adjust_min_stock: { cls: 'bg-indigo-50 text-indigo-700 border border-indigo-100', icon: <Icon.Package />, label: 'Adjusted Min Stock' },
     staff_created: { cls: 'bg-purple-50 text-purple-700 border border-purple-100', icon: <Icon.User />, label: 'Staff Created' },
     staff_disabled: { cls: 'bg-red-50 text-red-700 border border-red-100', icon: <Icon.User />, label: 'Staff Disabled' },
-    staff_enabled: { cls: 'bg-green-50 text-green-700 border border-green-100', icon: <Icon.User />, label: 'Staff Enabled' },
     staff_deleted: { cls: 'bg-red-100 text-red-800 border border-red-200', icon: <Icon.User />, label: 'Staff Deleted' },
     password_changed: { cls: 'bg-rose-50 text-rose-700 border border-rose-100', icon: <Icon.Alert />, label: 'Password Changed' },
   };
-  let cfg = map[type] || { cls: 'bg-slate-100 text-slate-600 border border-slate-200', icon: null, label: type };
 
-  if (type === 'stock_adjusted' && action) {
-    const actionLower = action.toLowerCase();
-    if (actionLower.includes('expiration') || actionLower.includes('date')) {
-      cfg = { ...cfg, label: 'Adjusted Expiration' };
-    } else if (actionLower.includes('price') || actionLower.includes('cost')) {
-      cfg = { ...cfg, label: 'Adjusted Price' };
-    } else if (actionLower.includes('stock') || actionLower.includes('quantity') || actionLower.includes('sachets')) {
-      cfg = { ...cfg, label: 'Adjusted Stock' };
-    }
-  }
+  const cfg = map[resolvedLabel] ?? { cls: 'bg-slate-100 text-slate-600 border border-slate-200', icon: null, label: type };
 
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${cfg.cls}`}>
@@ -319,7 +348,43 @@ const typeBadge = (type: string, action?: string) => {
   );
 };
 
-// ── Details Modal ──────────────────────────────────────────────────────────
+// ── Precise filter matcher ────────────────────────────────────────────────────
+/**
+ * Returns true when `log` should appear for the given `filter`.
+ *
+ * Rules:
+ * - 'all'                → always true
+ * - virtual subtypes     → only match stock_adjusted / stock_deducted logs
+ *                          whose detected subtype equals the filter
+ * - everything else      → exact log.type match
+ */
+function matchesTypeFilter(log: ActivityLog, filter: 'all' | ActivityType): boolean {
+  if (filter === 'all') return true;
+
+  const virtualSubtypes: ActivityType[] = ['adjust_expiration', 'adjust_price', 'adjust_min_stock'];
+
+  if (virtualSubtypes.includes(filter)) {
+    // Virtual subtypes only ever live inside stock_adjusted / stock_deducted logs
+    if (log.type !== 'stock_adjusted' && log.type !== 'stock_deducted') return false;
+    const subtype = detectAdjustmentSubtype(log.action, log.details);
+    if (filter === 'adjust_expiration') return subtype === 'expiration';
+    if (filter === 'adjust_price') return subtype === 'price';
+    if (filter === 'adjust_min_stock') return subtype === 'min_stock';
+    return false;
+  }
+
+  // For stock_adjusted (plain qty change): match only logs whose subtype is 'quantity'
+  if (filter === 'stock_adjusted') {
+    if (log.type !== 'stock_adjusted' && log.type !== 'stock_deducted') return false;
+    const subtype = detectAdjustmentSubtype(log.action, log.details);
+    return subtype === 'quantity';
+  }
+
+  // All other types: exact match
+  return log.type === filter;
+}
+
+// ── Details Modal ─────────────────────────────────────────────────────────────
 function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
   isOpen: boolean;
   onClose: () => void;
@@ -338,7 +403,7 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
   if (!isOpen || !log) return null;
 
   const initials = log.staffName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-  const HIDDEN_FIELDS = new Set(['medicineId', 'patientId', 'dispensId', 'saleId', 'patientName']);
+  const HIDDEN_FIELDS = new Set(['medicineId', 'patientId', 'dispensId', 'saleId', 'patientName', 'adjustmentType']);
 
   const renderDetailCards = () => {
     if (log._grouped && log._grouped.length > 0) {
@@ -346,7 +411,6 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
         const qty = typeof g.details?.quantity === 'number' ? g.details.quantity : null;
         const unit = g.details?.unitType || '';
         const name = g.details?.medicineName || g.action;
-        const patient = g.details?.patientName || '';
         const visibleEntries = Object.entries(g.details || {}).filter(
           ([k]) => !HIDDEN_FIELDS.has(k) && k !== 'medicineName' && k !== 'quantity' && k !== 'unitType' && k !== 'patientName'
         );
@@ -379,7 +443,6 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
       const qty = typeof log.details.quantity === 'number' ? log.details.quantity : null;
       const unit = log.details.unitType || '';
       const name = log.details.medicineName || '';
-      const patient = log.details.patientName || '';
       const visibleEntries = Object.entries(log.details).filter(
         ([k]) => !HIDDEN_FIELDS.has(k) && k !== 'medicineName' && k !== 'quantity' && k !== 'unitType' && k !== 'patientName'
       );
@@ -437,7 +500,7 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {typeBadge(log.type, log.action)}
+            {typeBadge(log.type, log.action, log.details)}
             <button onClick={onClose} className="text-white/70 hover:text-white p-1 rounded transition-colors">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M18 6 6 18M6 6l12 12" />
@@ -492,12 +555,12 @@ function DetailsModal({ isOpen, onClose, log, staffLastLogin = {} }: {
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 export default function LogsContent() {
   const { user } = useAuth();
 
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [staffUsers, setStaffUsers] = useState<{ uid: string; staffName?: string; email?: string; role?: string }[]>([]);
+  const [staffUsers, setStaffUsers] = useState<{ uid: string; staffName?: string; email?: string; role?: string; status?: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<'all' | ActivityType>('all');
   const [selectedStaff, setSelectedStaff] = useState<string>('all');
@@ -539,33 +602,74 @@ export default function LogsContent() {
       if (!data) { setStaffUsers([]); return; }
       const users = Object.entries(data).map(([uid, value]) => ({
         uid,
-        ...(value as { staffName?: string; email?: string; role?: string }),
-      })) as { uid: string; staffName?: string; email?: string; role?: string }[];
+        ...(value as { staffName?: string; email?: string; role?: string; status?: string }),
+      })) as { uid: string; staffName?: string; email?: string; role?: string; status?: string }[];
       setStaffUsers(users.filter(u => u.role === 'staff'));
     });
     return () => unsubscribe();
   }, [user]);
 
-  // ── Filtered logs ──────────────────────────────────────────────────────
-  const filteredLogs = useMemo(() => {
-    return activityLogs.filter(log => {
-      if (!TRANSACTION_TYPES.includes(log.type)) return false;
-      const matchesType = typeFilter === 'all' || log.type === typeFilter;
-      const matchesStaff = selectedStaff === 'all' || log.staffId === selectedStaff;
-      const matchesRole = roleFilter === 'all' || log.userRole === roleFilter;
-      let matchesDate = true;
-      if (filterDate) {
-        const logDate = new Date(log.timestamp).toISOString().slice(0, 10);
-        matchesDate = logDate === filterDate;
-      }
-      return matchesType && matchesStaff && matchesRole && matchesDate;
-    }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [activityLogs, typeFilter, selectedStaff, roleFilter, filterDate]);
+  // ── Helper: Get Manila date string from ISO timestamp ─────────────────────
+  const getManilaDate = (isoTimestamp: string): string => {
+    const date = new Date(isoTimestamp);
+    return date.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }); // 'en-CA' gives YYYY-MM-DD
+  };
 
-  // ── Group consecutive dispensed/sold transactions ──────────────────────
+  // ── Filtered logs ─────────────────────────────────────────────────────────
+  const filteredLogs = useMemo(() => {
+    return activityLogs
+      .filter(log => {
+        // Only logs whose stored type is a real transaction type
+        if (!STORED_TRANSACTION_TYPES.includes(log.type)) return false;
+
+        // Type / subtype filter
+        if (!matchesTypeFilter(log, typeFilter)) return false;
+
+        // Staff filter — match by uid OR by email (handles legacy logs missing staffId)
+        if (selectedStaff !== 'all') {
+          const selectedStaffEmail = staffUsers.find(s => s.uid === selectedStaff)?.email;
+          const staffMatch =
+            log.staffId === selectedStaff ||
+            (selectedStaffEmail != null && log.staffEmail === selectedStaffEmail);
+          if (!staffMatch) return false;
+        }
+
+        // Role filter
+        if (roleFilter !== 'all' && log.userRole !== roleFilter) return false;
+
+        // Staff Disabled filter: only show logs for staff currently in disabled status
+        if (typeFilter === 'staff_disabled') {
+          // For staff_disabled logs, the disabled staff member's info is in details
+          const disabledStaffEmail = log.details?.email;
+          if (disabledStaffEmail) {
+            const staffMember = staffUsers.find(s => s.email === disabledStaffEmail);
+            // Only show if staff member exists AND is currently disabled
+            if (!staffMember || staffMember.status !== 'disabled') return false;
+          }
+        }
+
+        // Date filter (Manila timezone)
+        if (filterDate) {
+          const logDate = getManilaDate(log.timestamp);
+          if (logDate !== filterDate) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [activityLogs, typeFilter, selectedStaff, roleFilter, filterDate, staffUsers]);
+
+  // ── Group consecutive dispensed/sold transactions ─────────────────────────
   const groupedLogs = useMemo(() => {
     const result: (ActivityLog & { _grouped?: ActivityLog[] })[] = [];
     const grouped = new Set<number>();
+
+    const isAdjustmentFilter =
+      typeFilter === 'stock_adjusted' ||
+      typeFilter === 'stock_deducted' ||
+      typeFilter === 'adjust_expiration' ||
+      typeFilter === 'adjust_price' ||
+      typeFilter === 'adjust_min_stock';
 
     filteredLogs.forEach((log, idx) => {
       if (grouped.has(idx)) return;
@@ -574,8 +678,8 @@ export default function LogsContent() {
       const isSale = log.type === 'medicine_sold';
 
       const shouldGroup =
-        (isDispense && typeFilter !== 'medicine_sold' && typeFilter !== 'medicine_added' && typeFilter !== 'stock_adjusted') ||
-        (isSale && typeFilter !== 'medicine_dispensed' && typeFilter !== 'medicine_added' && typeFilter !== 'stock_adjusted');
+        (isDispense && typeFilter !== 'medicine_sold' && typeFilter !== 'medicine_added' && !isAdjustmentFilter) ||
+        (isSale && typeFilter !== 'medicine_dispensed' && typeFilter !== 'medicine_added' && !isAdjustmentFilter);
 
       if (shouldGroup) {
         const group: ActivityLog[] = [log];
@@ -604,7 +708,6 @@ export default function LogsContent() {
               _grouped: group,
             });
           } else {
-            // Sale: summarize the whole transaction into one row
             const names = group
               .map(g => g.details?.medicineName || g.action.replace(/^Sold \d+ \S+ of /, ''))
               .filter(Boolean);
@@ -628,10 +731,10 @@ export default function LogsContent() {
       }
     });
 
-    return result; // ← closes groupedLogs correctly
+    return result;
   }, [filteredLogs, typeFilter]);
 
-  // ── Analytics ──────────────────────────────────────────────────────────
+  // ── Analytics ─────────────────────────────────────────────────────────────
   const analytics = useMemo(() => {
     let totalDispensedUnits = 0;
     let totalSoldUnits = 0;
@@ -680,19 +783,18 @@ export default function LogsContent() {
 
     filteredLogs.forEach(l => {
       const isAdmin = l.userRole === 'admin';
-      const isStaffActivity = !isAdmin;
       if (isAdmin && !includeAdmins) return;
-      if (isStaffActivity && !includeStaff) return;
+      if (!isAdmin && !includeStaff) return;
       if (user && (l.staffId === user.uid || l.staffEmail === user.email)) return;
 
-      if (TRANSACTION_TYPES.includes(l.type)) {
+      if (STORED_TRANSACTION_TYPES.includes(l.type)) {
         const uid = l.staffId || 'system';
         let displayName = l.staffName || l.staffEmail || uid;
         let displayEmail = l.staffEmail || '';
         if (staffLookup.has(uid)) {
-          const staffInfo = staffLookup.get(uid)!;
-          displayName = staffInfo.name;
-          displayEmail = staffInfo.email;
+          const info = staffLookup.get(uid)!;
+          displayName = info.name;
+          displayEmail = info.email;
         }
         if (!activityStats[uid]) {
           activityStats[uid] = { dispense: 0, sale: 0, adjustment: 0, total: 0, email: displayEmail, name: displayName };
@@ -710,16 +812,16 @@ export default function LogsContent() {
 
     const last14 = Array.from({ length: 14 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (13 - i));
-      return d.toISOString().slice(0, 10);
+      return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
     });
 
     const dailyVolume = last14.map(day => ({
       label: new Date(day).toLocaleDateString('en', { weekday: 'short' }).slice(0, 1),
-      value: filteredLogs.filter(l => l.timestamp?.slice(0, 10) === day && TRANSACTION_TYPES.includes(l.type)).length,
+      value: filteredLogs.filter(l => getManilaDate(l.timestamp) === day && STORED_TRANSACTION_TYPES.includes(l.type)).length,
     }));
 
     const dailyActivityBreakdown = last14.map(day => {
-      const dayLogs = filteredLogs.filter(l => l.timestamp?.slice(0, 10) === day && TRANSACTION_TYPES.includes(l.type));
+      const dayLogs = filteredLogs.filter(l => getManilaDate(l.timestamp) === day && STORED_TRANSACTION_TYPES.includes(l.type));
       if (dayLogs.length === 0) return [];
       const activityMap = new Map<string, Set<string>>();
       dayLogs.forEach(log => {
@@ -735,7 +837,7 @@ export default function LogsContent() {
     });
 
     const dailyStaffNames = last14.map(day => {
-      const dayLogs = filteredLogs.filter(l => l.timestamp?.slice(0, 10) === day);
+      const dayLogs = filteredLogs.filter(l => getManilaDate(l.timestamp) === day);
       if (dayLogs.length === 0) return '';
       const staffSet = new Set<string>();
       dayLogs.forEach(log => {
@@ -750,7 +852,8 @@ export default function LogsContent() {
 
     const spark = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(); d.setDate(d.getDate() - (6 - i));
-      return filteredLogs.filter(l => l.timestamp?.slice(0, 10) === d.toISOString().slice(0, 10)).length;
+      const day = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+      return filteredLogs.filter(l => getManilaDate(l.timestamp) === day).length;
     });
 
     return {
@@ -768,7 +871,7 @@ export default function LogsContent() {
     };
   }, [filteredLogs, activityLogs, user, staffUsers, roleFilter]);
 
-  // ── Loading state ──────────────────────────────────────────────────────
+  // ── Loading state ─────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50">
       <div className="flex flex-col items-center gap-3">
@@ -780,7 +883,7 @@ export default function LogsContent() {
 
   const hasFilters = typeFilter !== 'all' || selectedStaff !== 'all' || roleFilter !== 'all' || filterDate;
 
-  // ── Render ─────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#f8f8f7] w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -862,9 +965,16 @@ export default function LogsContent() {
               >
                 <option value="all">All Types</option>
                 <option value="medicine_added">Medicine Added</option>
-                <option value="stock_adjusted">Stock Adjustment</option>
+                <option value="stock_adjusted">Stock Qty Adjusted</option>
+                <option value="adjust_expiration">Expiration Date Adjusted</option>
+                <option value="adjust_price">Price Adjusted</option>
+                <option value="adjust_min_stock">Min Stock Adjusted</option>
                 <option value="medicine_sold">Sales</option>
                 <option value="medicine_dispensed">Dispensed</option>
+                <option value="password_changed">Password Changed</option>
+                <option value="staff_created">Staff Created</option>
+                <option value="staff_disabled">Staff Disabled</option>
+                <option value="staff_deleted">Staff Deleted</option>
               </select>
               <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.Activity /></span>
               <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"><Icon.ChevronDown /></span>
@@ -1030,7 +1140,7 @@ export default function LogsContent() {
                             <div className="space-y-1">
                               <p className="text-sm text-slate-800 line-clamp-2">{log.action}</p>
                               <div className="flex gap-1 items-center flex-wrap">
-                                {typeBadge(log.type, log.action)}
+                                {typeBadge(log.type, log.action, log.details)}
                                 <span className="text-xs text-slate-500 italic">by {staffName}</span>
                               </div>
                             </div>
@@ -1046,7 +1156,7 @@ export default function LogsContent() {
                                   staffEmail: log.staffEmail,
                                   timestamp: log.timestamp,
                                   type: log.type,
-                                  _grouped: (log as any)._grouped,
+                                  _grouped: (log as ActivityLog & { _grouped?: ActivityLog[] })._grouped,
                                 });
                                 setDetailsModalOpen(true);
                               }}
@@ -1087,7 +1197,7 @@ export default function LogsContent() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                      {typeBadge(log.type, log.action)}
+                      {typeBadge(log.type, log.action, log.details)}
                       <span className="text-xs text-slate-500 italic">by {staffName}</span>
                     </div>
                     <div className="text-sm text-slate-700 pt-1 border-t border-slate-50">
@@ -1103,7 +1213,7 @@ export default function LogsContent() {
                           staffEmail: log.staffEmail,
                           timestamp: log.timestamp,
                           type: log.type,
-                          _grouped: (log as any)._grouped,
+                          _grouped: (log as ActivityLog & { _grouped?: ActivityLog[] })._grouped,
                         });
                         setDetailsModalOpen(true);
                       }}

@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, ReactNode } from 'react';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
   title: string;
-  message: string;
+  message: string | ReactNode;
   confirmText?: string;
   cancelText?: string;
   isDangerous?: boolean;
@@ -41,19 +41,19 @@ export default function ConfirmationModal({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+      <div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
         onClick={onCancel}
       />
       {/* Modal */}
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-sm w-full p-6 sm:p-8 transform transition-all">
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 sm:p-8 transform transition-all">
         {/* Title */}
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3">
           {title}
         </h2>
 
         {/* Message */}
-        <p className="text-sm sm:text-base text-gray-600 mb-8 leading-relaxed">
+        <p className="text-sm sm:text-base text-gray-600 mb-7 leading-relaxed mt-7">
           {message}
         </p>
 
@@ -62,18 +62,17 @@ export default function ConfirmationModal({
           <button
             onClick={onCancel}
             disabled={isProcessing || isLoading}
-            className="px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-2 sm:px-6 py-2 sm:py-2.2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {cancelText}
           </button>
           <button
             onClick={handleConfirm}
             disabled={isProcessing || isLoading}
-            className={`px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
-              isDangerous
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
+            className={`px-4 sm:px-6 py-2 sm:py-2.5 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${isDangerous
+              ? 'bg-red-600 hover:bg-red-700'
+              : 'bg-blue-600 hover:bg-blue-700'
+              }`}
           >
             {isProcessing || isLoading ? (
               <>
