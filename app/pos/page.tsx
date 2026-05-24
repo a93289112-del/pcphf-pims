@@ -571,7 +571,7 @@ export default function POSPage() {
                       className={`px-3 py-2 border rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${filterAgeGroup !== 'all' ? 'bg-green-50 border-green-300 text-green-800' : 'bg-slate-50 border-slate-200'}`}
                     >
                       <option value="all">All Categories</option>
-                      {availableAgeGroups.map((ag) => <option key={ag} value={ag}>{ag}</option>)}
+                      {availableAgeGroups.map((ag, idx) => <option key={`${ag}-${idx}`} value={ag}>{ag}</option>)}
                     </select>
                   </div>
                 </div>
