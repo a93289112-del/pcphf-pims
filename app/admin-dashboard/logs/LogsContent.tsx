@@ -348,6 +348,15 @@ const typeBadge = (type: string, action?: string, details?: ActivityLogDetails) 
 
 // ── Precise filter matcher ────────────────────────────────────────────────────
 /**
+ * Extract the creator's name from staff_created action string.
+ * Action format: "Staff account created by {adminName}"
+ */
+function extractCreatorName(action: string): string | null {
+  const match = action.match(/Staff account created by (.+)$/);
+  return match ? match[1] : null;
+}
+
+/**
  * Returns true when `log` should appear for the given `filter`.
  *
  * Rules:
@@ -1067,7 +1076,7 @@ export default function LogsContent() {
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-slate-800 truncate">{log.action}</p>
                             <p className="text-slate-400 text-[10px]">
-                              by {staffName} • {new Date(log.timestamp).toLocaleString()}
+                              {new Date(log.timestamp).toLocaleString()}
                             </p>
                           </div>
                         </div>
@@ -1110,7 +1119,12 @@ export default function LogsContent() {
                   </colgroup>
                   <tbody className="divide-y divide-slate-100">
                     {filteredLogs.map((log, i) => {
-                      const rawName = log.staffName || '';
+                      let rawName = log.staffName || '';
+                      // For staff_created events, extract the creator's name from action string
+                      if (log.type === 'staff_created') {
+                        const creatorName = extractCreatorName(log.action);
+                        rawName = creatorName || rawName;
+                      }
                       const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                       return (
                         <tr key={i} className="hover:bg-slate-50 transition-colors group">
@@ -1132,7 +1146,6 @@ export default function LogsContent() {
                               <p className="text-sm text-slate-800 line-clamp-2">{log.action}</p>
                               <div className="flex gap-1 items-center flex-wrap">
                                 {typeBadge(log.type, log.action, log.details)}
-                                <span className="text-xs text-slate-500 italic">by {staffName}</span>
                               </div>
                             </div>
                           </td>
@@ -1170,7 +1183,12 @@ export default function LogsContent() {
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
               {filteredLogs.map((log, i) => {
-                const rawName = log.staffName || '';
+                let rawName = log.staffName || '';
+                // For staff_created events, extract the creator's name from action string
+                if (log.type === 'staff_created') {
+                  const creatorName = extractCreatorName(log.action);
+                  rawName = creatorName || rawName;
+                }
                 const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                 return (
                   <div key={i} className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
@@ -1189,7 +1207,6 @@ export default function LogsContent() {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {typeBadge(log.type, log.action, log.details)}
-                      <span className="text-xs text-slate-500 italic">by {staffName}</span>
                     </div>
                     <div className="text-sm text-slate-700 pt-1 border-t border-slate-50">
                       <p className="font-semibold line-clamp-2">{log.action}</p>
