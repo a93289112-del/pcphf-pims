@@ -36,7 +36,6 @@ export const AUDITABLE_TYPES: ActivityType[] = [
 // ── Transaction activity types (shown in logs filter) ─────────────────────────
 export const TRANSACTION_TYPES: ActivityType[] = [
   'medicine_added',
-  'stock_deducted',
   'stock_adjusted',
   'adjust_expiration',
   'adjust_price',
@@ -52,7 +51,6 @@ export const TRANSACTION_TYPES: ActivityType[] = [
 // ── Stored types that count as "transaction" (never virtual subtypes) ─────────
 const STORED_TRANSACTION_TYPES: ActivityType[] = [
   'medicine_added',
-  'stock_deducted',
   'stock_adjusted',
   'medicine_sold',
   'medicine_dispensed',
@@ -660,7 +658,8 @@ export default function LogsContent() {
   }, [activityLogs, typeFilter, selectedStaff, roleFilter, filterDate, staffUsers]);
 
   // ── Group consecutive dispensed/sold transactions ─────────────────────────
-  const groupedLogs = useMemo(() => {
+  // Used ONLY in the Overview tab's "Recent Activities" widget
+  const overviewRecentLogs = useMemo(() => {
     const result: (ActivityLog & { _grouped?: ActivityLog[] })[] = [];
     const grouped = new Set<number>();
 
@@ -690,10 +689,8 @@ export default function LogsContent() {
           const nextLog = filteredLogs[i];
           if (nextLog.type !== log.type) break;
           if (nextLog.staffId !== log.staffId) break;
-
           const nextTime = new Date(nextLog.timestamp).getTime();
           if (nextTime - logTime > 30000) break;
-
           group.push(nextLog);
           grouped.add(i);
         }
@@ -702,20 +699,14 @@ export default function LogsContent() {
           if (isDispense) {
             const patientMatch = group[0].action.match(/to patient\s+(.+?)(?:\s|$)/i);
             const patient = patientMatch ? patientMatch[1] : 'patient';
-            result.push({
-              ...log,
-              action: `Dispensed ${group.length} medicines to ${patient}`,
-              _grouped: group,
-            });
+            result.push({ ...log, action: `Dispensed ${group.length} medicines to ${patient}`, _grouped: group });
           } else {
             const names = group
               .map(g => g.details?.medicineName || g.action.replace(/^Sold \d+ \S+ of /, ''))
               .filter(Boolean);
-            const preview =
-              names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
+            const preview = names.slice(0, 3).join(', ') + (names.length > 3 ? ` +${names.length - 3} more` : '');
             const totalUnits = group.reduce(
-              (sum, g) => sum + (typeof g.details?.quantity === 'number' ? g.details.quantity : 0),
-              0,
+              (sum, g) => sum + (typeof g.details?.quantity === 'number' ? g.details.quantity : 0), 0,
             );
             result.push({
               ...log,
@@ -1063,11 +1054,11 @@ export default function LogsContent() {
                   </div>
                   <span className="text-slate-300"><Icon.Clock /></span>
                 </div>
-                {groupedLogs.slice(0, 5).length === 0 ? (
+                {overviewRecentLogs.slice(0, 5).length === 0 ? (
                   <p className="text-sm text-slate-400 text-center py-4">No activities yet</p>
                 ) : (
                   <div className="space-y-3">
-                    {groupedLogs.slice(0, 5).map((log, i) => {
+                    {overviewRecentLogs.slice(0, 5).map((log, i) => {
                       const rawName = log.staffName || '';
                       const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                       return (
@@ -1118,7 +1109,7 @@ export default function LogsContent() {
                     <col className="w-[20%]" />
                   </colgroup>
                   <tbody className="divide-y divide-slate-100">
-                    {groupedLogs.map((log, i) => {
+                    {filteredLogs.map((log, i) => {
                       const rawName = log.staffName || '';
                       const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                       return (
@@ -1156,7 +1147,7 @@ export default function LogsContent() {
                                   staffEmail: log.staffEmail,
                                   timestamp: log.timestamp,
                                   type: log.type,
-                                  _grouped: (log as ActivityLog & { _grouped?: ActivityLog[] })._grouped,
+                                  // No _grouped — each row is its own individual transaction
                                 });
                                 setDetailsModalOpen(true);
                               }}
@@ -1178,7 +1169,7 @@ export default function LogsContent() {
 
             {/* Mobile cards */}
             <div className="lg:hidden space-y-3">
-              {groupedLogs.map((log, i) => {
+              {filteredLogs.map((log, i) => {
                 const rawName = log.staffName || '';
                 const staffName = rawName.includes('@') ? rawName.split('@')[0] : rawName || log.staffEmail?.split('@')[0] || log.staffId || 'System';
                 return (
@@ -1213,7 +1204,7 @@ export default function LogsContent() {
                           staffEmail: log.staffEmail,
                           timestamp: log.timestamp,
                           type: log.type,
-                          _grouped: (log as ActivityLog & { _grouped?: ActivityLog[] })._grouped,
+                          // No _grouped — each row is its own individual transaction
                         });
                         setDetailsModalOpen(true);
                       }}
@@ -1229,7 +1220,7 @@ export default function LogsContent() {
               })}
             </div>
 
-            {groupedLogs.length === 0 && (
+            {filteredLogs.length === 0 && (
               <div className="bg-white rounded-2xl py-16 text-center border border-slate-200 shadow-sm">
                 <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300 mx-auto mb-4">
                   <Icon.Activity />
