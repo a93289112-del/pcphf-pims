@@ -965,7 +965,7 @@ export default function LogsContent() {
               >
                 <option value="all">All Types</option>
                 <option value="medicine_added">Medicine Added</option>
-                <option value="stock_adjusted">Stock Qty Adjusted</option>
+                <option value="stock_adjusted">Stock Adjusted</option>
                 <option value="adjust_expiration">Expiration Date Adjusted</option>
                 <option value="adjust_price">Price Adjusted</option>
                 <option value="adjust_min_stock">Min Stock Adjusted</option>

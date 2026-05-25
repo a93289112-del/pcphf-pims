@@ -437,8 +437,8 @@ export default function StockAdjustmentModal({
                       type="button"
                       onClick={() => setAdjustmentType(type)}
                       className={`p-3 rounded-lg border-2 font-semibold transition-all ${adjustmentType === type
-                          ? 'border-blue-600 bg-blue-50 text-blue-900'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        ? 'border-blue-600 bg-blue-50 text-blue-900'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
                         }`}
                     >
                       {type === 'add' && '➕ Add'}
@@ -580,10 +580,10 @@ export default function StockAdjustmentModal({
                           <div className="flex items-center gap-2">
                             <span
                               className={`text-sm font-bold px-2.5 py-1 rounded-full ${item.type === 'add'
-                                  ? 'bg-green-100 text-green-800'
-                                  : item.type === 'remove'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-blue-100 text-blue-800'
+                                ? 'bg-green-100 text-green-800'
+                                : item.type === 'remove'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-blue-100 text-blue-800'
                                 }`}
                             >
                               {item.type === 'add' && '➕ +'}

@@ -164,7 +164,7 @@ export default function AdminDashboard() {
   }, [transactions, users]);
 
   const totalStaffs = useMemo(
-    () => users.filter((u) => u.role === 'staff').length,
+    () => users.filter((u) => u.role === 'staff' && u.status !== 'disabled').length,
     [users],
   );
 
