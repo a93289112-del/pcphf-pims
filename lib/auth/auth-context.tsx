@@ -64,14 +64,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (profile) {
               setRole(profile.role);
               setStatus(profile.status);
-              
+
               // Handle admin name
               if (profile.role === 'admin') {
                 setAdminName(profile.name || null);
               } else {
                 setAdminName(null);
               }
-              
+
               // Handle staff name
               setStaffName(profile.staffName || null);
             } else {
@@ -111,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const userId = userCredential.user.uid;
-      
+
       // Get the user's role and name
       let userRole: 'admin' | 'staff' | undefined = undefined;
       let userName: string = email;
@@ -131,7 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (getRoleError) {
         console.error('Failed to get user role and name:', getRoleError);
       }
-      
+
       // Log the login activity
       try {
         const activityType = userRole === 'admin' ? 'admin_login' : 'staff_login';
@@ -182,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (getRoleError) {
           console.error('Failed to get user role and name:', getRoleError);
         }
-        
+
         try {
           const activityType = userRole === 'admin' ? 'admin_logout' : 'staff_logout';
           await logActivity(
@@ -249,18 +249,22 @@ const getAuthErrorMessage = (code: string): string => {
     case 'auth/wrong-password':
       return 'Incorrect password. Please try again.';
     case 'auth/invalid-email':
-      return 'Invalid email address.';
+      return 'Invalid email address format.';
+    case 'auth/invalid-credential':
+      return 'Invalid email or password. Please check your credentials and try again.';
     case 'auth/user-disabled':
-      return 'This account has been disabled.';
+      return 'This account has been disabled. Please contact an administrator.';
     case 'auth/too-many-requests':
-      return 'Too many login attempts. Please try again later.';
+      return 'Too many failed login attempts. Please try again later or reset your password.';
     case 'auth/email-already-in-use':
       return 'An account with this email already exists.';
     case 'auth/weak-password':
       return 'Password should be at least 6 characters.';
     case 'auth/operation-not-allowed':
-      return 'Email/password accounts are not enabled.';
+      return 'Email/password accounts are not enabled. Please contact support.';
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your internet connection and try again.';
     default:
-      return 'An error occurred. Please try again.';
+      return 'Login failed. Please check your credentials and try again.';
   }
 };
